@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile · CUNNACT</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/profile.css">
+</head>
+<body class="profile-page">
+  <main class="profile-card">
+    <a href="index.html" class="back-link">← Back to CUNNACT</a>
+    <h1>Your profile</h1>
+    <img id="profilePhoto" class="profile-photo" src="assets/images/avatar.svg" alt="Profile">
+    <input id="photoInput" type="file" accept="image/*">
+    <form id="profileForm">
+      <label>Name<input id="profileName" type="text" required></label>
+      <label>Bio<textarea id="profileBio" maxlength="160"></textarea></label>
+      <label>Email<input id="profileEmail" type="email" disabled></label>
+      <button type="submit">Save changes</button>
+      <p id="profileMessage"></p>
+    </form>
+  </main>
+  <script type="module" src="js/profile.js"></script>
+</body>
+</html>

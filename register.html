@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create account · CUNNACT</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/auth.css">
+</head>
+<body class="auth-page">
+  <main class="auth-card">
+    <div class="brand">CUNNACT</div>
+    <h1>Create account</h1>
+    <p>Join CUNNACT and start connecting.</p>
+    <form id="registerForm">
+      <label>Name<input id="name" type="text" required></label>
+      <label>Email<input id="email" type="email" required></label>
+      <label>Password<input id="password" type="password" minlength="6" required></label>
+      <label>Confirm password<input id="confirmPassword" type="password" minlength="6" required></label>
+      <button type="submit">Create account</button>
+      <p id="authError" class="error"></p>
+    </form>
+    <p class="switch">Already registered? <a href="login.html">Login</a></p>
+  </main>
+  <script type="module" src="js/auth.js"></script>
+</body>
+</html>

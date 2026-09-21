@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CUNNACT</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/chat.css">
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">CUNNACT</div>
+      <div class="current-user">
+        <img id="currentUserPhoto" src="assets/images/avatar.svg" alt="Profile">
+        <div>
+          <strong id="currentUserName">Guest</strong>
+          <span id="currentUserStatus">Offline</span>
+        </div>
+      </div>
+
+      <div class="search-row">
+        <input id="userSearch" type="search" placeholder="Search people...">
+      </div>
+
+      <div id="searchResults" class="list"></div>
+      <div class="section-title">Chats</div>
+      <div id="chatList" class="list">
+        <div class="empty-state">No conversations yet.</div>
+      </div>
+
+      <div class="sidebar-actions">
+        <button id="profileBtn">Profile</button>
+        <button id="logoutBtn">Logout</button>
+      </div>
+    </aside>
+
+    <main class="chat-panel">
+      <header class="chat-header">
+        <button id="backBtn" class="mobile-only">‹</button>
+        <img id="chatPhoto" src="assets/images/avatar.svg" alt="User">
+        <div>
+          <strong id="chatName">Select a conversation</strong>
+          <span id="chatStatus">Start a new chat</span>
+        </div>
+      </header>
+
+      <section id="messages" class="messages">
+        <div class="welcome">
+          <h1>Welcome to CUNNACT</h1>
+          <p>Find someone and start a private conversation.</p>
+        </div>
+      </section>
+
+      <form id="messageForm" class="composer">
+        <input id="messageInput" autocomplete="off" placeholder="Type a message..." disabled>
+        <input id="fileInput" type="file" hidden accept="image/*,.pdf,.txt,.doc,.docx">
+        <button id="attachBtn" type="button" disabled>＋</button>
+        <button type="submit" disabled>Send</button>
+      </form>
+    </main>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
