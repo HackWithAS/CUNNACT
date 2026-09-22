@@ -3,6 +3,10 @@
     {
       "source": "/u/:username",
       "destination": "/public-profile.html?username=:username"
+    },
+    {
+      "source": "/u/:username/",
+      "destination": "/public-profile.html?username=:username"
     }
   ]
 }
