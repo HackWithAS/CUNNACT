@@ -35,16 +35,33 @@ export function paintAvatar(container, { photoURL, name, email, preset = "avatar
   const img = container.querySelector("img");
   const fallback = container.querySelector(".avatar-fallback");
   const label = name || email || "";
+  const source = String(photoURL || "").trim();
+  const token = String((Number(container.dataset.avatarToken) || 0) + 1);
+  container.dataset.avatarToken = token;
+
   if (fallback) {
     fallback.textContent = initialsFor(label);
+    fallback.hidden = true;
     container.style.setProperty("--avatar-tint", tintFor(label || "?"));
   }
+  if (img) img.hidden = true;
 
-  const showFallback = () => { if (img) img.hidden = true; if (fallback) fallback.hidden = false; };
-  const showImage = () => { if (img) img.hidden = false; if (fallback) fallback.hidden = true; };
+  const showFallback = () => {
+    if (container.dataset.avatarToken !== token) return;
+    if (img) img.hidden = true;
+    if (fallback) fallback.hidden = false;
+  };
+  const showImage = () => {
+    if (container.dataset.avatarToken !== token) return;
+    if (fallback) fallback.hidden = true;
+    if (img) img.hidden = false;
+  };
 
-  if (photoURL && img) {
-    loadCloudinaryImage(img, photoURL, preset, { onLoad: showImage, onFail: showFallback });
+  if (source && img) {
+    // Prevent an old image from another user briefly appearing while the new one loads.
+    img.dataset.avatarUrl = source;
+    img.alt = label ? `${label} profile photo` : "Profile photo";
+    loadCloudinaryImage(img, source, preset, { onLoad: showImage, onFail: showFallback });
   } else {
     showFallback();
   }

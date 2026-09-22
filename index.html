@@ -205,6 +205,23 @@
         <div id="savedList" class="saved-list"><div class="empty-state">Messages you save will appear here.</div></div>
       </div>
     </div>
+
+    <!-- Custom confirmation dialog -->
+    <div id="confirmModal" class="modal" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <div class="modal-content confirm-modal">
+        <div class="confirm-icon danger-confirm-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3 3 20h18L12 3Z"/><path d="M12 9v4M12 17h.01"/></svg>
+        </div>
+        <div class="confirm-copy">
+          <h2 id="confirmTitle">Are you sure?</h2>
+          <p id="confirmMessage">This action cannot be undone.</p>
+        </div>
+        <div class="confirm-actions">
+          <button id="confirmCancelBtn" type="button" class="btn btn-soft">Cancel</button>
+          <button id="confirmActionBtn" type="button" class="btn btn-primary">Confirm</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="js/app.js"></script>

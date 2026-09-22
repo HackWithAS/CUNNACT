@@ -34,6 +34,9 @@ let uploadController = null;
 let sendingMessage = false;
 let messageListenerToken = 0;
 let initialMessageSnapshot = true;
+let onlineHeartbeat = null;
+let confirmDialogResolver = null;
+const ONLINE_WINDOW_MS = 90 * 1000;
 
 const $id = (id) => document.getElementById(id);
 const icon = {
@@ -43,6 +46,70 @@ const icon = {
   bookmark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>'
 };
+
+function isUserOnline(user) {
+  if (!user?.isOnline) return false;
+  const date = user.lastSeen?.toDate?.() || (user.lastSeen instanceof Date ? user.lastSeen : null);
+  if (!date) return false;
+  return (Date.now() - date.getTime()) < ONLINE_WINDOW_MS;
+}
+
+function setOwnPresence(isOnline) {
+  if (!currentUser) return Promise.resolve();
+  return updateDoc(doc(db, "users", currentUser.uid), {
+    isOnline,
+    lastSeen: serverTimestamp()
+  });
+}
+
+function startOnlineHeartbeat() {
+  clearInterval(onlineHeartbeat);
+  setOwnPresence(true).catch(() => {});
+  onlineHeartbeat = setInterval(() => {
+    if (document.visibilityState === "visible") setOwnPresence(true).catch(() => {});
+  }, 30 * 1000);
+}
+
+function openModal(id) {
+  const modal = $id(id);
+  if (!modal) return;
+  document.querySelectorAll(".dropdown-menu:not([hidden])").forEach((menu) => { menu.hidden = true; });
+  modal.hidden = false;
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+}
+
+function closeModal(id) {
+  const modal = $id(id);
+  if (!modal) return;
+  modal.hidden = true;
+  modal.setAttribute("aria-hidden", "true");
+  if (!document.querySelector(".modal:not([hidden])")) document.body.classList.remove("modal-open");
+}
+
+function showConfirmDialog({ title = "Are you sure?", message = "This action cannot be undone.", confirmText = "Confirm", cancelText = "Cancel", danger = false } = {}) {
+  return new Promise((resolve) => {
+    const modal = $id("confirmModal");
+    if (!modal) return resolve(false);
+    confirmDialogResolver = resolve;
+    $id("confirmTitle").textContent = title;
+    $id("confirmMessage").textContent = message;
+    const confirmBtn = $id("confirmActionBtn");
+    const cancelBtn = $id("confirmCancelBtn");
+    confirmBtn.textContent = confirmText;
+    cancelBtn.textContent = cancelText;
+    confirmBtn.classList.toggle("danger-confirm", danger);
+    openModal("confirmModal");
+    setTimeout(() => confirmBtn.focus(), 20);
+  });
+}
+
+function finishConfirmDialog(value) {
+  const resolver = confirmDialogResolver;
+  confirmDialogResolver = null;
+  closeModal("confirmModal");
+  resolver?.(!!value);
+}
 
 /* ===================== Auth bootstrap ===================== */
 onAuthStateChanged(auth, async (user) => {
@@ -80,6 +147,7 @@ onAuthStateChanged(auth, async (user) => {
       renderMessageRequests(requests);
     });
     listenConversations();
+    startOnlineHeartbeat();
     const gate = $id("authGate");
     if (gate) gate.hidden = true;
   } catch (error) {
@@ -107,15 +175,19 @@ function hydrateCurrentUserUI(name, email, photoURL) {
 document.addEventListener("visibilitychange", () => {
   if (!currentUser) return;
   const visible = document.visibilityState === "visible";
-  updateDoc(doc(db, "users", currentUser.uid), { isOnline: visible, lastSeen: serverTimestamp() }).catch(() => {});
+  setOwnPresence(visible).catch(() => {});
   if (visible && activeConversationId && currentMessages.length) {
     markIncomingMessagesRead().catch(() => {});
     cleanupExpiredMessages(db, activeConversationId, currentMessages, currentUser.uid, updateDoc).catch(() => {});
   }
 });
+window.addEventListener("focus", () => {
+  if (currentUser) setOwnPresence(true).catch(() => {});
+});
 window.addEventListener("pagehide", () => {
+  clearInterval(onlineHeartbeat);
   if (!currentUser) return;
-  updateDoc(doc(db, "users", currentUser.uid), { isOnline: false, lastSeen: serverTimestamp() }).catch(() => {});
+  setOwnPresence(false).catch(() => {});
 });
 
 /* ===================== Static controls ===================== */
@@ -148,10 +220,16 @@ function bindStaticControls() {
     renderChatMoreMenu();
     toggleDropdown("chatMoreMenu", "chatMoreBtn");
   });
-  $id("newChatBtn")?.addEventListener("click", () => {
+  $id("newChatBtn")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     playClick();
+    const input = $id("newChatSearch");
+    const results = $id("newChatResults");
+    if (input) input.value = "";
+    if (results) results.innerHTML = '<div class="empty-state">Search by email to find someone new.</div>';
     openModal("newChatModal");
-    setTimeout(() => $id("newChatSearch")?.focus(), 50);
+    requestAnimationFrame(() => input?.focus());
   });
   $id("userSearch")?.addEventListener("input", debounce((event) => {
     chatSearchTerm = normalizeSearch(event.target.value);
@@ -175,11 +253,17 @@ function bindStaticControls() {
     if (modal) closeModal(modal.id);
   }));
   document.querySelectorAll(".modal").forEach((modal) => modal.addEventListener("click", (event) => {
-    if (event.target === modal) closeModal(modal.id);
+    if (event.target === modal) {
+      if (modal.id === "confirmModal") finishConfirmDialog(false);
+      else closeModal(modal.id);
+    }
   }));
+  $id("confirmActionBtn")?.addEventListener("click", () => { playClick(); finishConfirmDialog(true); });
+  $id("confirmCancelBtn")?.addEventListener("click", () => { playClick(); finishConfirmDialog(false); });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
-      document.querySelectorAll(".modal:not([hidden])").forEach((modal) => closeModal(modal.id));
+      if ($id("confirmModal") && !$id("confirmModal").hidden) finishConfirmDialog(false);
+      else document.querySelectorAll(".modal:not([hidden])").forEach((modal) => closeModal(modal.id));
       document.querySelectorAll(".dropdown-menu:not([hidden])").forEach((menu) => menu.hidden = true);
       $id("accountMenuBtn")?.setAttribute("aria-expanded", "false");
       $id("chatMoreBtn")?.setAttribute("aria-expanded", "false");
@@ -428,7 +512,7 @@ function renderChatList() {
     const row = box.querySelector(`[data-conversation-id="${CSS.escape(conversation.id)}"]`);
     const user = userListeners.get(uid)?.data || { uid };
     paintAvatar(row?.querySelector(".avatar"), { photoURL: user.photoURL, name: user.name, email: user.email });
-    row?.querySelector(".status-dot")?.classList.toggle("online", !!user.isOnline);
+    row?.querySelector(".status-dot")?.classList.toggle("online", isUserOnline(user));
   });
 }
 
@@ -468,11 +552,12 @@ function refreshChatHeader() {
   const blockedByMe = currentBlockedUsers.includes(activeUser.uid);
   const blockedMe = Array.isArray(activeUser.blockedUsers) && activeUser.blockedUsers.includes(currentUser.uid);
   const blocked = blockedByMe || blockedMe;
-  $id("chatStatus").textContent = blockedByMe ? "Blocked by you" : blockedMe ? "You can't message this user" : activeUser.isOnline ? "Active now" : formatLastSeen(activeUser.lastSeen?.toDate?.() || null);
+  const online = isUserOnline(activeUser);
+  $id("chatStatus").textContent = blockedByMe ? "Blocked by you" : blockedMe ? "You can't message this user" : online ? "Active now" : formatLastSeen(activeUser.lastSeen?.toDate?.() || null);
   const pill = $id("chatStatusPill");
-  pill.hidden = !activeUser.isOnline || blocked;
+  pill.hidden = !online || blocked;
   if (!pill.hidden) pill.textContent = "Online";
-  $id("chatStatusDot").classList.toggle("online", !!activeUser.isOnline && !blocked);
+  $id("chatStatusDot").classList.toggle("online", online && !blocked);
   paintAvatar($id("chatAvatar"), { photoURL: activeUser.photoURL, name: activeUser.name, email: activeUser.email, preset: "avatarSm" });
   renderChatMoreMenu();
   setComposerState();
@@ -692,7 +777,14 @@ async function toggleSaveMessage(messageId, currentlySaved) {
 }
 async function deleteMessageForEveryone(messageId) {
   if (!activeConversationId || !currentUser) return false;
-  if (!confirm("Delete this message for everyone?")) return false;
+  const confirmed = await showConfirmDialog({
+    title: "Delete message for everyone?",
+    message: "This message will be removed from both sides of the conversation.",
+    confirmText: "Delete message",
+    cancelText: "Keep message",
+    danger: true
+  });
+  if (!confirmed) return false;
   try {
     const messageRef = doc(db, "conversations", activeConversationId, "messages", messageId);
     await deleteDoc(messageRef);

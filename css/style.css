@@ -80,3 +80,13 @@ img { max-width: 100%; }
 @keyframes spin{to{transform:rotate(360deg)}}
 @media(max-width:820px){.toast-stack{bottom:16px}.modal{padding:10px}.modal-content{max-height:90vh;border-radius:20px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+body.modal-open { overflow: hidden; }
+.confirm-modal { width:min(430px,94vw); padding:26px; border-radius:24px; }
+.confirm-icon { width:48px; height:48px; display:grid; place-items:center; border-radius:16px; background:#fff1f1; color:var(--danger); }
+.confirm-icon svg { width:24px; height:24px; }
+.confirm-copy h2 { margin-top:18px; font-size:20px; }
+.confirm-copy p { margin-top:7px; color:var(--ink-faint); font-size:13px; line-height:1.55; }
+.confirm-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:24px; }
+.confirm-actions .btn { min-width:112px; }
+.btn.danger-confirm { background:var(--danger); color:#fff; border-color:transparent; }
