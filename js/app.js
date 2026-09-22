@@ -160,7 +160,6 @@ function toggleDropdown(id, buttonId) {
 applyTheme(localStorage.getItem("cunnact_theme") || "light", false);
 onAuthStateChanged(auth, async (user) => {
   if (!user) { location.replace("login.html"); return; }
-  if (!user.emailVerified) { currentUser = user; showVerifyGate(user); return; }
   currentUser = user;
   try {
     const ref = doc(db, "users", user.uid);
@@ -200,6 +199,7 @@ onAuthStateChanged(auth, async (user) => {
     const newChatUsername = new URLSearchParams(location.search).get("newChat");
     if (newChatUsername) setTimeout(() => openNewChatWithQuery(newChatUsername), 120);
     const gate = $id("authGate"); if (gate) gate.hidden = true;
+    if (!user.emailVerified) showVerifyBanner(user);
   } catch (error) {
     console.error("CUNNACT startup failed:", error);
     const gate = $id("authGate");
@@ -210,13 +210,41 @@ onAuthStateChanged(auth, async (user) => {
     }
   }
 });
-function showVerifyGate(user){
-  const gate=$id("authGate"); if(!gate) return;
-  gate.hidden=false;
-  gate.innerHTML=`<div class="auth-gate-card"><strong>Verify your email</strong><span>We sent a confirmation link to ${escapeHtml(user.email||"your email")}. Please verify it to keep CUNNACT free of fake accounts.</span><button id="resendVerifyBtn" class="btn btn-primary">Resend email</button><button id="checkVerifyBtn" class="btn btn-soft">I've verified — continue</button><button id="verifyLogoutBtn" class="btn btn-soft danger-item">Log out</button></div>`;
-  $id("resendVerifyBtn")?.addEventListener("click", async ()=>{ try{ await sendEmailVerification(user); showToast("Verification email sent","success"); }catch(e){ showToast("Could not send email. Try again shortly.","error"); } });
-  $id("checkVerifyBtn")?.addEventListener("click", async ()=>{ try{ await reload(user); if(user.emailVerified){ location.reload(); } else { showToast("Still not verified. Check your inbox/spam folder.","info"); } }catch(e){ showToast("Could not refresh status.","error"); } });
-  $id("verifyLogoutBtn")?.addEventListener("click", ()=> signOut(auth));
+function showVerifyBanner(user){
+  if ($id("verifyBanner")) return;
+  const bar = document.createElement("div");
+  bar.id = "verifyBanner";
+  bar.className = "verify-banner";
+  bar.innerHTML = `<span>Verify <strong>${escapeHtml(user.email||"your email")}</strong> to fully secure your account.</span>
+    <span class="verify-banner-actions">
+      <button id="verifyBannerResend" class="btn btn-sm btn-soft" type="button">Resend</button>
+      <button id="verifyBannerCheck" class="btn btn-sm btn-soft" type="button">I've verified</button>
+      <button id="verifyBannerDismiss" class="icon-btn" type="button" aria-label="Dismiss">✕</button>
+    </span>`;
+  document.body.prepend(bar);
+  let cooldown = false;
+  $id("verifyBannerResend")?.addEventListener("click", async () => {
+    if (cooldown) { showToast("Please wait a minute before resending.", "info"); return; }
+    try {
+      await sendEmailVerification(user);
+      cooldown = true; setTimeout(() => { cooldown = false; }, 60000);
+      showToast("Verification email sent — check Spam/Promotions if it's not in your inbox within a few minutes.", "success");
+    } catch (e) {
+      console.error("Resend verification failed", e);
+      const msg = e?.code === "auth/too-many-requests"
+        ? "Too many attempts. Wait a few minutes and try again."
+        : "Could not send the email right now. Try again shortly.";
+      showToast(msg, "error");
+    }
+  });
+  $id("verifyBannerCheck")?.addEventListener("click", async () => {
+    try {
+      await reload(user);
+      if (user.emailVerified) { bar.remove(); showToast("Email verified 🎉", "success"); }
+      else showToast("Still not verified. Check Spam/Promotions, or resend the link.", "info");
+    } catch (e) { showToast("Could not refresh verification status.", "error"); }
+  });
+  $id("verifyBannerDismiss")?.addEventListener("click", () => bar.remove());
 }
 async function ensurePublicProfile() {
   if (!currentUser) return;
