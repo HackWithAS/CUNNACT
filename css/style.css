@@ -162,3 +162,7 @@ body.modal-open { overflow: hidden; }
 
 @media(max-width:820px){.toast-stack{bottom:16px}.modal{padding:10px}.modal-content{max-height:90vh;border-radius:20px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* V6 avatar invariant: hidden avatar layers must never be displayed by component CSS. */
+.avatar img[hidden], .avatar .avatar-fallback[hidden], [hidden] { display:none !important; }
+.avatar img { display:block; }

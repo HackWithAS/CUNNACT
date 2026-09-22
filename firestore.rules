@@ -9,29 +9,50 @@ service cloud.firestore {
     function blockPath(blockerUid, otherUid) {
       return /databases/$(database)/documents/users/$(blockerUid)/blockedUsers/$(otherUid);
     }
-    function blockedBy(blockerUid, otherUid) {
-      return exists(blockPath(blockerUid, otherUid));
-    }
+    function blockedBy(blockerUid, otherUid) { return exists(blockPath(blockerUid, otherUid)); }
     function canContact(otherUid) {
-      return userExists(request.auth.uid)
-        && userExists(otherUid)
-        && !blockedBy(request.auth.uid, otherUid)
-        && !blockedBy(otherUid, request.auth.uid);
+      return userExists(request.auth.uid) && userExists(otherUid)
+        && !blockedBy(request.auth.uid, otherUid) && !blockedBy(otherUid, request.auth.uid);
     }
     function acceptedRequest(otherUid) {
-      let requestRef = /databases/$(database)/documents/messageRequests/$(requestIdFor(request.auth.uid, otherUid));
-      return exists(requestRef) && get(requestRef).data.status == "accepted";
+      let ref = /databases/$(database)/documents/messageRequests/$(requestIdFor(request.auth.uid, otherUid));
+      return exists(ref) && get(ref).data.status == "accepted";
     }
     function isMember(conversationId) {
-      return signedIn()
-        && exists(/databases/$(database)/documents/conversations/$(conversationId))
+      return signedIn() && exists(/databases/$(database)/documents/conversations/$(conversationId))
         && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.members;
     }
 
     match /users/{uid} {
+      // Kept readable to preserve the current chat/request directory architecture.
+      // Private fields should not be copied into publicProfiles.
       allow read: if signedIn();
-      allow create, update: if isSelf(uid);
+      allow create: if isSelf(uid);
+      allow update: if isSelf(uid);
       allow delete: if false;
+    }
+
+    match /publicProfiles/{uid} {
+      allow read: if true;
+      allow create: if isSelf(uid) && request.resource.data.uid == uid
+        && request.resource.data.keys().hasOnly(["uid","username","usernameLower","displayName","photoURL","bio","updatedAt"]);
+      allow update: if isSelf(uid) && request.resource.data.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "uid","username","usernameLower","displayName","photoURL","bio","updatedAt"
+        ]);
+      allow delete: if isSelf(uid);
+    }
+
+    match /usernames/{usernameLower} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(["uid","createdAt"]);
+      allow update: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["uid","createdAt"]);
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
 
     match /users/{uid}/blockedUsers/{blockedUid} {
@@ -44,29 +65,23 @@ service cloud.firestore {
     match /messageRequests/{requestId} {
       allow read: if signedIn()
         && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
-
       allow create: if signedIn()
         && request.auth.uid == request.resource.data.senderId
         && request.resource.data.senderId != request.resource.data.receiverId
         && request.resource.data.status == "pending"
         && canContact(request.resource.data.receiverId);
-
       allow update: if signedIn()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"])
         && (
-          (
-            request.auth.uid == resource.data.receiverId
+          (request.auth.uid == resource.data.receiverId
             && resource.data.status == "pending"
             && request.resource.data.status in ["accepted", "declined"]
-            && canContact(resource.data.senderId)
-          )
+            && canContact(resource.data.senderId))
           ||
-          (
-            request.auth.uid == resource.data.senderId
+          (request.auth.uid == resource.data.senderId
             && resource.data.status == "declined"
             && request.resource.data.status == "pending"
-            && canContact(resource.data.receiverId)
-          )
+            && canContact(resource.data.receiverId))
         );
       allow delete: if false;
     }
@@ -87,25 +102,26 @@ service cloud.firestore {
             ? request.resource.data.members[1]
             : request.resource.data.members[0]
         );
-
       allow read: if signedIn() && request.auth.uid in resource.data.members;
-
       allow update: if signedIn()
         && request.auth.uid in resource.data.members
         && request.resource.data.members == resource.data.members
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "lastMessage", "lastMessageType", "lastMessageSenderId", "lastMessageTime", "unread"
-        ]);
+          "lastMessage","lastMessageType","lastMessageSenderId","lastMessageTime","unread","typing"
+        ])
+        && (
+          !("typing" in request.resource.data)
+          || request.resource.data.get("typing", {}).diff(resource.data.get("typing", {})).affectedKeys().hasOnly([request.auth.uid])
+        );
       allow delete: if false;
 
       match /messages/{messageId} {
         allow read: if isMember(conversationId);
-
         allow create: if isMember(conversationId)
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.receiverId != request.auth.uid
           && request.resource.data.receiverId in get(/databases/$(database)/documents/conversations/$(conversationId)).data.members
-          && request.resource.data.type in ["text", "image"]
+          && request.resource.data.type in ["text","image"]
           && request.resource.data.createdAt != null
           && canContact(request.resource.data.receiverId);
 
@@ -115,19 +131,15 @@ service cloud.firestore {
             && request.resource.data.get("savedBy", []) is list
             && resource.data.get("savedBy", []) is list
             && (
-              (
-                !(request.auth.uid in resource.data.get("savedBy", []))
+              (!(request.auth.uid in resource.data.get("savedBy", []))
                 && request.auth.uid in request.resource.data.get("savedBy", [])
                 && request.resource.data.get("savedBy", []).size() == resource.data.get("savedBy", []).size() + 1
-                && request.resource.data.get("savedBy", []).hasAll(resource.data.get("savedBy", []))
-              )
+                && request.resource.data.get("savedBy", []).hasAll(resource.data.get("savedBy", [])))
               ||
-              (
-                request.auth.uid in resource.data.get("savedBy", [])
+              (request.auth.uid in resource.data.get("savedBy", [])
                 && !(request.auth.uid in request.resource.data.get("savedBy", []))
                 && resource.data.get("savedBy", []).size() == request.resource.data.get("savedBy", []).size() + 1
-                && resource.data.get("savedBy", []).hasAll(request.resource.data.get("savedBy", []))
-              )
+                && resource.data.get("savedBy", []).hasAll(request.resource.data.get("savedBy", [])))
             )
           )
           ||
@@ -148,8 +160,14 @@ service cloud.firestore {
             && request.resource.data.get("deletedFor", []).size() == resource.data.get("deletedFor", []).size() + 1
             && request.resource.data.get("deletedFor", []).hasAll(resource.data.get("deletedFor", []))
           )
+          ||
+          (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(["reactions"])
+            && request.resource.data.get("reactions", {}) is map
+            && resource.data.get("reactions", {}) is map
+            && request.resource.data.get("reactions", {}).diff(resource.data.get("reactions", {})).affectedKeys().hasOnly([request.auth.uid])
+          )
         );
-
         allow delete: if isMember(conversationId) && request.auth.uid == resource.data.senderId;
       }
     }

@@ -121,3 +121,11 @@ Built with:
 ---
 
 **CUNNACT** - Making messaging enjoyable again.
+
+
+## V6 additions
+- Shareable CUNNACT IDs and public profiles (`/u/:username`).
+- Rebuilt profile UI.
+- Correct avatar fallback behavior.
+- Heartbeat-based presence UI.
+- Typing indicator and message reactions.

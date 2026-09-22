@@ -22,6 +22,9 @@ let startupCleanupStarted = false;
 let activeUser = null;
 let activeConversationId = null;
 let unsubscribeMessages = null;
+let unsubscribeTyping = null;
+let typingTimer = null;
+let isTypingState = false;
 let unsubscribeConversations = null;
 let cleanupInterval = null;
 let conversations = [];
@@ -35,6 +38,7 @@ let sendingMessage = false;
 let messageListenerToken = 0;
 let initialMessageSnapshot = true;
 let onlineHeartbeat = null;
+let presenceUiTimer = null;
 let confirmDialogResolver = null;
 const renderedMessageEls = new Map(); // messageId -> DOM node, so renderMessages() can update in place instead of rebuilding everything
 const ONLINE_WINDOW_MS = 90 * 1000;
@@ -48,18 +52,30 @@ const icon = {
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>'
 };
 
+function timestampDate(value) {
+  return value?.toDate?.() || (value instanceof Date ? value : null);
+}
 function isUserOnline(user) {
-  if (!user?.isOnline) return false;
-  const date = user.lastSeen?.toDate?.() || (user.lastSeen instanceof Date ? user.lastSeen : null);
-  if (!date) return false;
-  return (Date.now() - date.getTime()) < ONLINE_WINDOW_MS;
+  if (!user) return false;
+  const heartbeat = timestampDate(user.lastHeartbeat) || timestampDate(user.lastSeen);
+  if (!heartbeat) return false;
+  return !!user.isOnline && (Date.now() - heartbeat.getTime()) >= -5000 && (Date.now() - heartbeat.getTime()) <= ONLINE_WINDOW_MS;
+}
+function refreshPresenceUI() {
+  renderChatList();
+  if (activeUser) refreshChatHeader();
+  const ownOnline = isUserOnline({...currentUserData, isOnline: true, lastHeartbeat: currentUserData.lastHeartbeat});
+  const ownStatus = $id("currentUserStatus");
+  const ownDot = $id("currentUserAvatar")?.querySelector(".status-dot");
+  if (ownStatus) ownStatus.textContent = ownOnline ? "Online" : "Offline";
+  ownDot?.classList.toggle("online", ownOnline);
 }
 
 function setOwnPresence(isOnline) {
   if (!currentUser) return Promise.resolve();
   return updateDoc(doc(db, "users", currentUser.uid), {
     isOnline,
-    lastSeen: serverTimestamp()
+    ...(isOnline ? { lastHeartbeat: serverTimestamp() } : { lastSeen: serverTimestamp() })
   });
 }
 
@@ -69,6 +85,8 @@ function startOnlineHeartbeat() {
   onlineHeartbeat = setInterval(() => {
     if (document.visibilityState === "visible") setOwnPresence(true).catch(() => {});
   }, 30 * 1000);
+  clearInterval(presenceUiTimer);
+  presenceUiTimer = setInterval(refreshPresenceUI, 15000);
 }
 
 function openModal(id) {
@@ -125,6 +143,7 @@ onAuthStateChanged(auth, async (user) => {
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
     currentUserData = snap.exists() ? snap.data() : {};
+    currentUserData.lastHeartbeat = currentUserData.lastHeartbeat || { toDate: () => new Date() };
     const name = currentUserData.name || user.displayName || user.email || "User";
 
     await setDoc(ref, {
@@ -135,15 +154,37 @@ onAuthStateChanged(auth, async (user) => {
       photoURL: currentUserData.photoURL || user.photoURL || "",
       bio: currentUserData.bio || "",
       retentionMode: currentUserData.retentionMode || "24hours",
+      username: currentUserData.username || "",
+      usernameLower: currentUserData.usernameLower || "",
       isOnline: true,
-      lastSeen: serverTimestamp()
+      lastHeartbeat: serverTimestamp(),
+      lastSeen: currentUserData.lastSeen || serverTimestamp()
     }, { merge: true });
+    if (currentUserData.username) {
+      await setDoc(doc(db, "publicProfiles", user.uid), {
+        uid: user.uid,
+        username: currentUserData.username,
+        usernameLower: currentUserData.usernameLower || String(currentUserData.username).toLowerCase(),
+        displayName: name,
+        photoURL: currentUserData.photoURL || user.photoURL || "",
+        bio: currentUserData.bio || "",
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {});
+    }
 
     await loadRetentionMode(user.uid);
     await loadBlockedUsers();
     hydrateCurrentUserUI(name, user.email || currentUserData.email || "", currentUserData.photoURL || user.photoURL || "");
     updateSoundToggle();
     bindStaticControls();
+    const newChatUsername = new URLSearchParams(location.search).get("newChat");
+    if (newChatUsername) {
+      setTimeout(() => {
+        const input = $id("newChatSearch");
+        if (input) { openModal("newChatModal"); input.value = `@${newChatUsername.replace(/^@/,"")}`; loadNewChatSearch(input.value.toLowerCase()); input.focus(); }
+        history.replaceState({}, "", "index.html");
+      }, 100);
+    }
 
     listenMessageRequests(currentUser, (requests) => {
       updateRequestsBadge(requests.length);
@@ -167,7 +208,7 @@ onAuthStateChanged(auth, async (user) => {
 function hydrateCurrentUserUI(name, email, photoURL) {
   $id("currentUserName").textContent = name;
   $id("currentUserEmail").textContent = email;
-  $id("currentUserStatus").textContent = "Online";
+  $id("currentUserStatus").textContent = isUserOnline({ ...currentUserData, isOnline: true }) ? "Online" : "Offline";
   paintAvatar($id("currentUserAvatar"), { photoURL, name, email, preset: "avatarSm" });
   paintAvatar($id("menuUserAvatar"), { photoURL, name, email, preset: "avatarSm" });
   $id("menuUserName").textContent = name;
@@ -179,6 +220,7 @@ document.addEventListener("visibilitychange", () => {
   if (!currentUser) return;
   const visible = document.visibilityState === "visible";
   setOwnPresence(visible).catch(() => {});
+  if (!visible) refreshPresenceUI();
   if (visible && activeConversationId && currentMessages.length) {
     markIncomingMessagesRead().catch(() => {});
     cleanupExpiredMessages(db, activeConversationId, currentMessages, currentUser.uid, updateDoc).catch(() => {});
@@ -189,6 +231,7 @@ window.addEventListener("focus", () => {
 });
 window.addEventListener("pagehide", () => {
   clearInterval(onlineHeartbeat);
+  clearInterval(presenceUiTimer);
   if (!currentUser) return;
   setOwnPresence(false).catch(() => {});
 });
@@ -225,6 +268,9 @@ function bindStaticControls() {
     playClick();
     $id("app")?.classList.remove("chat-open");
   });
+  $id("chatAvatar")?.addEventListener("click", () => {
+    if (activeUser?.username) { playClick(); location.href = `/u/${encodeURIComponent(activeUser.username)}`; }
+  });
   $id("chatMoreBtn")?.addEventListener("click", (event) => {
     event.stopPropagation();
     if (!activeUser) return;
@@ -257,7 +303,8 @@ function bindStaticControls() {
   $id("fileInput")?.addEventListener("change", handleImageSelection);
   $id("imagePreviewCancel")?.addEventListener("click", cancelImagePreview);
   $id("imagePreviewSend")?.addEventListener("click", sendPendingImage);
-  $id("messageInput")?.addEventListener("input", autoGrowComposer);
+  $id("messageInput")?.addEventListener("input", () => { autoGrowComposer(); handleTypingInput(); });
+  $id("messageInput")?.addEventListener("blur", stopTyping);
 
   document.querySelectorAll(".close-modal").forEach((button) => button.addEventListener("click", () => {
     playClick();
@@ -408,63 +455,68 @@ function matchesChat(user, term) {
 async function loadNewChatSearch(term) {
   const box = $id("newChatResults");
   if (!box) return;
-  if (!term) {
-    box.innerHTML = '<div class="empty-state">Search for a person to send a request.</div>';
-    return;
-  }
-  if (!isSearchValid(term)) {
-    box.innerHTML = `<div class="empty-state">${escapeHtml(getSearchMessage(term))}</div>`;
-    return;
-  }
-  box.innerHTML = '<div class="empty-state">Searching…</div>';
-  try {
-    const snap = await getDocs(query(collection(db, "users"), orderBy("emailLower"), startAt(term), endAt(`${term}\uf8ff`), limit(20)));
-    const matches = snap.docs
-      .map((d) => ({ uid: d.id, ...d.data() }))
-      .filter((u) => u.uid !== currentUser.uid);
-    if (!matches.length) {
-      box.innerHTML = `<div class="empty-state">No account found for “${escapeHtml(term)}”.</div>`;
-      return;
+  if (!term) { box.innerHTML = '<div class="empty-state">Search by CUNNACT ID or email.</div>'; return; }
+  const raw = String(term).trim();
+  if (raw.startsWith("@")) {
+    const username = raw.slice(1).toLowerCase();
+    if (username.length < 5) { box.innerHTML = '<div class="empty-state">Enter at least 5 characters of a CUNNACT ID.</div>'; return; }
+    box.innerHTML = '<div class="empty-state">Searching CUNNACT ID…</div>';
+    try {
+      const map = await getDoc(doc(db, "usernames", username));
+      if (!map.exists()) { box.innerHTML = '<div class="empty-state">No CUNNACT account found.</div>'; return; }
+      const uid = map.data()?.uid;
+      if (!uid || uid === currentUser.uid) { box.innerHTML = '<div class="empty-state">No other account found.</div>'; return; }
+      const snap = await getDoc(doc(db, "users", uid));
+      if (!snap.exists()) { box.innerHTML = '<div class="empty-state">Profile is unavailable.</div>'; return; }
+      renderNewChatResults([{uid, ...snap.data()}], box);
+    } catch (error) {
+      console.error("CUNNACT ID search failed:", error);
+      box.innerHTML = '<div class="empty-state">Search is unavailable right now.</div>';
     }
-    box.innerHTML = matches.map((user) => {
-      const alreadyConnected = conversations.some((c) => c.members?.includes(user.uid));
-      const blockedByMe = currentBlockedUsers.includes(user.uid);
-      const disabled = blockedByMe;
-      const buttonText = disabled ? "Unavailable" : alreadyConnected ? "Open chat" : "Send request";
-      return `
-        <div class="new-person-row" data-uid="${escapeHtml(user.uid)}">
-          ${avatarHtml(user, { dot: false })}
-          <div class="meta"><strong>${escapeHtml(user.name || user.email || "User")}</strong><span>${escapeHtml(user.email || "")}</span></div>
-          <button class="btn ${disabled ? "btn-soft" : "btn-primary"} btn-sm new-chat-action" ${disabled ? "disabled" : ""}>${buttonText}</button>
-        </div>`;
-    }).join("");
-    box.querySelectorAll(".new-person-row").forEach((row, index) => {
-      paintAvatar(row.querySelector(".avatar"), matches[index]);
-      row.querySelector(".new-chat-action")?.addEventListener("click", async () => {
-        const user = matches[index];
-        playClick();
-        const button = row.querySelector(".new-chat-action");
-        if (!button || button.disabled) return;
-        button.disabled = true; button.textContent = "Working…";
-        const result = await sendMessageRequest(currentUser, user.uid, user);
-        if (result?.alreadyExists) {
-          closeModal("newChatModal");
-          $id("newChatSearch").value = "";
-          await openChatById(result.conversationId);
-        } else if (result) {
-          button.textContent = "Sent ✓";
-          setTimeout(() => { closeModal("newChatModal"); $id("newChatSearch").value = ""; }, 700);
-        } else {
-          button.disabled = false; button.textContent = "Send request";
-        }
-      });
-    });
+    return;
+  }
+  if (!isSearchValid(raw)) {
+    box.innerHTML = `<div class="empty-state">Enter at least 6 characters to search by email.</div>`;
+    return;
+  }
+  box.innerHTML = '<div class="empty-state">Searching email…</div>';
+  try {
+    const snap = await getDocs(query(collection(db, "users"), orderBy("emailLower"), startAt(raw.toLowerCase()), endAt(`${raw.toLowerCase()}\uf8ff`), limit(20)));
+    renderNewChatResults(snap.docs.map(d => ({uid:d.id,...d.data()})).filter(u => u.uid !== currentUser.uid), box);
   } catch (error) {
     console.error("New chat search failed:", error);
     box.innerHTML = '<div class="empty-state">Search is unavailable right now. Please try again.</div>';
   }
 }
-
+function renderNewChatResults(matches, box) {
+  if (!matches.length) { box.innerHTML = '<div class="empty-state">No account found.</div>'; return; }
+  box.innerHTML = matches.map(user => {
+    const alreadyConnected = conversations.some(c => c.members?.includes(user.uid));
+    const blockedByMe = currentBlockedUsers.includes(user.uid);
+    const buttonText = blockedByMe ? "Blocked" : alreadyConnected ? "Open chat" : "Send request";
+    return `<div class="new-person-row" data-uid="${escapeHtml(user.uid)}">
+      ${avatarHtml(user,{dot:false})}
+      <div class="meta"><strong>${escapeHtml(user.name||user.email||"User")}</strong><span>@${escapeHtml(user.username||"")}</span><span>${escapeHtml(user.email||"")}</span></div>
+      <button class="btn ${blockedByMe?"btn-soft":"btn-primary"} btn-sm new-chat-action" ${blockedByMe?"disabled":""}>${buttonText}</button>
+    </div>`;
+  }).join("");
+  box.querySelectorAll(".new-person-row").forEach((row,index)=>{
+    const user=matches[index];
+    paintAvatar(row.querySelector(".avatar"),user);
+    row.querySelector(".new-chat-action")?.addEventListener("click",async()=>{
+      const button=row.querySelector(".new-chat-action"); if(!button||button.disabled)return;
+      playClick();
+      if(conversations.some(c=>c.members?.includes(user.uid))){
+        const c=conversations.find(c=>c.members?.includes(user.uid)); if(c){closeModal("newChatModal");await openChatById(c.id,user.uid);} return;
+      }
+      button.disabled=true;button.textContent="Sending…";
+      const result=await sendMessageRequest(currentUser,user.uid,user);
+      if(result?.alreadyExists){closeModal("newChatModal");await openChatById(result.conversationId);}
+      else if(result){button.textContent="Sent ✓";setTimeout(()=>{closeModal("newChatModal");$id("newChatSearch").value="";},700);}
+      else {button.disabled=false;button.textContent="Send request";}
+    });
+  });
+}
 /* ===================== Conversation list ===================== */
 function listenConversations() {
   unsubscribeConversations?.();
@@ -558,6 +610,8 @@ async function openChatById(conversationId, hintedUid = null) {
     if (!other) return;
     const userSnap = await getDoc(doc(db, "users", other));
     if (!userSnap.exists()) { showToast("User profile not found.", "error"); return; }
+    stopTyping();
+    unsubscribeTyping?.(); unsubscribeTyping=null;
     activeConversationId = conversationId;
     activeUser = { uid: other, ...userSnap.data() };
     ensureUserListener(other);
@@ -569,6 +623,7 @@ async function openChatById(conversationId, hintedUid = null) {
     renderChatList();
     await markRead(conversationId);
     listenMessages();
+    listenTyping();
   } catch (error) {
     console.error("Could not open chat:", error);
     showToast(error?.code === "permission-denied" ? "You don't have access to this chat." : "Could not open this chat.", "error");
@@ -583,7 +638,7 @@ function refreshChatHeader() {
   const blockedMe = Array.isArray(activeUser.blockedUsers) && activeUser.blockedUsers.includes(currentUser.uid);
   const blocked = blockedByMe || blockedMe;
   const online = isUserOnline(activeUser);
-  $id("chatStatus").textContent = blockedByMe ? "Blocked by you" : blockedMe ? "You can't message this user" : online ? "Active now" : formatLastSeen(activeUser.lastSeen?.toDate?.() || null);
+  $id("chatStatus").textContent = blockedByMe ? "Blocked by you" : blockedMe ? "You can't message this user" : online ? "Active now" : `Offline · ${formatLastSeen(activeUser.lastSeen?.toDate?.() || null)}`;
   const pill = $id("chatStatusPill");
   pill.hidden = !online || blocked;
   if (!pill.hidden) pill.textContent = "Online";
@@ -617,6 +672,7 @@ function renderChatMoreMenu() {
     <button class="dropdown-item ${blockedByMe ? "" : "danger-item"}" id="blockToggleBtn">
       ${blockedByMe ? icon.unlock : icon.block}<span>${blockedByMe ? "Unblock user" : "Block user"}</span>
     </button>`;
+  $id("viewProfileBtn")?.addEventListener("click", () => { if(activeUser?.username){ playClick(); menu.hidden=true; location.href=`/u/${encodeURIComponent(activeUser.username)}`; } });
   $id("blockToggleBtn")?.addEventListener("click", async () => {
     playClick();
     menu.hidden = true;
@@ -649,6 +705,35 @@ async function toggleBlockUser(uid, shouldBlock) {
   }
 }
 
+/* ===================== Typing presence ===================== */
+function listenTyping() {
+  unsubscribeTyping?.();
+  if (!activeConversationId || !currentUser) return;
+  unsubscribeTyping = onSnapshot(doc(db,"conversations",activeConversationId),(snap)=>{
+    const typing=snap.exists()?snap.data()?.typing||{}:{};
+    const other=activeUser?.uid;
+    const isTyping=!!(other && typing[other]);
+    const el=$id("chatTyping");
+    if(el) el.hidden=!isTyping;
+  },()=>{ const el=$id("chatTyping"); if(el) el.hidden=true; });
+}
+const sendTypingState = debounce((typing)=>{
+  if(!activeConversationId||!currentUser)return;
+  updateDoc(doc(db,"conversations",activeConversationId),{[`typing.${currentUser.uid}`]:typing}).catch(()=>{});
+},400);
+function handleTypingInput(){
+  if(!activeConversationId||!currentUser)return;
+  const input=$id("messageInput");
+  const typing=!!input?.value.trim();
+  if(typing!==isTypingState){isTypingState=typing;sendTypingState(typing);}
+  clearTimeout(typingTimer);
+  if(typing) typingTimer=setTimeout(()=>{isTypingState=false;sendTypingState(false);},2500);
+}
+function stopTyping(){
+  clearTimeout(typingTimer); typingTimer=null;
+  if(isTypingState){isTypingState=false;sendTypingState(false);}
+}
+
 /* ===================== Read receipts + messages ===================== */
 async function markRead(conversationId) {
   if (!conversationId || !currentUser) return;
@@ -659,7 +744,14 @@ async function markRead(conversationId) {
 }
 async function markIncomingMessagesRead() {
   if (!activeConversationId || !currentUser || !currentMessages.length) return;
-  const pending = currentMessages.filter((m) => m.receiverId === currentUser.uid && !m.readBy?.[currentUser.uid] && !isDeletedForUser(m, currentUser.uid));
+  const pending = currentMessages.filter((m) => {
+    const el = renderedMessageEls.get(m.id);
+    if (!el || m.receiverId !== currentUser.uid || m.readBy?.[currentUser.uid] || isDeletedForUser(m, currentUser.uid)) return false;
+    const box=$id("messages");
+    if (!box) return false;
+    const r=el.getBoundingClientRect(), b=box.getBoundingClientRect();
+    return r.bottom > b.top && r.top < b.bottom;
+  });
   if (!pending.length) return;
   try {
     const batch = writeBatch(db);
@@ -745,6 +837,7 @@ function renderMessages() {
 function updateMessageElement(el, message) {
   el._message = message;
   const saved = isSavedByUser(message, currentUser.uid);
+  renderReactionChips(el, message);
   el.classList.toggle("saved", saved);
   const existingBookmark = el.querySelector(".bookmark-icon");
   if (saved && !existingBookmark) {
@@ -770,12 +863,13 @@ function buildMessageElement(message) {
   bubble.className = "message-bubble";
   if (message.type === "image" && isTrustedImageUrl(message.imageURL)) {
     el.classList.add("image-message");
-    bubble.innerHTML = `<img src="${escapeHtml(imageUrl(message.imageURL, "chat"))}" alt="Shared image" loading="lazy"><div class="message-meta"><small>${escapeHtml(time)}</small>${outgoing ? `<span class="delivery-check">${icon.check}</span>` : ""}</div>`;
+    bubble.innerHTML = `<img src="${escapeHtml(imageUrl(message.imageURL, "chat"))}" alt="Shared image" loading="lazy"><div class="message-meta"><small>${escapeHtml(time)}</small>${outgoing ? `<span class="delivery-check ${message.readBy?.[activeUser?.uid] ? "read" : ""}">${message.readBy?.[activeUser?.uid] ? icon.check+icon.check : icon.check}</span>` : ""}</div>`;
     bubble.querySelector("img")?.addEventListener("click", () => openLightbox(message.imageURL));
   } else {
-    bubble.innerHTML = `<p>${escapeHtml(message.text || "Attachment unavailable")}</p><div class="message-meta"><small>${escapeHtml(time)}</small>${outgoing ? `<span class="delivery-check">${icon.check}</span>` : ""}</div>`;
+    bubble.innerHTML = `<p>${escapeHtml(message.text || "Attachment unavailable")}</p><div class="message-meta"><small>${escapeHtml(time)}</small>${outgoing ? `<span class="delivery-check ${message.readBy?.[activeUser?.uid] ? "read" : ""}">${message.readBy?.[activeUser?.uid] ? icon.check+icon.check : icon.check}</span>` : ""}</div>`;
   }
   el.appendChild(bubble);
+  renderReactionChips(el, message);
 
   if (saved) {
     const bookmark = document.createElement("span");
@@ -803,6 +897,32 @@ function buildMessageElement(message) {
   });
   return el;
 }
+async function toggleReaction(messageId, emoji, messageEl) {
+  if (!activeConversationId || !currentUser) return;
+  try {
+    const ref = doc(db, "conversations", activeConversationId, "messages", messageId);
+    const current = messageEl?._message || {};
+    const reactions = { ...(current.reactions || {}) };
+    reactions[currentUser.uid] = reactions[currentUser.uid] === emoji ? null : emoji;
+    await updateDoc(ref, { reactions });
+  } catch (error) {
+    console.error("Reaction failed:", error);
+    showToast("Could not update reaction.", "error");
+  }
+}
+function renderReactionChips(el, message) {
+  let wrap = el.querySelector(".message-reactions");
+  const entries = Object.entries(message.reactions || {}).filter(([, value]) => value);
+  if (!entries.length) { wrap?.remove(); return; }
+  if (!wrap) { wrap=document.createElement("div"); wrap.className="message-reactions"; el.appendChild(wrap); }
+  const counts = new Map();
+  entries.forEach(([uid, emoji]) => counts.set(emoji, (counts.get(emoji)||0)+1));
+  wrap.innerHTML = "";
+  counts.forEach((count, emoji) => {
+    const b=document.createElement("button"); b.type="button"; b.className="reaction-chip"; b.textContent=`${emoji}${count>1?` ${count}`:""}`;
+    b.addEventListener("click",()=>toggleReaction(message.id,emoji,el)); wrap.appendChild(b);
+  });
+}
 function showMessageActions(messageEl, message, isOutgoing, anchor) {
   closeMessageActionMenus();
   const menu = document.createElement("div");
@@ -819,6 +939,9 @@ function showMessageActions(messageEl, message, isOutgoing, anchor) {
   const left = Math.min(Math.max(8, rect.right - menuRect.width), window.innerWidth - menuRect.width - 8);
   menu.style.top = `${Math.max(8, top)}px`;
   menu.style.left = `${left}px`;
+  menu.querySelectorAll(".reaction-choice").forEach(btn=>btn.addEventListener("click",async()=>{
+    await toggleReaction(message.id,btn.dataset.reaction,messageEl); menu.remove();
+  }));
   menu.querySelector(".save-msg")?.addEventListener("click", async () => {
     playClick(); await toggleSaveMessage(message.id, saved); menu.remove();
   });

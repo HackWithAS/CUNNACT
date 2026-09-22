@@ -2,241 +2,103 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f6fa">
 <title>Profile · CUNNACT</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235b57e6'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='700' font-size='17' fill='white' text-anchor='middle'%3EC%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<script>document.documentElement.dataset.theme = localStorage.getItem("cunnact_theme") === "dark" ? "dark" : "light";</script>
+<script>document.documentElement.dataset.theme=localStorage.getItem("cunnact_theme")==="dark"?"dark":"light";</script>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/profile.css">
 <link rel="stylesheet" href="css/animations.css">
 </head>
 <body class="profile-page">
-  <div class="profile-shell">
-    <header class="profile-header">
-      <button id="backToChat" class="icon-btn" type="button" aria-label="Back to chat" title="Back to chat">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
-          <path d="M15 18l-6-6 6-6"/>
-        </svg>
-      </button>
-      <div class="profile-header-copy">
-        <span class="eyebrow">Account</span>
-        <h1>Profile</h1>
+<div class="profile-shell">
+  <header class="profile-header">
+    <button id="backToChat" class="icon-btn" type="button" aria-label="Back to chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div><span class="eyebrow">ACCOUNT</span><h1>Profile</h1></div>
+    <div class="header-spacer"></div>
+  </header>
+
+  <main class="profile-main">
+    <section class="profile-hero-v6">
+      <div class="profile-hero-avatar">
+        <button id="avatarButton" class="avatar-button-v6" type="button" aria-label="Change profile picture">
+          <span class="avatar avatar-profile-v6" id="profileAvatar">
+            <img alt="Profile picture" hidden>
+            <span class="avatar-fallback" hidden></span>
+          </span>
+          <span class="avatar-camera-v6" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l1.5-2h7L17 7h3v11H4z"/><circle cx="12" cy="12.5" r="3.3"/></svg>
+          </span>
+        </button>
+        <button id="changePhotoBtn" class="btn btn-secondary photo-btn-v6" type="button">Change photo</button>
+        <input id="photoInput" type="file" hidden accept="image/jpeg,image/png,image/webp">
+        <div id="uploadStatus" class="upload-status" aria-live="polite"></div>
+        <div class="progress profile-progress" aria-hidden="true"><div id="uploadProgressFill" class="progress-fill"></div></div>
       </div>
-      <div class="header-spacer" aria-hidden="true"></div>
-    </header>
-
-    <main class="profile-main">
-      <section class="profile-hero" aria-labelledby="profileHeroTitle">
-        <div class="hero-glow hero-glow-one"></div>
-        <div class="hero-glow hero-glow-two"></div>
-        <div class="hero-inner">
-          <div class="avatar-stage" id="avatarUpload">
-            <button class="avatar-button" id="avatarButton" type="button" aria-label="Change profile picture">
-              <span class="avatar avatar-profile" id="profileAvatar">
-                <img alt="Profile picture" hidden>
-                <span class="avatar-fallback"></span>
-              </span>
-              <span class="avatar-camera" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M4 7h3l1.5-2h7L17 7h3v11H4z"/>
-                  <circle cx="12" cy="12.5" r="3.3"/>
-                </svg>
-              </span>
-            </button>
-            <input id="photoInput" type="file" hidden accept="image/jpeg,image/png,image/webp">
-          </div>
-
-          <div class="hero-copy">
-            <span class="profile-badge">
-              <span class="profile-badge-dot"></span>
-              CUNNACT profile
-            </span>
-            <h2 id="profileHeroTitle">Make your profile feel like you.</h2>
-            <p>Update your name, photo and preferences. Changes stay linked to your CUNNACT account.</p>
-          </div>
+      <div class="profile-hero-copy-v6">
+        <span class="profile-badge"><span class="profile-badge-dot"></span>CUNNACT profile</span>
+        <h2>Make your profile feel like you.</h2>
+        <p>Update your name, photo and preferences. Your public profile only shows information you choose to share.</p>
+        <div class="profile-identity-preview">
+          <strong id="heroDisplayName">Your name</strong>
+          <span id="heroUsername">@username</span>
         </div>
+        <button id="shareProfileBtn" class="btn btn-primary share-profile-btn" type="button">Share my CUNNACT ID</button>
+      </div>
+    </section>
 
-        <div class="photo-actions">
-          <button id="changePhotoBtn" type="button" class="btn btn-secondary photo-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M4 7h3l1.5-2h7L17 7h3v11H4z"/>
-              <circle cx="12" cy="12" r="3.2"/>
-            </svg>
-            Change photo
-          </button>
-          <div class="upload-meta" aria-live="polite">
-            <span id="uploadStatus"></span>
-            <div class="progress" aria-hidden="true"><div id="uploadProgressFill" class="progress-fill"></div></div>
-          </div>
+    <form id="profileForm" class="profile-form" novalidate>
+      <section class="settings-card-v6">
+        <div class="section-heading-v6">
+          <div class="section-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c.8-3.2 3.1-5 7-5s6.2 1.8 7 5"/></svg></div>
+          <div><h2>Personal information</h2><p>What other people see when they find you.</p></div>
+        </div>
+        <div class="profile-fields-v6">
+          <label class="profile-field-v6"><span>Display name</span><input id="profileName" type="text" maxlength="60" autocomplete="name" required placeholder="Your name"></label>
+          <label class="profile-field-v6 username-field-v6"><span>CUNNACT ID</span><div class="username-input"><b>@</b><input id="profileUsername" type="text" maxlength="24" autocomplete="off" placeholder="yourusername" spellcheck="false"></div><small id="usernameStatus" aria-live="polite">Choose a unique ID to share your profile.</small></label>
+          <label class="profile-field-v6"><span>Email</span><div class="locked-input"><input id="profileEmail" type="email" autocomplete="email" disabled><span aria-label="Read only">🔒</span></div></label>
+          <label class="profile-field-v6 full"><span>Bio</span><textarea id="profileBio" maxlength="160" placeholder="Tell people a little about yourself…"></textarea><small><span id="bioCount">0</span>/160</small></label>
         </div>
       </section>
 
-      <form id="profileForm" class="profile-form" novalidate>
-        <section class="settings-card" aria-labelledby="personalTitle">
-          <div class="section-heading">
-            <div class="section-icon purple" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
-                <circle cx="12" cy="8" r="3.2"/><path d="M5 20c.8-3.2 3.1-5 7-5s6.2 1.8 7 5"/>
-              </svg>
-            </div>
-            <div>
-              <h2 id="personalTitle">Personal information</h2>
-              <p>What other people see when they find you.</p>
-            </div>
-          </div>
-
-          <div class="field-grid">
-            <label class="field-group" for="profileName">
-              <span class="field-label">Display name</span>
-              <span class="field-control">
-                <input id="profileName" type="text" maxlength="60" autocomplete="name" required placeholder="Your name">
-              </span>
-            </label>
-
-            <label class="field-group" for="profileEmail">
-              <span class="field-label">Email</span>
-              <span class="field-control locked">
-                <input id="profileEmail" type="email" autocomplete="email" disabled>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-label="Read only">
-                  <rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/>
-                </svg>
-              </span>
-              <span class="field-hint">Your sign-in email can't be changed here.</span>
-            </label>
-          </div>
-
-          <label class="field-group" for="profileBio">
-            <span class="field-label-row">
-              <span class="field-label">Bio</span>
-              <small><span id="bioCount">0</span>/150</small>
-            </span>
-            <textarea id="profileBio" rows="4" maxlength="150" placeholder="Tell people a little about yourself…"></textarea>
-          </label>
-        </section>
-
-        <section class="settings-card" aria-labelledby="retentionTitle">
-          <div class="section-heading">
-            <div class="section-icon blue" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
-                <circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/>
-              </svg>
-            </div>
-            <div>
-              <h2 id="retentionTitle">Message retention</h2>
-              <p>Choose the default behavior for messages in your account.</p>
-            </div>
-          </div>
-
-          <div class="choice-list" role="radiogroup" aria-label="Message retention">
-            <label class="choice-card">
-              <input type="radio" name="retention" value="24hours" checked>
-              <span class="choice-radio"></span>
-              <span class="choice-copy">
-                <strong>Delete after 24 hours</strong>
-                <span>Messages expire 24 hours after they were sent.</span>
-              </span>
-              <span class="choice-tag">Default</span>
-            </label>
-
-            <label class="choice-card">
-              <input type="radio" name="retention" value="seen">
-              <span class="choice-radio"></span>
-              <span class="choice-copy">
-                <strong>Delete after seen</strong>
-                <span>Messages can disappear after they've been read.</span>
-              </span>
-            </label>
-          </div>
-          <div class="retention-note">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-              <circle cx="12" cy="12" r="9"/><path d="M12 10v5"/><circle cx="12" cy="7.5" r=".7" fill="currentColor" stroke="none"/>
-            </svg>
-            <span>Saved messages stay available even when retention rules would otherwise remove them.</span>
-          </div>
-        </section>
-
-        <section class="settings-card" aria-labelledby="soundTitle">
-          <div class="setting-row">
-            <div class="setting-row-copy">
-              <div class="setting-leading">
-                <div class="section-icon green" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
-                    <path d="M5 10h3l4-3v10l-4-3H5z"/><path d="M16 9.5a3.5 3.5 0 010 5"/><path d="M18.5 7a7 7 0 010 10"/>
-                  </svg>
-                </div>
-                <div>
-                  <h2 id="soundTitle">Sound effects</h2>
-                  <p>Play small sounds for clicks and interactions.</p>
-                </div>
-              </div>
-            </div>
-            <label class="toggle" aria-label="Sound effects">
-              <input type="checkbox" id="soundToggle" checked>
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-        </section>
-
-        <section class="settings-card" aria-labelledby="privacyTitle">
-          <div class="section-heading">
-            <div class="section-icon orange" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
-                <path d="M12 3l7 3v5c0 4.4-2.7 7.7-7 10-4.3-2.3-7-5.6-7-10V6z"/><path d="M9.5 12l1.7 1.7 3.5-3.5"/>
-              </svg>
-            </div>
-            <div>
-              <h2 id="privacyTitle">Privacy at a glance</h2>
-              <p>Simple rules for a private chat experience.</p>
-            </div>
-          </div>
-
-          <div class="privacy-list">
-            <div class="privacy-row">
-              <span class="privacy-symbol">01</span>
-              <div><strong>Message requests</strong><span>New contacts need your acceptance before chatting.</span></div>
-            </div>
-            <div class="privacy-row">
-              <span class="privacy-symbol">02</span>
-              <div><strong>Your conversations</strong><span>Chats are accessible to the people who are members of that conversation.</span></div>
-            </div>
-            <div class="privacy-row">
-              <span class="privacy-symbol">03</span>
-              <div><strong>Saved messages</strong><span>Saving a message keeps it protected from your retention setting.</span></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="about-card" aria-label="About CUNNACT">
-          <div class="about-brand">
-            <div class="about-mark">C</div>
-            <div>
-              <strong>CUNNACT</strong>
-              <span>Stay Connected.</span>
-            </div>
-          </div>
-          <div class="about-build">
-            <span>Built by</span>
-            <a href="https://hackwithas.in" target="_blank" rel="noopener noreferrer">HackWithAS ↗</a>
-          </div>
-        </section>
-
-        <div class="save-area">
-          <button type="submit" class="btn btn-primary save-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M5 12.5l4.2 4.2L19 7"/>
-            </svg>
-            Save changes
-          </button>
-          <p id="profileMessage" class="profile-status" role="status" aria-live="polite"></p>
+      <section class="settings-card-v6">
+        <div class="section-heading-v6">
+          <div class="section-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3v18M5 8h14M5 16h14"/></svg></div>
+          <div><h2>Preferences</h2><p>Control how CUNNACT feels and how messages are retained.</p></div>
         </div>
-      </form>
-    </main>
-  </div>
+        <div class="preference-block"><div><strong>Message retention</strong><p>Choose when eligible messages are removed.</p></div>
+          <div class="retention-options-v6">
+            <label class="retention-option-v6"><input type="radio" name="retention" value="24hours" checked><span><b>24 Hours</b><small>Remove after 24 hours.</small></span></label>
+            <label class="retention-option-v6"><input type="radio" name="retention" value="seen"><span><b>After Seen</b><small>Remove after the message is read.</small></span></label>
+          </div>
+        </div>
+        <div class="preference-row-v6"><div><strong>Sound effects</strong><p>Play subtle interaction sounds.</p></div><label class="toggle"><input id="soundToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
+        <div class="preference-row-v6"><div><strong>Appearance</strong><p>Switch between light and dark mode.</p></div><button id="themeProfileBtn" class="btn btn-soft" type="button">Toggle theme</button></div>
+      </section>
 
-  <script type="module" src="js/profile.js"></script>
+      <section class="settings-card-v6">
+        <div class="section-heading-v6">
+          <div class="section-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3 4 6v5c0 5 3.3 8.6 8 10 4.7-1.4 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <div><h2>Privacy & account</h2><p>Manage the parts of your account that affect connections.</p></div>
+        </div>
+        <div class="privacy-row-v6"><span>Public profile</span><span id="publicProfileState">@username</span></div>
+        <div class="privacy-row-v6"><span>Blocked users</span><span>Managed from chat menus</span></div>
+        <div class="privacy-row-v6"><span>Saved messages</span><span>Available from the chat sidebar</span></div>
+      </section>
+
+      <div class="profile-actions-v6">
+        <button id="cancelProfileBtn" type="button" class="btn btn-soft">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+      <div id="profileMessage" class="profile-status" aria-live="polite"></div>
+    </form>
+  </main>
+</div>
+<script type="module" src="js/profile.js"></script>
 </body>
 </html>

@@ -9,7 +9,7 @@ import {
   getFirestore,
   doc, getDoc, getDocs, setDoc, updateDoc, addDoc, deleteDoc,
   collection, query, where, orderBy, startAt, endAt, limit,
-  onSnapshot, serverTimestamp, increment, writeBatch, arrayUnion, arrayRemove
+  onSnapshot, serverTimestamp, increment, writeBatch, runTransaction, arrayUnion, arrayRemove
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 
@@ -22,5 +22,5 @@ export {
   signOut, updateProfile,
   doc, getDoc, getDocs, setDoc, updateDoc, addDoc, deleteDoc,
   collection, query, where, orderBy, startAt, endAt, limit,
-  onSnapshot, serverTimestamp, increment, writeBatch, arrayUnion, arrayRemove
+  onSnapshot, serverTimestamp, increment, writeBatch, runTransaction, arrayUnion, arrayRemove
 };
