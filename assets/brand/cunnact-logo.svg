@@ -1,16 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 270" role="img" aria-labelledby="title desc">
   <title id="title">CUNNACT</title>
-  <desc id="desc">CUNNACT logo and Stay Connected tagline.</desc>
+  <desc id="desc">CUNNACT logo and Stay Connected tagline for light backgrounds.</desc>
   <svg x="0" y="0" width="240" height="240" viewBox="0 0 512 512">
     <defs>
-      <linearGradient id="main" x1="120" y1="80" x2="420" y2="420" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2F80FF"/><stop offset="0.58" stop-color="#3B82F6"/><stop offset="1" stop-color="#25B8FF"/></linearGradient>
-      <linearGradient id="back" x1="130" y1="150" x2="310" y2="390" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8B5CF6" stop-opacity=".92"/><stop offset="1" stop-color="#5B67F1" stop-opacity=".55"/></linearGradient>
+      <linearGradient id="main" x1="104" y1="88" x2="410" y2="422" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3B82F6"/><stop offset="1" stop-color="#06B6D4"/></linearGradient>
+      <linearGradient id="back" x1="124" y1="132" x2="312" y2="396" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8B5CF6"/><stop offset="1" stop-color="#3B82F6"/></linearGradient>
     </defs>
-    <path d="M196 92c-70 31-118 99-118 175 0 93 64 165 151 178 30 5 61 2 89-8-31 3-60-2-85-13-56-25-91-80-91-144 0-84 57-151 135-164 10-2 21-3 31-2-33-32-76-39-112-22Z" fill="url(#back)"/>
-    <path d="M395 160c-35-43-85-68-140-68-104 0-187 78-187 178 0 101 84 182 191 182 60 0 114-26 148-70l-72-42c-20 23-47 36-77 36-57 0-101-43-101-98s44-99 101-99c31 0 59 14 79 38l76-37c-4-7-9-14-18-20Z" fill="url(#main)"/>
-    <path d="M214 175h126c42 0 77 35 77 77v34c0 42-35 77-77 77h-74l-43 31 10-31h-19c-42 0-77-35-77-77v-34c0-42 35-77 77-77Z" fill="#0F172A"/>
-    <circle cx="244" cy="269" r="13.5" fill="#42BFFF"/><circle cx="290" cy="269" r="13.5" fill="#42BFFF"/><circle cx="336" cy="269" r="13.5" fill="#42BFFF"/>
+    <path d="M186 92C121 127 78 194 78 268c0 111 90 202 201 202 29 0 57-6 82-17-24 4-48 2-70-4-79-22-135-94-135-180 0-95 66-175 155-193-35-22-83-20-125 3Z" fill="url(#back)"/>
+    <path d="M406 151c-37-40-91-64-149-64-114 0-207 86-207 192s94 192 210 192c62 0 119-26 156-74l-78-46c-20 24-47 37-77 37-63 0-111-47-111-109 0-61 48-109 111-109 31 0 59 13 79 38l78-45c-3-5-7-9-12-12Z" fill="url(#main)"/>
+    <path d="M213 177h118c43 0 78 35 78 78v22c0 43-35 78-78 78h-66l-47 32 13-32h-18c-43 0-78-35-78-78v-22c0-43 35-78 78-78Z" fill="#F8FAFC"/>
+    <circle cx="244" cy="266" r="13" fill="#06B6D4"/><circle cx="290" cy="266" r="13" fill="#06B6D4"/><circle cx="336" cy="266" r="13" fill="#06B6D4"/>
   </svg>
-  <text x="275" y="134" font-family="Inter, Arial, sans-serif" font-size="74" font-weight="800" letter-spacing="2" fill="#0F172A">CUNNACT<tspan dy="-28" font-size="18">™</tspan></text>
-  <text x="279" y="180" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="7" fill="#64748B">STAY CONNECTED.</text>
+  <text x="275" y="134" font-family="Inter,Arial,sans-serif" font-size="74" font-weight="800" letter-spacing="2" fill="#0F172A">CUNNACT</text>
+  <text x="279" y="180" font-family="Inter,Arial,sans-serif" font-size="24" font-weight="650" letter-spacing="7" fill="#3B82F6">STAY CONNECTED.</text>
 </svg>

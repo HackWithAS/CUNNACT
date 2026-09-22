@@ -374,7 +374,7 @@ async function openChatById(conversationId,hintedUid=null){
     const other=members.find(uid=>uid!==currentUser.uid)||hintedUid;if(!other)return;
     const user=userListeners.get(other)?.data||(await getDoc(doc(db,"users",other))).data();if(!user){showToast("User profile not found.","error");return;}
     closeMessageActionMenus();stopTyping();unsubscribeTyping?.();unsubscribeTyping=null;unsubscribeMessages?.();unsubscribeMessages=null;cleanupInterval?.();cleanupInterval=null;
-    activeConversationId=conversationId;activeUser={uid:other,...user};$id("app")?.classList.add("chat-open");clearImagePreview();clearReply();$id("chatMoreBtn").disabled=false;ensureUserListener(other);refreshChatHeader();setComposerState();renderProfileDrawer();renderChatList();
+    activeConversationId=conversationId;activeUser={uid:other,...user};$id("app")?.classList.add("chat-open");clearImagePreview();clearReply();$id("chatMoreBtn").disabled=false;$id("chatMoreBtn")?.setAttribute("aria-hidden","false");ensureUserListener(other);refreshChatHeader();setComposerState();renderProfileDrawer();renderChatList();
     await updateDoc(doc(db,"conversations",conversationId),{[`unread.${currentUser.uid}`]:0}).catch(()=>{});
     listenMessages();listenTyping();
   }catch(e){console.error("Open chat failed",e);showToast(e?.code==="permission-denied"?"You don't have access to this chat.":"Could not open this chat.","error");}
@@ -394,20 +394,102 @@ function stopTyping(){clearTimeout(window.__cunnactTypingTimer);sendTypingState(
 
 /* Messages */
 function listenMessages(){
-  const token=++messageListenerToken;currentMessages=[];activeMessageMap=new Map();renderedMessageElsCleanup();
-  const box=$id("messages");box.innerHTML='<div class="empty-state big">Loading messages…</div>';
-  readObserver?.disconnect();readObserver=new IntersectionObserver(entries=>{for(const entry of entries){if(entry.isIntersecting&&entry.intersectionRatio>0.35){const id=entry.target.dataset.messageId;if(id)queueRead(id);}}},{root:box,threshold:[0.35]});
-  const q=query(collection(db,"conversations",activeConversationId,"messages"),orderBy("createdAt","desc"),limit(100));
-  unsubscribeMessages=onSnapshot(q,snap=>{if(token!==messageListenerToken)return;const wasAtBottom=isNearBottom();const beforeCount=currentMessages.length;const changes=snap.docChanges();currentMessages=snap.docs.map(d=>({id:d.id,...d.data()})).reverse();activeMessageMap=new Map(currentMessages.map(m=>[m.id,m]));reconcileMessageDOM();
-    const incomingAdded=changes.some(c=>c.type==="added"&&c.doc.data()?.senderId!==currentUser.uid&&beforeCount>0);if(incomingAdded&&document.visibilityState==="visible")playReceive();
-    const selfAdded=changes.some(c=>c.type==="added"&&c.doc.data()?.senderId===currentUser.uid);if((selfAdded||wasAtBottom||beforeCount===0))requestAnimationFrame(()=>box.scrollTop=box.scrollHeight);
-    queueDeliveredForIncoming(currentMessages);
-    if(document.visibilityState==="visible")observeVisibleIncoming();
-    cleanupExpiredMessages(db,activeConversationId,currentMessages,currentUser.uid,updateDoc).catch(()=>{});
-    if(changes.length) updateConversationPreviewFromMessages();
-  },e=>{console.error("Message listener failed",e);box.innerHTML=`<div class="empty-state">Messages couldn't be loaded.<br><span>${escapeHtml(e?.code||"Check Firebase rules.")}</span></div>`;});
+  const token=++messageListenerToken;
+  currentMessages=[];
+  activeMessageMap=new Map();
+  renderedMessageElsCleanup();
+  const box=$id("messages");
+  if(!box)return;
+  box.innerHTML='<div class="empty-state big">Loading messages…</div>';
+
+  readObserver?.disconnect();
+  readObserver=new IntersectionObserver(entries=>{
+    for(const entry of entries){
+      if(entry.isIntersecting&&entry.intersectionRatio>0.35){
+        const id=entry.target.dataset.messageId;
+        if(id)queueRead(id);
+      }
+    }
+  },{root:box,threshold:[0.35]});
+
+  let settled=false;
+  let retryTimer=0;
+  const showLoadError=(message,detail="")=>{
+    if(token!==messageListenerToken)return;
+    clearTimeout(retryTimer);
+    box.innerHTML=`<div class="empty-state">${escapeHtml(message)}<br><span>${escapeHtml(detail)}</span><br><button type="button" class="btn btn-soft btn-sm" id="retryMessagesBtn" style="margin-top:12px">Retry</button></div>`;
+    $id("retryMessagesBtn")?.addEventListener("click",()=>listenMessages(),{once:true});
+  };
+
+  const applySnapshot=(snap)=>{
+    if(token!==messageListenerToken)return;
+    settled=true;
+    clearTimeout(retryTimer);
+    const wasAtBottom=isNearBottom();
+    const beforeCount=currentMessages.length;
+    const changes=snap.docChanges();
+    try{
+      // Sort in the browser so legacy messages without perfect Firestore ordering/indexing
+      // cannot leave the chat stuck on a loading state.
+      currentMessages=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>{
+        const at=timestampDate(a.createdAt)?.getTime()??0;
+        const bt=timestampDate(b.createdAt)?.getTime()??0;
+        return at-bt || String(a.id).localeCompare(String(b.id));
+      });
+      activeMessageMap=new Map(currentMessages.map(m=>[m.id,m]));
+      reconcileMessageDOM();
+
+      const incomingAdded=changes.some(c=>c.type==="added"&&c.doc.data()?.senderId!==currentUser.uid&&beforeCount>0);
+      if(incomingAdded&&document.visibilityState==="visible")playReceive();
+      const selfAdded=changes.some(c=>c.type==="added"&&c.doc.data()?.senderId===currentUser.uid);
+      if(selfAdded||wasAtBottom||beforeCount===0)requestAnimationFrame(()=>{box.scrollTop=box.scrollHeight;});
+
+      queueDeliveredForIncoming(currentMessages);
+      if(document.visibilityState==="visible")observeVisibleIncoming();
+      cleanupExpiredMessages(db,activeConversationId,currentMessages,currentUser.uid,updateDoc).catch(()=>{});
+
+      // Only reconcile the conversation preview when the newest message actually changed.
+      if(changes.some(c=>c.type==="added"||c.type==="removed"))updateConversationPreviewFromMessages();
+    }catch(err){
+      console.error("Message render failed",err);
+      showLoadError("Messages couldn't be displayed.",err?.message||"UI rendering error");
+    }
+  };
+
+  const handleError=(e)=>{
+    if(token!==messageListenerToken)return;
+    console.error("Message listener failed",e);
+    clearTimeout(retryTimer);
+    const code=e?.code||"unknown";
+    if(["failed-precondition","invalid-argument"].includes(code)){
+      // Retry without orderBy for legacy data / index mismatches.
+      unsubscribeMessages?.();
+      const fallbackQuery=query(collection(db,"conversations",activeConversationId,"messages"),limit(100));
+      unsubscribeMessages=onSnapshot(fallbackQuery,applySnapshot,(fallbackErr)=>showLoadError("Messages couldn't be loaded.",fallbackErr?.code||code));
+      return;
+    }
+    settled=true;
+    const detail=code==="permission-denied"?"Firebase rules are blocking message reads.":"Check your connection and Firebase configuration.";
+    showLoadError("Messages couldn't be loaded.",detail+` (${code})`);
+  };
+
+  // Keep the query simple and reliable. We sort client-side so legacy messages or
+  // missing composite/index metadata cannot leave the room stuck on Loading.
+  const messagesQuery=query(collection(db,"conversations",activeConversationId,"messages"),limit(100));
+  unsubscribeMessages=onSnapshot(messagesQuery,applySnapshot,handleError);
+
+  // Never leave a user staring at an infinite loader if the listener is stalled.
+  retryTimer=setTimeout(()=>{
+    if(token!==messageListenerToken||settled)return;
+    console.warn("Message listener timed out; retrying once with a fresh listener.");
+    unsubscribeMessages?.();
+    const freshQuery=query(collection(db,"conversations",activeConversationId,"messages"),limit(100));
+    unsubscribeMessages=onSnapshot(freshQuery,applySnapshot,(e)=>showLoadError("Messages couldn't be loaded.",e?.code||"listener-timeout"));
+  },7000);
+
   cleanupInterval=startPeriodicCleanup(db,activeConversationId,()=>currentMessages,currentUser.uid,updateDoc);
 }
+
 function renderedMessageElsCleanup(){document.querySelectorAll("#messages .message, #messages .date-separator").forEach(el=>el.remove());}
 function reconcileMessageDOM(){
   const box=$id("messages");if(!box)return;

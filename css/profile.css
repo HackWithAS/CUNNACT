@@ -8,7 +8,7 @@
 .profile-hero-v6:after{content:"";position:absolute;width:280px;height:280px;border-radius:50%;background:rgba(59,130,246,.08);filter:blur(4px);right:-100px;top:-120px;pointer-events:none}
 .profile-hero-avatar{display:flex;flex-direction:column;align-items:center;position:relative;z-index:1}
 .avatar-button-v6{position:relative;border:0;background:none;padding:0;cursor:pointer}
-.avatar-profile-v6{width:156px;height:156px;border-radius:38px;box-shadow:0 18px 45px rgba(20,22,35,.16);background:var(--surface-3);overflow:hidden}
+.avatar-profile-v6{width:156px;height:156px;border-radius:38px;box-shadow:0 18px 45px rgba(15,23,42,.16);background:var(--surface-3);overflow:hidden}
 .avatar-profile-v6 img,.avatar-profile-v6 .avatar-fallback{border-radius:inherit}
 .avatar-profile-v6 .avatar-fallback{font-size:38px}
 .avatar-camera-v6{position:absolute;right:-8px;bottom:-8px;width:44px;height:44px;display:grid;place-items:center;border-radius:14px;background:var(--ink);color:var(--bg);border:4px solid var(--surface);box-shadow:var(--shadow-sm);pointer-events:none}
@@ -28,7 +28,7 @@
 .section-heading-v6{display:flex;align-items:flex-start;gap:12px;margin-bottom:22px}
 .section-heading-v6 h2{font-size:16px;letter-spacing:-.025em}.section-heading-v6 p{margin-top:4px;color:var(--ink-faint);font-size:11px;line-height:1.5}
 .section-icon{display:grid;place-items:center;flex:0 0 auto;width:38px;height:38px;border-radius:12px;background:var(--accent-soft);color:var(--accent)}
-.section-icon.green{background:rgba(33,197,107,.11);color:var(--online)}.section-icon.orange{background:rgba(216,146,44,.12);color:var(--warning)}.section-icon svg{width:18px;height:18px}
+.section-icon.green{background:rgba(6,182,212,.11);color:var(--online)}.section-icon.orange{background:rgba(139,92,246,.12);color:var(--warning)}.section-icon svg{width:18px;height:18px}
 .profile-fields-v6{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .profile-field-v6{display:grid;gap:8px;min-width:0}.profile-field-v6.full{grid-column:1/-1}
 .profile-field-v6>span{font-size:11px;font-weight:750;color:var(--ink-soft)}
