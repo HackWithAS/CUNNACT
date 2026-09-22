@@ -1,9 +1,14 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
-import { getStorage } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
+// Firebase Web App configuration for the "cunnact" project.
+//
+// These values are public identifiers, not secrets: they ship to every browser.
+// What actually protects your data is Firebase Authentication + firestore.rules.
+//
+// Never put Firebase Admin SDK / service-account credentials here, and never put
+// the Cloudinary API Secret anywhere in this project (see js/cloudinary.js).
+//
+// Firebase Storage is intentionally not used — images live on Cloudinary instead.
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyA_dapCcAP9w_66FacMlRns1NTwxZ-_wTQ",
   authDomain: "cunnact.firebaseapp.com",
   projectId: "cunnact",
@@ -12,10 +17,3 @@ const firebaseConfig = {
   appId: "1:179918248368:web:a188f5aafc096043a75e75",
   measurementId: "G-W7B6GVV3D9"
 };
-
-const app = initializeApp(firebaseConfig);
-
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-export { app };

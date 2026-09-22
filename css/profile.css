@@ -1,1 +1,38 @@
-.profile-card{width:min(520px,100%);background:#fff;padding:30px;border:1px solid #e5e8ef;border-radius:20px}.profile-card h1{margin-top:28px}.profile-photo{width:96px;height:96px;border-radius:50%;object-fit:cover;display:block;margin:20px auto}.profile-card form{display:grid;gap:14px;margin-top:20px}.back-link{display:inline-block}.profile-card textarea{min-height:100px;resize:vertical}
+.profile-page { background: var(--bg); }
+.profile-card {
+  width: min(520px, 100%); background: var(--surface); padding: 34px 32px; margin: 24px auto;
+  border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
+}
+.profile-card .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; margin-bottom: 18px; }
+.profile-card h1 { font-size: 21px; margin: 4px 0 22px; text-align: center; }
+
+.avatar-upload { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 28px; }
+.avatar-upload .avatar-edit { position: relative; }
+.avatar-upload .avatar-edit .avatar { width: 112px; height: 112px; }
+.avatar-upload .camera-btn {
+  position: absolute; right: -2px; bottom: -2px; width: 36px; height: 36px; border-radius: 50%;
+  background: var(--ink); color: #fff; display: flex; align-items: center; justify-content: center;
+  border: 3px solid var(--surface);
+}
+.avatar-upload .camera-btn:hover { background: var(--accent-strong); }
+.avatar-upload .camera-btn svg { width: 16px; height: 16px; }
+.avatar-upload .upload-status { font-size: 12.5px; color: var(--ink-faint); min-height: 16px; text-align: center; }
+.avatar-upload .upload-progress { width: 150px; height: 5px; border-radius: 99px; background: var(--border); overflow: hidden; display: none; }
+.avatar-upload.uploading .upload-progress { display: block; }
+.avatar-upload .upload-progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.15s ease; }
+
+.profile-card form { display: grid; gap: 14px; }
+.profile-card label { display: grid; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+.profile-card input, .profile-card textarea {
+  width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+  outline: 0; background: var(--bg); font-size: 14.5px; color: var(--ink);
+}
+.profile-card input:disabled { opacity: 0.7; }
+.profile-card input:focus, .profile-card textarea:focus { border-color: var(--accent); background: var(--surface); }
+.profile-card textarea { min-height: 96px; resize: vertical; }
+.profile-card .char-count { font-size: 11.5px; color: var(--ink-faint); text-align: right; margin-top: -6px; }
+.profile-card button[type="submit"] { margin-top: 4px; width: 100%; }
+
+#profileMessage { font-size: 13.5px; min-height: 18px; color: var(--ink-soft); text-align: center; }
+#profileMessage.error { color: var(--danger); }
+#profileMessage.success { color: #1c8a5a; }

@@ -1,1 +1,18 @@
-.auth-page,.profile-page{min-height:100vh;display:grid;place-items:center;padding:20px}.auth-card{width:min(420px,100%);background:#fff;padding:34px;border:1px solid #e5e8ef;border-radius:20px;box-shadow:0 18px 60px #17203310}.auth-card h1{margin:30px 0 6px}.auth-card form{display:grid;gap:14px;margin-top:24px}.auth-card label,.profile-card label{display:grid;gap:7px;font-size:13px;font-weight:600}.auth-card input,.profile-card input,.profile-card textarea{width:100%;padding:12px;border:1px solid #dfe4ec;border-radius:10px;outline:0}.auth-card button,.profile-card button{padding:12px;border-radius:10px;background:#172033;color:#fff}.auth-card input:focus,.profile-card input:focus,.profile-card textarea:focus{border-color:#7c8cff}
+.auth-page { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: var(--bg); }
+.auth-card { width: min(420px, 100%); background: var(--surface); padding: 36px 32px; border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); }
+.auth-card .brand-mark { margin-bottom: 24px; }
+.auth-card h1 { font-size: 22px; margin-bottom: 6px; }
+.auth-card > p { color: var(--ink-soft); font-size: 14.5px; }
+.auth-card form { display: grid; gap: 14px; margin-top: 22px; }
+.auth-card label { display: grid; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+.auth-card input {
+  width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+  outline: 0; background: var(--bg); font-size: 14.5px; color: var(--ink);
+}
+.auth-card input:focus { border-color: var(--accent); background: var(--surface); }
+.auth-card button[type="submit"] { margin-top: 4px; width: 100%; }
+
+.error { color: var(--danger); min-height: 18px; font-size: 13px; margin: 0; }
+.switch { text-align: center; color: var(--ink-faint); font-size: 13.5px; margin-top: 18px; }
+.switch a, .back-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+.switch a:hover, .back-link:hover { text-decoration: underline; }

@@ -1,54 +1,103 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
-import { firebaseConfig } from "./firebase-config.js";
+import { auth, db, onAuthStateChanged, updateProfile, doc, getDoc, updateDoc, serverTimestamp } from "./firebase.js";
+import { uploadImageToCloudinary, UploadError } from "./cloudinary.js";
+import { paintAvatar } from "./avatar.js";
+import { showToast } from "./toast.js";
+import { $ } from "./ui.js";
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
+let currentUser = null;
+let currentPhotoURL = "";
+let uploadController = null;
 
-let currentUser;
+const avatarEl = $("profileAvatar");
+const uploadBox = $("avatarUpload");
+const uploadStatus = $("uploadStatus");
+const progressFill = $("uploadProgressFill");
+const bioInput = $("profileBio");
+const bioCount = $("bioCount");
+const profileMessage = $("profileMessage");
 
-onAuthStateChanged(auth, async user => {
+onAuthStateChanged(auth, async (user) => {
   if (!user) { location.href = "login.html"; return; }
   currentUser = user;
   const snap = await getDoc(doc(db, "users", user.uid));
   const data = snap.exists() ? snap.data() : {};
-  profileName.value = data.name || user.displayName || "";
-  profileEmail.value = user.email || "";
-  profileBio.value = data.bio || "";
-  profilePhoto.src = data.photoURL || user.photoURL || "assets/images/avatar.svg";
+  const name = data.name || user.displayName || "";
+  currentPhotoURL = data.photoURL || user.photoURL || "";
+
+  $("profileName").value = name;
+  $("profileEmail").value = user.email || "";
+  bioInput.value = data.bio || "";
+  bioCount.textContent = bioInput.value.length;
+  paintAvatar(avatarEl, { photoURL: currentPhotoURL, name, email: user.email, preset: "avatarXl" });
 });
 
-photoInput.addEventListener("change", async () => {
-  const file = photoInput.files[0];
+bioInput.addEventListener("input", () => { bioCount.textContent = bioInput.value.length; });
+
+$("changePhotoBtn").addEventListener("click", () => $("photoInput").click());
+
+$("photoInput").addEventListener("change", async () => {
+  const file = $("photoInput").files[0];
+  $("photoInput").value = ""; // allow re-selecting the same file later
   if (!file || !currentUser) return;
-  if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
-    profileMessage.textContent = "Choose an image under 2 MB.";
+
+  uploadController?.abort();
+  uploadController = new AbortController();
+
+  const previousPhotoURL = currentPhotoURL;
+  const objectUrl = URL.createObjectURL(file);
+  const img = avatarEl.querySelector("img");
+  const fallback = avatarEl.querySelector(".avatar-fallback");
+  img.src = objectUrl;
+  img.hidden = false;
+  fallback.hidden = true;
+
+  uploadBox.classList.add("uploading");
+  uploadStatus.textContent = "Uploading…";
+  progressFill.style.width = "0%";
+
+  try {
+    const url = await uploadImageToCloudinary(file, {
+      signal: uploadController.signal,
+      onProgress: (p) => { progressFill.style.width = `${Math.round(p * 100)}%`; }
+    });
+    currentPhotoURL = url;
+    await updateProfile(currentUser, { photoURL: url });
+    await updateDoc(doc(db, "users", currentUser.uid), { photoURL: url, lastSeen: serverTimestamp() });
+    uploadStatus.textContent = "Profile picture updated.";
+    showToast("Profile picture updated.", "success");
+  } catch (error) {
+    if (error?.kind === "aborted") return;
+    const message = error instanceof UploadError ? error.userMessage : "Couldn't upload image. Please try again.";
+    uploadStatus.textContent = message;
+    showToast(message, "error");
+    paintAvatar(avatarEl, { photoURL: previousPhotoURL, name: $("profileName").value, email: currentUser.email, preset: "avatarXl" });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+    uploadBox.classList.remove("uploading");
+    setTimeout(() => { if (uploadStatus.textContent) uploadStatus.textContent = ""; }, 3000);
+  }
+});
+
+$("profileForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  profileMessage.className = "";
+  const name = $("profileName").value.trim();
+  if (!name) {
+    profileMessage.textContent = "Name can't be empty.";
+    profileMessage.className = "error";
     return;
   }
-  const storageRef = ref(storage, `profilePictures/${currentUser.uid}/${Date.now()}-${file.name}`);
-  const snap = await uploadBytes(storageRef, file);
-  const url = await getDownloadURL(snap.ref);
-  await updateProfile(currentUser, { photoURL: url });
-  await updateDoc(doc(db, "users", currentUser.uid), { photoURL: url, lastSeen: serverTimestamp() });
-  profilePhoto.src = url;
-  profileMessage.textContent = "Profile picture updated.";
-});
-
-profileForm.addEventListener("submit", async e => {
-  e.preventDefault();
   try {
-    await updateProfile(currentUser, { displayName: profileName.value.trim() });
+    await updateProfile(currentUser, { displayName: name });
     await updateDoc(doc(db, "users", currentUser.uid), {
-      name: profileName.value.trim(),
-      bio: profileBio.value.trim(),
+      name,
+      bio: bioInput.value.trim(),
       lastSeen: serverTimestamp()
     });
     profileMessage.textContent = "Profile saved.";
+    profileMessage.className = "success";
   } catch {
     profileMessage.textContent = "Could not save your profile.";
+    profileMessage.className = "error";
   }
 });

@@ -1,24 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Profile · CUNNACT</title>
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/profile.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Profile · CUNNACT</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235b57e6'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='700' font-size='17' fill='white' text-anchor='middle'%3EC%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/profile.css">
 </head>
 <body class="profile-page">
   <main class="profile-card">
     <a href="index.html" class="back-link">← Back to CUNNACT</a>
     <h1>Your profile</h1>
-    <img id="profilePhoto" class="profile-photo" src="assets/images/avatar.svg" alt="Profile">
-    <input id="photoInput" type="file" accept="image/*">
-    <form id="profileForm">
-      <label>Name<input id="profileName" type="text" required></label>
-      <label>Bio<textarea id="profileBio" maxlength="160"></textarea></label>
-      <label>Email<input id="profileEmail" type="email" disabled></label>
-      <button type="submit">Save changes</button>
-      <p id="profileMessage"></p>
+
+    <div class="avatar-upload" id="avatarUpload">
+      <div class="avatar-edit">
+        <span class="avatar xl" id="profileAvatar">
+          <img id="profilePhoto" alt="" hidden>
+          <span class="avatar-fallback" id="profileInitials"></span>
+        </span>
+        <button type="button" class="camera-btn" id="changePhotoBtn" aria-label="Change profile picture">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h1.2a2 2 0 0 0 1.6-.8l.4-.53A2 2 0 0 1 10.8 4h2.4a2 2 0 0 1 1.6.67l.4.53a2 2 0 0 0 1.6.8H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        </button>
+      </div>
+      <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+      <span class="upload-status" id="uploadStatus"></span>
+      <div class="upload-progress"><div class="upload-progress-fill" id="uploadProgressFill"></div></div>
+    </div>
+
+    <form id="profileForm" novalidate>
+      <label>Name
+        <input id="profileName" type="text" required>
+      </label>
+      <label>Bio
+        <textarea id="profileBio" maxlength="160"></textarea>
+      </label>
+      <div class="char-count"><span id="bioCount">0</span>/160</div>
+      <label>Email
+        <input id="profileEmail" type="email" disabled>
+      </label>
+      <button type="submit" class="btn btn-primary">Save changes</button>
+      <p id="profileMessage" role="status" aria-live="polite"></p>
     </form>
   </main>
   <script type="module" src="js/profile.js"></script>
