@@ -112,6 +112,8 @@ function finishConfirmDialog(value) {
 }
 
 /* ===================== Auth bootstrap ===================== */
+applyTheme(localStorage.getItem("cunnact_theme") || "light");
+
 onAuthStateChanged(auth, async (user) => {
   try {
     if (!user) {
@@ -196,8 +198,17 @@ function bindStaticControls() {
   if (staticBound) return;
   staticBound = true;
   updateSoundToggle();
+  updateThemeToggle();
 
   $id("logoutBtn")?.addEventListener("click", logout);
+  $id("themeToggleBtn")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    playClick();
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    applyTheme(next);
+    const menu = $id("accountMenu");
+    if (menu) menu.hidden = false;
+  });
   $id("profileBtn")?.addEventListener("click", () => { playClick(); location.href = "profile.html"; });
   $id("accountMenuBtn")?.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -299,6 +310,24 @@ async function logout() {
     console.error("Logout failed:", error);
     showToast("Could not log out. Please try again.", "error");
   }
+}
+
+function applyTheme(theme) {
+  const resolved = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = resolved;
+  localStorage.setItem("cunnact_theme", resolved);
+  const label = $id("themeToggleLabel");
+  if (label) label.textContent = resolved === "dark" ? "Light mode" : "Dark mode";
+  const button = $id("themeToggleBtn");
+  if (button) {
+    button.setAttribute("aria-label", resolved === "dark" ? "Switch to light mode" : "Switch to dark mode");
+  }
+}
+
+function updateThemeToggle() {
+  const theme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+  const label = $id("themeToggleLabel");
+  if (label) label.textContent = theme === "dark" ? "Light mode" : "Dark mode";
 }
 
 function updateSoundToggle() {
