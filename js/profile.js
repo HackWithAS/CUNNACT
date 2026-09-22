@@ -1,204 +1,103 @@
 import {
-  auth, db, onAuthStateChanged, updateProfile, doc, getDoc, setDoc, updateDoc,
-  serverTimestamp, runTransaction
+  auth, db, onAuthStateChanged, updateProfile, doc, getDoc, setDoc,
+  updateDoc, serverTimestamp, runTransaction
 } from "./firebase.js";
 import { uploadImageToCloudinary, UploadError } from "./cloudinary.js";
 import { paintAvatar } from "./avatar.js";
 import { showToast } from "./toast.js";
-import { $ } from "./ui.js";
+import { $, debounce } from "./ui.js";
 import { isSoundEnabled, setSoundEnabled, playClick, playSuccess } from "./sound.js";
-import { getRetentionMode, loadRetentionMode, setRetentionMode } from "./retention.js";
+import { getRetentionMode, loadRetentionMode, setRetentionMode, setUserSetting } from "./retention.js";
 
 let currentUser = null;
 let currentPhotoURL = "";
-let originalProfile = {};
-let usernameTimer = null;
-let usernameCheckToken = 0;
+let original = {};
+let usernameToken = 0;
 let uploadController = null;
-
+let pendingTheme = localStorage.getItem("cunnact_theme") || "light";
 const RESERVED = new Set(["admin","administrator","support","help","cunnact","official","security","system","root","api","www","user","users","profile","login","register","settings"]);
-const usernamePattern = /^[a-z0-9_]{5,24}$/;
+const PATTERN = /^[a-z0-9_]{5,24}$/;
 
-function normalizeUsername(value) {
-  return String(value || "").trim().replace(/^@+/, "").toLowerCase();
+const normalizeUsername = (value) => String(value || "").trim().replace(/^@+/, "").toLowerCase();
+const suggestedUsername = (name, email) => {
+  const raw = (String(name || "") || String(email || "").split("@")[0]).toLowerCase().replace(/[^a-z0-9_]/g, "");
+  return raw.slice(0,24) || "cunnacter";
+};
+function setStatus(text="", type="") { const el=$("profileMessage"); if(el){el.textContent=text;el.className=`profile-status ${type}`.trim();} }
+function updateBioCount(){const b=$("profileBio"),c=$("bioCount");if(b&&c)c.textContent=String(b.value.length);}
+function updatePreview(){const name=$("profileName")?.value.trim()||"Your name", u=normalizeUsername($("profileUsername")?.value)||"username";$("heroDisplayName").textContent=name;$("heroUsername").textContent=`@${u}`;$("publicProfileState").textContent=`@${u}`;}
+async function usernameAvailable(value){
+  const username=normalizeUsername(value),status=$("usernameStatus");
+  if(!username){status.textContent="Choose a unique ID to share your profile.";status.className="";return false;}
+  if(!PATTERN.test(username)){status.textContent="Use 5–24 lowercase letters, numbers or underscores.";status.className="error";return false;}
+  if(RESERVED.has(username)){status.textContent="That CUNNACT ID is reserved.";status.className="error";return false;}
+  const token=++usernameToken;status.textContent="Checking availability…";status.className="";
+  try{const snap=await getDoc(doc(db,"usernames",username));if(token!==usernameToken)return false;const free=!snap.exists()||snap.data()?.uid===currentUser?.uid;status.textContent=free?"✓ Available":"✕ Username already taken";status.className=free?"success":"error";return free;}
+  catch(e){console.error(e);if(token===usernameToken){status.textContent="Could not check availability.";status.className="error";}return false;}
 }
-function suggestUsername(name, email) {
-  const base = normalizeUsername(name).replace(/[^a-z0-9_]/g, "") || normalizeUsername(String(email || "").split("@")[0]).replace(/[^a-z0-9_]/g, "");
-  return base.slice(0, 24);
-}
-function setProfileStatus(text="", type="") {
-  const el=$("profileMessage"); if (!el) return;
-  el.textContent=text; el.className=`profile-status ${type}`.trim();
-}
-function updateBioCount(){ const b=$("profileBio"), c=$("bioCount"); if(b&&c)c.textContent=String(b.value.length); }
-function updateIdentityPreview(){
-  const name=$("profileName")?.value.trim() || "Your name";
-  const u=normalizeUsername($("profileUsername")?.value) || "username";
-  $("heroDisplayName").textContent=name; $("heroUsername").textContent=`@${u}`;
-  $("publicProfileState").textContent=`@${u}`;
-}
-function openPhotoPicker(){ playClick(); $("photoInput")?.click(); }
-
-async function checkUsernameAvailability(value) {
-  const username=normalizeUsername(value);
-  const status=$("usernameStatus");
-  if(!username){ status.textContent="Choose a unique ID to share your profile."; status.className=""; return false; }
-  if(!usernamePattern.test(username)){ status.textContent="Use 5–24 lowercase letters, numbers or underscores."; status.className="error"; return false; }
-  if(RESERVED.has(username)){ status.textContent="That CUNNACT ID is reserved."; status.className="error"; return false; }
-  const token=++usernameCheckToken;
-  status.textContent="Checking availability…"; status.className="";
-  try {
-    const snap=await getDoc(doc(db,"usernames",username));
-    if(token!==usernameCheckToken)return false;
-    const available=!snap.exists() || snap.data()?.uid===currentUser?.uid;
-    status.textContent=available ? "✓ Available" : "✕ Username already taken";
-    status.className=available?"success":"error";
-    return available;
-  } catch(e){
-    console.error("Username check failed:",e);
-    if(token===usernameCheckToken){status.textContent="Could not check availability.";status.className="error";}
-    return false;
-  }
-}
-
-async function claimUsername(newUsername, oldUsername) {
-  const next=normalizeUsername(newUsername), old=normalizeUsername(oldUsername);
-  if(!usernamePattern.test(next) || RESERVED.has(next)) throw new Error("Invalid CUNNACT ID");
-  await runTransaction(db, async (tx)=>{
-    const nextRef=doc(db,"usernames",next);
-    const oldRef=old?doc(db,"usernames",old):null;
-    const userRef=doc(db,"users",currentUser.uid);
-    const publicRef=doc(db,"publicProfiles",currentUser.uid);
+async function claimUsername(nextValue,oldValue,name,bio,photoURL){
+  const next=normalizeUsername(nextValue),old=normalizeUsername(oldValue);
+  if(!PATTERN.test(next)||RESERVED.has(next))throw new Error("INVALID_USERNAME");
+  await runTransaction(db,async(tx)=>{
+    const nextRef=doc(db,"usernames",next),oldRef=old&&old!==next?doc(db,"usernames",old):null,userRef=doc(db,"users",currentUser.uid),publicRef=doc(db,"publicProfiles",currentUser.uid);
     const nextSnap=await tx.get(nextRef);
-    if(nextSnap.exists() && nextSnap.data()?.uid!==currentUser.uid) throw new Error("USERNAME_TAKEN");
+    if(nextSnap.exists()&&nextSnap.data()?.uid!==currentUser.uid)throw new Error("USERNAME_TAKEN");
     tx.set(nextRef,{uid:currentUser.uid,createdAt:nextSnap.exists()?nextSnap.data()?.createdAt:serverTimestamp()},{merge:true});
-    if(old && old!==next && oldRef){
-      const oldSnap=await tx.get(oldRef);
-      if(oldSnap.exists() && oldSnap.data()?.uid===currentUser.uid) tx.delete(oldRef);
-    }
-    tx.set(userRef,{username:next,usernameLower:next},{merge:true});
-    tx.set(publicRef,{
-      uid:currentUser.uid,username:next,usernameLower:next,
-      displayName:$("profileName").value.trim(),photoURL:currentPhotoURL||"",
-      bio:$("profileBio").value.trim(),updatedAt:serverTimestamp()
-    },{merge:true});
+    if(oldRef){const oldSnap=await tx.get(oldRef);if(oldSnap.exists()&&oldSnap.data()?.uid===currentUser.uid)tx.delete(oldRef);}
+    tx.set(userRef,{username:next,usernameLower:next,name,photoURL,bio},{merge:true});
+    tx.set(publicRef,{uid:currentUser.uid,username:next,usernameLower:next,displayName:name,photoURL,bio,updatedAt:serverTimestamp()},{merge:true});
   });
 }
+async function savePublicProfile(name,bio,username){await setDoc(doc(db,"publicProfiles",currentUser.uid),{uid:currentUser.uid,username,usernameLower:username,displayName:name,photoURL:currentPhotoURL||"",bio,updatedAt:serverTimestamp()},{merge:true});}
+function applyLocalTheme(theme){const t=theme==="dark"?"dark":"light";pendingTheme=t;document.documentElement.dataset.theme=t;localStorage.setItem("cunnact_theme",t);}
 
-async function savePublicProfile() {
-  const username=normalizeUsername($("profileUsername").value);
-  await setDoc(doc(db,"publicProfiles",currentUser.uid),{
-    uid:currentUser.uid,username,usernameLower:username,
-    displayName:$("profileName").value.trim(),photoURL:currentPhotoURL||"",
-    bio:$("profileBio").value.trim(),updatedAt:serverTimestamp()
-  },{merge:true});
-}
-
-onAuthStateChanged(auth, async user=>{
+onAuthStateChanged(auth,async(user)=>{
   if(!user){location.replace("login.html");return;}
   currentUser=user;
-  setProfileStatus("Loading profile…");
   try{
-    const snap=await getDoc(doc(db,"users",user.uid));
-    const data=snap.exists()?snap.data():{};
-    const name=data.name||user.displayName||"";
-    currentPhotoURL=data.photoURL||user.photoURL||"";
-    const username=normalizeUsername(data.username||"");
-    originalProfile={name,username,bio:data.bio||"",photoURL:currentPhotoURL,retention:data.retentionMode||"24hours"};
-    $("profileName").value=name;
-    $("profileEmail").value=user.email||data.email||"";
-    $("profileUsername").value=username;
-    if(!username) $("profileUsername").placeholder=suggestUsername(name,user.email);
-    $("profileBio").value=data.bio||"";
-    updateBioCount(); updateIdentityPreview();
-    paintAvatar($("profileAvatar"),{photoURL:currentPhotoURL,name,email:user.email,preset:"avatarXl"});
-    const retention=await loadRetentionMode(user.uid);
-    const radio=document.querySelector(`input[name="retention"][value="${retention}"]`);
-    if(radio)radio.checked=true;
-    $("soundToggle").checked=isSoundEnabled();
-    setProfileStatus("");
-  }catch(e){console.error("Profile load error:",e);setProfileStatus("Could not load your profile. Please refresh.","error");}
+    const userSnap=await getDoc(doc(db,"users",user.uid)), data=userSnap.exists()?userSnap.data():{};
+    const settingsSnap=await getDoc(doc(db,"userSettings",user.uid)), settings=settingsSnap.exists()?settingsSnap.data():{};
+    const name=data.name||user.displayName||user.email||"User", username=normalizeUsername(data.username||""), bio=data.bio||"";
+    currentPhotoURL=data.photoURL||user.photoURL||"";pendingTheme=settings.theme||localStorage.getItem("cunnact_theme")||"light";applyLocalTheme(pendingTheme);
+    original={name,username,bio,photoURL:currentPhotoURL,retention:settings.retentionMode||"24hours",sound:settings.soundEnabled!==false,theme:pendingTheme};
+    $("profileName").value=name;$("profileEmail").value=user.email||data.email||"";$("profileUsername").value=username;$("profileBio").value=bio;if(!username)$("profileUsername").placeholder=suggestedUsername(name,user.email);
+    updateBioCount();updatePreview();paintAvatar($("profileAvatar"),{photoURL:currentPhotoURL,name,email:user.email});
+    const retention=await loadRetentionMode(user.uid);const retentionRadio=document.querySelector(`input[name="retention"][value="${retention}"]`); if(retentionRadio) retentionRadio.checked=true;
+    $("soundToggle").checked=settings.soundEnabled!==false;setStatus("");
+  }catch(e){console.error("Profile load error",e);setStatus("Could not load your profile. Please refresh.","error");}
 });
 
-$("profileName")?.addEventListener("input",updateIdentityPreview);
-$("profileUsername")?.addEventListener("input",()=>{
-  updateIdentityPreview();
-  clearTimeout(usernameTimer);
-  usernameTimer=setTimeout(()=>checkUsernameAvailability($("profileUsername").value),500);
-});
+$("profileName")?.addEventListener("input",updatePreview);
 $("profileBio")?.addEventListener("input",updateBioCount);
-$("changePhotoBtn")?.addEventListener("click",openPhotoPicker);
-$("avatarButton")?.addEventListener("click",openPhotoPicker);
-
+$("profileUsername")?.addEventListener("input",debounce(()=>{updatePreview();usernameAvailable($("profileUsername").value);},480));
+const openPicker=()=>{$("photoInput")?.click();};
+$("avatarButton")?.addEventListener("click",openPicker);$("changePhotoBtn")?.addEventListener("click",openPicker);
 $("photoInput")?.addEventListener("change",async()=>{
-  const file=$("photoInput").files?.[0]; $("photoInput").value="";
-  if(!file||!currentUser)return;
-  uploadController?.abort(); uploadController=new AbortController();
-  const previous=currentPhotoURL;
-  const objectUrl=URL.createObjectURL(file);
-  const avatar=$("profileAvatar"), img=avatar?.querySelector("img"), fallback=avatar?.querySelector(".avatar-fallback");
-  if(img){img.src=objectUrl;img.hidden=false;img.style.display="block";} if(fallback){fallback.hidden=true;fallback.style.display="none";}
-  const stage=$("profileAvatar").closest(".profile-hero-avatar"); stage?.classList.add("uploading");
-  $("uploadStatus").textContent="Uploading photo…"; $("uploadProgressFill").style.width="0%";
-  try{
-    const url=await uploadImageToCloudinary(file,{signal:uploadController.signal,onProgress:p=>$("uploadProgressFill").style.width=`${Math.round(p*100)}%`});
-    currentPhotoURL=url;
-    await updateProfile(currentUser,{photoURL:url});
-    await updateDoc(doc(db,"users",currentUser.uid),{photoURL:url,lastSeen:serverTimestamp()});
-    await savePublicProfile();
-    paintAvatar(avatar,{photoURL:url,name:$("profileName").value,email:currentUser.email,preset:"avatarXl"});
-    $("uploadStatus").textContent="Profile photo updated ✓"; playSuccess(); showToast("Profile photo updated.","success");
-  }catch(e){
-    if(e?.kind==="aborted")return;
-    console.error("Photo upload failed:",e);
-    $("uploadStatus").textContent=e instanceof UploadError?e.userMessage:"Couldn't upload image.";
-    paintAvatar(avatar,{photoURL:previous,name:$("profileName").value,email:currentUser.email,preset:"avatarXl"});
-    showToast($("uploadStatus").textContent,"error");
-  }finally{
-    URL.revokeObjectURL(objectUrl); stage?.classList.remove("uploading");
-    setTimeout(()=>{$("uploadStatus").textContent="";$("uploadProgressFill").style.width="0%"},2200);
-  }
+  const file=$("photoInput").files?.[0];$("photoInput").value="";if(!file||!currentUser)return;
+  uploadController?.abort();uploadController=new AbortController();const prev=currentPhotoURL, objectUrl=URL.createObjectURL(file),stage=$("profileAvatar")?.closest(".profile-hero-avatar");
+  stage?.classList.add("uploading");paintAvatar($("profileAvatar"),{photoURL:objectUrl,name:$("profileName").value,email:currentUser.email});$("uploadStatus").textContent="Uploading photo…";
+  try{const url=await uploadImageToCloudinary(file,{signal:uploadController.signal,onProgress:p=>$("uploadProgressFill").style.width=`${Math.round(p*100)}%`});currentPhotoURL=url;await updateProfile(currentUser,{photoURL:url});await updateDoc(doc(db,"users",currentUser.uid),{photoURL:url});const username=normalizeUsername($("profileUsername").value);if(username)await savePublicProfile($("profileName").value.trim(),$("profileBio").value.trim(),username);paintAvatar($("profileAvatar"),{photoURL:url,name:$("profileName").value,email:currentUser.email});$("uploadStatus").textContent="Profile photo updated ✓";playSuccess();showToast("Profile photo updated","success");}
+  catch(e){if(e?.kind!=="aborted"){console.error(e);$("uploadStatus").textContent=e instanceof UploadError?e.userMessage:"Couldn't upload image.";paintAvatar($("profileAvatar"),{photoURL:prev,name:$("profileName").value,email:currentUser.email});showToast($("uploadStatus").textContent,"error");}}
+  finally{URL.revokeObjectURL(objectUrl);stage?.classList.remove("uploading");setTimeout(()=>{$("uploadStatus").textContent="";$("uploadProgressFill").style.width="0%"},2200);}
 });
 
-$("backToChat")?.addEventListener("click",()=>{playClick();location.href="index.html";});
-$("cancelProfileBtn")?.addEventListener("click",()=>{playClick();location.href="index.html";});
-$("themeProfileBtn")?.addEventListener("click",()=>{
-  const next=document.documentElement.dataset.theme==="dark"?"light":"dark";
-  document.documentElement.dataset.theme=next;localStorage.setItem("cunnact_theme",next);playClick();
-});
-$("soundToggle")?.addEventListener("change",e=>{setSoundEnabled(e.target.checked);if(e.target.checked)playClick();showToast(e.target.checked?"Sound effects on":"Sound effects off","success");});
-document.querySelectorAll('input[name="retention"]').forEach(r=>r.addEventListener("change",async e=>{
-  if(!currentUser)return; try{await setRetentionMode(e.target.value,currentUser.uid);showToast(e.target.value==="seen"?"Messages will delete after seen":"Messages will delete after 24 hours","success");}catch(err){console.error(err);showToast("Could not save retention setting","error");}
-}));
+document.querySelectorAll('input[name="retention"]').forEach(r=>r.addEventListener("change",async(e)=>{try{await setRetentionMode(e.target.value,currentUser.uid);showToast(e.target.value==="seen"?"Messages will remove after they're seen":"Messages will remove after 24 hours","success");}catch(err){console.error(err);showToast("Could not save retention setting","error");}}));
+$("soundToggle")?.addEventListener("change",async(e)=>{const enabled=!!e.target.checked;setSoundEnabled(enabled);try{await setUserSetting(currentUser.uid,{soundEnabled:enabled});}catch(err){console.error(err);}if(enabled)playClick();});
+$("themeProfileBtn")?.addEventListener("click",async()=>{pendingTheme=pendingTheme==="dark"?"light":"dark";applyLocalTheme(pendingTheme);try{await setUserSetting(currentUser.uid,{theme:pendingTheme});}catch(e){console.warn(e);}playClick();});
+$("shareProfileBtn")?.addEventListener("click",async()=>{const username=normalizeUsername($("profileUsername").value);if(!username){showToast("Set a CUNNACT ID before sharing your profile.","info");$("profileUsername").focus();return;}const url=`${location.origin}/u/${encodeURIComponent(username)}`,text=`Connect with me on CUNNACT:\n@${username}`;try{if(navigator.share)await navigator.share({title:"CUNNACT profile",text,url});else{await navigator.clipboard.writeText(url);showToast("Profile link copied ✓","success");}}catch(e){if(e.name!=="AbortError")showToast("Could not share profile link","error");}});
+$("backToChat")?.addEventListener("click",()=>location.href="index.html");$("cancelProfileBtn")?.addEventListener("click",()=>location.href="index.html");
 
-$("shareProfileBtn")?.addEventListener("click",async()=>{
-  const username=normalizeUsername($("profileUsername").value);
-  if(!username){showToast("Set a CUNNACT ID before sharing your profile.","info");$("profileUsername").focus();return;}
-  const url=`${location.origin}/u/${encodeURIComponent(username)}`;
-  const text=`Connect with me on CUNNACT:\n@${username}`;
+$("profileForm")?.addEventListener("submit",async(e)=>{
+  e.preventDefault();if(!currentUser)return;setStatus("Saving…");const name=$("profileName").value.trim(),bio=$("profileBio").value.trim(),username=normalizeUsername($("profileUsername").value);
+  if(name.length<1){setStatus("Display name is required.","error");return;}
+  if(!PATTERN.test(username)||RESERVED.has(username)){setStatus("Choose a valid CUNNACT ID.","error");$("profileUsername").focus();return;}
+  const old=original.username;
   try{
-    if(navigator.share){await navigator.share({title:"CUNNACT profile",text,url});}
-    else await navigator.clipboard.writeText(url);
-    showToast("CUNNACT profile link copied ✓","success");
-  }catch(e){if(e?.name!=="AbortError"){try{await navigator.clipboard.writeText(url);showToast("Profile link copied ✓","success");}catch{showToast("Copy failed. Use the profile URL manually.","error");}}}
-});
-
-$("profileForm")?.addEventListener("submit",async e=>{
-  e.preventDefault(); if(!currentUser)return;
-  const name=$("profileName").value.trim(), username=normalizeUsername($("profileUsername").value), oldUsername=originalProfile.username||"";
-  if(!name){setProfileStatus("Please enter your name.","error");$("profileName").focus();return;}
-  if(!username){setProfileStatus("Choose a CUNNACT ID first.","error");$("profileUsername").focus();return;}
-  if(!usernamePattern.test(username)||RESERVED.has(username)){setProfileStatus("Choose a valid CUNNACT ID.","error");$("profileUsername").focus();return;}
-  const button=e.currentTarget.querySelector('button[type="submit"]'); const original=button.textContent; button.disabled=true;button.textContent="Saving…";
-  try{
-    if(username!==oldUsername) await claimUsername(username,oldUsername);
-    await updateProfile(currentUser,{displayName:name});
-    await updateDoc(doc(db,"users",currentUser.uid),{name,email:currentUser.email||"",emailLower:String(currentUser.email||"").toLowerCase(),bio:$("profileBio").value.trim(),username,usernameLower:username,retentionMode:getRetentionMode(),lastSeen:serverTimestamp()});
-    await savePublicProfile();
-    originalProfile={name,username,bio:$("profileBio").value.trim(),photoURL:currentPhotoURL,retention:getRetentionMode()};
-    updateIdentityPreview(); setProfileStatus("Changes saved ✓","success");playSuccess();showToast("Profile updated ✓","success");
-  }catch(err){
-    console.error("Profile save error:",err);
-    setProfileStatus(err?.message==="USERNAME_TAKEN"?"That CUNNACT ID is already taken.":"Could not save your profile. Please try again.","error");
-  }finally{button.disabled=false;button.textContent=original;}
+    if(username!==old){const free=await usernameAvailable(username);if(!free){setStatus("That CUNNACT ID is not available.","error");return;}await claimUsername(username,old,name,bio,currentPhotoURL||"");}
+    else {await updateDoc(doc(db,"users",currentUser.uid),{name,bio,photoURL:currentPhotoURL||""});await savePublicProfile(name,bio,username);if(!old)await runTransaction(db,async(tx)=>{const ref=doc(db,"usernames",username),snap=await tx.get(ref);if(snap.exists()&&snap.data()?.uid!==currentUser.uid)throw new Error("USERNAME_TAKEN");tx.set(ref,{uid:currentUser.uid,createdAt:serverTimestamp()},{merge:true});});}
+    await updateProfile(currentUser,{displayName:name,photoURL:currentPhotoURL||null});
+    await setUserSetting(currentUser.uid,{retentionMode:getRetentionMode(),soundEnabled:isSoundEnabled(),theme:pendingTheme});
+    original={name,username,bio,photoURL:currentPhotoURL,retention:getRetentionMode(),sound:isSoundEnabled(),theme:pendingTheme};
+    updatePreview();setStatus("Changes saved ✓");showToast("Profile updated","success");
+  }catch(err){console.error("Profile save failed",err);setStatus(err?.message==="USERNAME_TAKEN"?"That CUNNACT ID is already taken.":"Could not save your profile. Please try again.","error");}
 });

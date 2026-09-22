@@ -6,29 +6,38 @@ service cloud.firestore {
     function requestIdFor(a, b) { return a < b ? a + "_" + b : b + "_" + a; }
     function userPath(uid) { return /databases/$(database)/documents/users/$(uid); }
     function userExists(uid) { return exists(userPath(uid)); }
-    function blockPath(blockerUid, otherUid) {
-      return /databases/$(database)/documents/users/$(blockerUid)/blockedUsers/$(otherUid);
-    }
+    function blockPath(blockerUid, otherUid) { return /databases/$(database)/documents/users/$(blockerUid)/blockedUsers/$(otherUid); }
     function blockedBy(blockerUid, otherUid) { return exists(blockPath(blockerUid, otherUid)); }
     function canContact(otherUid) {
-      return userExists(request.auth.uid) && userExists(otherUid)
+      return signedIn() && userExists(request.auth.uid) && userExists(otherUid)
         && !blockedBy(request.auth.uid, otherUid) && !blockedBy(otherUid, request.auth.uid);
     }
     function acceptedRequest(otherUid) {
       let ref = /databases/$(database)/documents/messageRequests/$(requestIdFor(request.auth.uid, otherUid));
-      return exists(ref) && get(ref).data.status == "accepted";
+      return exists(ref) && getAfter(ref).data.status == "accepted";
     }
     function isMember(conversationId) {
       return signedIn() && exists(/databases/$(database)/documents/conversations/$(conversationId))
         && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.members;
     }
 
+    // Discoverable profile + presence fields only. Private preferences live in userSettings.
     match /users/{uid} {
-      // Kept readable to preserve the current chat/request directory architecture.
-      // Private fields should not be copied into publicProfiles.
       allow read: if signedIn();
       allow create: if isSelf(uid);
       allow update: if isSelf(uid);
+      allow delete: if false;
+
+      match /blockedUsers/{blockedUid} {
+        allow read: if isSelf(uid);
+        allow create: if isSelf(uid) && blockedUid != uid;
+        allow update: if false;
+        allow delete: if isSelf(uid);
+      }
+    }
+
+    match /userSettings/{uid} {
+      allow read, create, update: if isSelf(uid);
       allow delete: if false;
     }
 
@@ -45,8 +54,7 @@ service cloud.firestore {
 
     match /usernames/{usernameLower} {
       allow read: if true;
-      allow create: if signedIn()
-        && request.resource.data.uid == request.auth.uid
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
         && request.resource.data.keys().hasOnly(["uid","createdAt"]);
       allow update: if signedIn()
         && resource.data.uid == request.auth.uid
@@ -55,16 +63,8 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
 
-    match /users/{uid}/blockedUsers/{blockedUid} {
-      allow read: if isSelf(uid);
-      allow create: if isSelf(uid) && blockedUid != uid;
-      allow update: if false;
-      allow delete: if isSelf(uid);
-    }
-
     match /messageRequests/{requestId} {
-      allow read: if signedIn()
-        && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      allow read: if signedIn() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
       allow create: if signedIn()
         && request.auth.uid == request.resource.data.senderId
         && request.resource.data.senderId != request.resource.data.receiverId
@@ -107,13 +107,17 @@ service cloud.firestore {
         && request.auth.uid in resource.data.members
         && request.resource.data.members == resource.data.members
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "lastMessage","lastMessageType","lastMessageSenderId","lastMessageTime","unread","typing"
-        ])
-        && (
-          !("typing" in request.resource.data)
-          || request.resource.data.get("typing", {}).diff(resource.data.get("typing", {})).affectedKeys().hasOnly([request.auth.uid])
-        );
+          "lastMessage","lastMessageType","lastMessageSenderId","lastMessageId","lastMessageTime","unread"
+        ]);
       allow delete: if false;
+
+      match /typing/{uid} {
+        allow read: if isMember(conversationId);
+        allow create, update: if isMember(conversationId) && isSelf(uid)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.typing == true;
+        allow delete: if isMember(conversationId) && isSelf(uid);
+      }
 
       match /messages/{messageId} {
         allow read: if isMember(conversationId);
@@ -152,6 +156,14 @@ service cloud.firestore {
           )
           ||
           (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(["deliveredBy"])
+            && request.auth.uid == resource.data.receiverId
+            && request.resource.data.get("deliveredBy", {}) is map
+            && resource.data.get("deliveredBy", {}) is map
+            && request.resource.data.get("deliveredBy", {}).diff(resource.data.get("deliveredBy", {})).affectedKeys().hasOnly([request.auth.uid])
+          )
+          ||
+          (
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(["deletedFor"])
             && request.resource.data.get("deletedFor", []) is list
             && resource.data.get("deletedFor", []) is list
@@ -170,6 +182,11 @@ service cloud.firestore {
         );
         allow delete: if isMember(conversationId) && request.auth.uid == resource.data.senderId;
       }
+    }
+
+    match /users/{uid}/savedMessages/{messageId} {
+      allow read, create, update: if isSelf(uid);
+      allow delete: if isSelf(uid);
     }
   }
 }

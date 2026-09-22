@@ -1,131 +1,106 @@
-# CUNNACT - Stay Connected
+# CUNNACT — Stay Connected
 
-A modern, engaging, next-generation messaging experience with privacy-first features.
+CUNNACT is a real-time one-to-one messaging web application built with Vanilla JavaScript, Firebase Authentication/Firestore and Cloudinary for images.
 
-## 🎉 Comprehensive Upgrade Complete
+## Highlights
 
-CUNNACT has been transformed from a basic chat application into a polished, professional messaging product that users actually want to use.
+- Real-time one-to-one messaging
+- Message requests before first contact
+- Unique CUNNACT IDs (`@username`)
+- Shareable public profiles (`/u/:username`)
+- Online/offline + last seen presence
+- Typing indicator
+- Sent / delivered / read states
+- Message reactions
+- Save / unsave messages
+- Delete for me / delete for everyone
+- Block / unblock
+- 24-hour or after-seen retention
+- Cloudinary image sharing
+- Dark/light mode
+- Sound effects with a global toggle
+- Responsive desktop and mobile UX
+- Original CUNNACT brand mark, favicon and app icons
 
-## ✨ Key Features
+## Visual identity
 
-### 🔐 Privacy First
-- **Message Requests**: Users must accept before chatting
-- **Ephemeral Messages**: Choose 24-hour or delete-after-seen
-- **Saved Messages**: Bookmark important messages
-- **Secure**: Strong Firestore security rules
+CUNNACT uses a restrained blue/purple/cyan system:
 
-### 🎵 Interactive Experience
-- **Sound System**: Subtle UI sounds (Web Audio API)
-- **Smooth Animations**: Every interaction feels alive
-- **Message Actions**: Save, delete for me, delete for everyone with context menu
-- **Real-time**: Instant message delivery
+- Blue: `#3B82F6`
+- Purple: `#8B5CF6`
+- Cyan: `#06B6D4`
+- Dark Slate: `#0F172A`
 
-### 🎨 Modern Design
-- **Original UI**: Not copied from other apps
-- **Clean & Premium**: Professional design language
-- **Responsive**: Perfect on all devices
-- **Fast**: Vanilla JavaScript, no frameworks
+Brand assets are under `assets/brand/` and `assets/icons/`.
 
-### 🔍 Smart Search
-- **6-Character Minimum**: Protects user privacy
-- **Email Priority**: Find users by email
-- **No Database Dump**: Only shows relevant results
+## Project layout
 
-## 📦 What's New in This Upgrade
-
-### Core Features Added:
-1. ✅ **Sound System** - Web Audio API tones, global toggle
-2. ✅ **Message Requests** - Privacy-first conversation initiation
-3. ✅ **Chat Retention** - 24-hour or after-seen expiration
-4. ✅ **Saved Messages** - Bookmark with 🔖 icon
-5. ✅ **Search Privacy** - 6-character minimum requirement
-6. ✅ **Animations** - Smooth 120-300ms interactions
-7. ✅ **Message Actions** - Right-click/long-press menu
-8. ✅ **Profile UX** - Auto-navigation after save
-9. ✅ **HackWithAS Branding** - Professional attribution
-
-### Security Improvements:
-- ✅ Source review checked for common suspicious browser-code patterns
-- ✅ Updated Firestore rules for requests and saved messages
-- ✅ XSS protection verified
-- ✅ File upload validation strengthened
-
-## 🚀 Quick Start
-
-### Deploy Firestore Rules + Hosting
-```bash
-firebase deploy --only firestore:rules,hosting
+```text
+index.html
+landing.html
+login.html
+register.html
+profile.html
+public-profile.html
+js/
+css/
+assets/
+firestore.rules
+firebase.json
+vercel.json
+.firebaserc
+manifest.webmanifest
 ```
 
-### Test Locally
+## Quick start
+
+Serve the folder from a local web server because Firebase ES modules should not be loaded from `file://`:
+
 ```bash
 python -m http.server 8000
-# Open http://localhost:8000
 ```
 
-### Deploy to Production
+Then open:
+
+```text
+http://localhost:8000/login.html
+```
+
+## Deploy
+
+Firebase rules:
+
+```bash
+firebase login
+firebase deploy --only firestore:rules
+```
+
+Vercel:
+
 ```bash
 vercel --prod
 ```
 
-## 📚 Documentation
+## Public profile links
 
-- **DEPLOYMENT_GUIDE.md** - Complete deployment instructions
-- **UPGRADE_SUMMARY.md** - Detailed feature list
-- **firestore.rules** - Updated security rules
+A user can share:
 
-## 🔧 Tech Stack
+```text
+Connect with me on CUNNACT:
+@hackwithas
+https://YOUR-DOMAIN/u/hackwithas
+```
 
-- **Frontend**: Vanilla JavaScript, HTML5, CSS3
-- **Backend**: Firebase (Auth + Firestore)
-- **Storage**: Cloudinary (images)
-- **Hosting**: Vercel
-- **Animations**: CSS transitions + keyframes
-- **Sound**: Web Audio API
+Public profiles intentionally expose only public identity fields, not email or private account settings.
 
-## 🎯 Browser Support
+## Important limitations
 
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- Edge 90+
-- Mobile: iOS Safari 14+, Chrome Android 90+
+Message retention cleanup is client-side in this build. For guaranteed server-side expiration, a trusted scheduled backend would be required.
 
-## ⚠️ Important Notes
+Voice/video buttons are presented as product UI placeholders; no call signaling/media server is claimed as implemented.
 
-### Message Deletion
-Current implementation uses **client-side cleanup**. Messages expire when:
-- User opens app
-- User refreshes
-- User switches conversations
-- Periodic cleanup (every 5 minutes)
+## Testing
 
-For guaranteed server-side deletion, upgrade to Firebase Blaze plan and deploy Cloud Functions.
+Every JavaScript file in this deliverable passes Node syntax validation. The final two-device Firebase flow still needs to be exercised against your live Firebase/Vercel deployment.
 
-### Chrome "Dangerous Site" Warning
-A source-code review cannot prove why Google Safe Browsing or a browser warning was triggered. Verify the live domain through Google Safe Browsing/Search Console and your hosting provider.
-
-## 📄 License
-
-Created by HackWithAS  
-Website: https://hackwithas.in
-
-## 🙏 Credits
-
-Built with:
-- Firebase by Google
-- Cloudinary
-- Google Fonts (Inter)
-- Web Audio API
-
----
-
-**CUNNACT** - Making messaging enjoyable again.
-
-
-## V6 additions
-- Shareable CUNNACT IDs and public profiles (`/u/:username`).
-- Rebuilt profile UI.
-- Correct avatar fallback behavior.
-- Heartbeat-based presence UI.
-- Typing indicator and message reactions.
+Created by HackWithAS.

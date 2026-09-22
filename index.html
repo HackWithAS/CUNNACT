@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>CUNNACT — Stay Connected</title>
 <meta name="description" content="CUNNACT — Stay Connected. A modern private messaging app.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%235b57e6'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='800' font-size='17' fill='white' text-anchor='middle'%3EC%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="assets/brand/favicon.svg"><link rel="icon" type="image/png" sizes="32x32" href="assets/icons/cunnact-32.png"><link rel="apple-touch-icon" href="assets/icons/cunnact-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/chat.css">
 <link rel="stylesheet" href="css/animations.css">
-</head>
+<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#3B82F6"></head>
 <body>
   <div id="authGate" class="auth-gate" aria-live="polite">
     <div class="auth-gate-card">
@@ -24,10 +24,22 @@
   </div>
 
   <div id="app" class="app-shell">
+    <aside class="nav-rail" aria-label="Primary navigation">
+      <a class="nav-logo" href="index.html" aria-label="CUNNACT home"><img src="assets/brand/cunnact-icon.svg" alt="CUNNACT" loading="eager"></a>
+      <nav class="nav-rail-links">
+        <button class="nav-rail-btn active" id="navChatsBtn" type="button" aria-label="Chats" title="Chats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.4c-1.3 0-2.5-.3-3.6-.9L4 20l1.4-3.7A7.3 7.3 0 0 1 4.5 12 7.5 7.5 0 0 1 12 4.5c4.1 0 7.5 3.1 8 7Z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/></svg></button>
+        <button class="nav-rail-btn" id="navRequestsBtn" type="button" aria-label="Message requests" title="Requests"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16v10H7l-3 3V6Z"/><path d="M8 10h8M8 13h5"/></svg><span id="navRequestsBadge" class="rail-badge" hidden>0</span></button>
+        <button class="nav-rail-btn" id="navSavedBtn" type="button" aria-label="Saved messages" title="Saved messages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>
+        <button class="nav-rail-btn" id="navNewChatBtn" type="button" aria-label="New chat" title="New chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 5v14M5 12h14"/></svg></button>
+      </nav>
+      <div class="nav-rail-bottom">
+        <button class="nav-rail-btn" id="navThemeBtn" type="button" aria-label="Toggle theme" title="Toggle theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 14.6A8.7 8.7 0 0 1 9.4 3 8.7 8.7 0 1 0 21 14.6Z"/></svg></button>
+      </div>
+    </aside>
     <aside class="sidebar" aria-label="CUNNACT navigation">
       <div class="sidebar-top">
         <div class="brand-lockup">
-          <div class="brand-symbol">C</div>
+          <img class="brand-icon-logo" src="assets/brand/cunnact-icon.svg" alt="CUNNACT" loading="eager">
           <div class="brand-mark">
             <strong>CUNNACT</strong>
             <span>Stay Connected.</span>
@@ -135,7 +147,7 @@
 
       <section id="messages" class="messages" aria-live="polite">
         <div class="welcome">
-          <div class="welcome-orb"><span>C</span></div>
+          <div class="welcome-orb"><img src="assets/brand/cunnact-icon.svg" alt="CUNNACT" loading="eager"></div>
           <span class="eyebrow">PRIVATE • SIMPLE • CONNECTED</span>
           <h1>Welcome to CUNNACT</h1>
           <p>Choose a conversation from the left to start messaging.</p>
@@ -159,6 +171,7 @@
         </div>
       </div>
 
+      <div id="replyBar" class="reply-bar" hidden><div><span class="reply-eyebrow">REPLYING TO</span><strong id="replyAuthor">Message</strong><p id="replyPreview"></p></div><button id="cancelReplyBtn" class="icon-btn" type="button" aria-label="Cancel reply"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
       <form id="messageForm" class="composer" autocomplete="off">
         <input id="fileInput" type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif">
         <button id="attachBtn" type="button" class="composer-icon" disabled aria-label="Send an image" title="Send image">
@@ -173,17 +186,30 @@
       </form>
     </main>
 
+    <aside id="profileDrawer" class="profile-drawer" hidden aria-label="Conversation profile panel">
+      <div class="profile-drawer-head">
+        <div><span class="eyebrow">CONTACT</span><h2>Profile</h2></div>
+        <button id="closeProfileDrawer" class="icon-btn" type="button" aria-label="Close profile panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="profile-drawer-body">
+        <div class="avatar profile-drawer-avatar" id="drawerAvatar"><img alt="" hidden><span class="avatar-fallback" hidden></span></div>
+        <h3 id="drawerName">Contact</h3><div id="drawerUsername" class="drawer-username"></div><p id="drawerBio"></p>
+        <button id="drawerViewProfile" class="btn btn-primary" type="button">View public profile</button>
+        <div class="drawer-section"><span class="eyebrow">SHARED</span><div id="sharedMediaGrid" class="shared-media-grid"><div class="empty-state">Shared images will appear here.</div></div></div>
+      </div>
+    </aside>
+
     <!-- New chat -->
     <div id="newChatModal" class="modal" hidden>
       <div class="modal-content new-chat-modal">
         <div class="modal-header">
-          <div><span class="eyebrow">START SOMETHING NEW</span><h2>New chat</h2><p>Search by email. Enter at least 6 characters.</p></div>
+          <div><span class="eyebrow">START SOMETHING NEW</span><h2>New chat</h2><p>Find someone with a CUNNACT ID or email address.</p></div>
           <button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
         <div class="new-chat-search search-row">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
           <label for="newChatSearch" class="sr-only">Search by email</label>
-          <input id="newChatSearch" type="search" placeholder="someone@example.com" autocomplete="off">
+          <input id="newChatSearch" type="search" placeholder="@username or someone@example.com" autocomplete="off">
         </div>
         <div id="newChatResults" class="new-chat-results"><div class="empty-state">Search for a person to send a request.</div></div>
       </div>

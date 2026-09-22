@@ -17,6 +17,12 @@
       "UPDATE_APP.sh",
       "**/.*",
       "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/u/**",
+        "destination": "/public-profile.html"
+      }
     ]
   }
 }

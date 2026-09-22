@@ -1,6 +1,6 @@
 // CUNNACT single-source avatar renderer.
 // Exactly one of image/fallback is visible at any time.
-const TINTS = ["#5b57e6", "#0f9d8f", "#e0563f", "#c9862a", "#3f6fd1"];
+const TINTS = ["#3B82F6", "#8B5CF6", "#06B6D4", "#2563EB", "#0891B2"];
 
 function hash(str) {
   let h = 0;
@@ -24,9 +24,11 @@ function showOnly(container, kind) {
   const img = container.querySelector("img");
   const fallback = container.querySelector(".avatar-fallback");
   if (kind === "image") {
+    container.classList.add("has-photo"); container.classList.remove("has-fallback");
     if (fallback) fallback.hidden = true;
     if (img) { img.hidden = false; img.style.display = "block"; }
   } else {
+    container.classList.remove("has-photo"); container.classList.add("has-fallback");
     if (img) { img.hidden = true; img.style.display = "none"; img.removeAttribute("src"); }
     if (fallback) { fallback.hidden = false; fallback.style.display = "flex"; }
   }
@@ -42,13 +44,14 @@ export function paintAvatar(container, { photoURL = "", name = "", email = "", p
   container.dataset.avatarToken = token;
   container.style.setProperty("--avatar-tint", tintFor(label || "?"));
 
+  container.classList.remove("has-photo","has-fallback");
   if (fallback) {
     fallback.textContent = initialsFor(label);
     fallback.hidden = true;
     fallback.style.display = "none";
   }
   if (!img) {
-    if (fallback) { fallback.hidden = false; fallback.style.display = "flex"; }
+    if (fallback) { fallback.hidden = false; fallback.style.display = "flex"; container.classList.add("has-fallback"); }
     return;
   }
 

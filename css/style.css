@@ -9,9 +9,9 @@
   --surface-3: #f0f2f5;
   --border: #e3e6eb;
   --border-strong: #d7dbe2;
-  --accent: #5b57e6;
-  --accent-strong: #4742c4;
-  --accent-soft: #eeedff;
+  --accent: #3B82F6;
+  --accent-strong: #2563EB;
+  --accent-soft: #EFF6FF;
   --online: #21c56b;
   --danger: #dc4f52;
   --warning: #d8922c;
@@ -36,9 +36,9 @@
   --surface-3: #1c2027;
   --border: rgba(255,255,255,.09);
   --border-strong: rgba(255,255,255,.14);
-  --accent: #8b88ff;
-  --accent-strong: #aaa8ff;
-  --accent-soft: rgba(139,136,255,.13);
+  --accent: #93C5FD;
+  --accent-strong: #BFDBFE;
+  --accent-soft: rgba(59,130,246,.14);
   --online: #36d985;
   --danger: #ff767b;
   --warning: #e7ad57;
@@ -58,7 +58,7 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
-body::selection { background: rgba(91,87,230,.18); }
+body::selection { background: rgba(59,130,246,.18); }
 h1,h2,h3,p { margin: 0; }
 button,input,textarea { font: inherit; color: inherit; }
 button { border: 0; background: none; cursor: pointer; }
@@ -78,10 +78,10 @@ img { max-width: 100%; }
 .btn:active:not(:disabled) { transform: scale(.98); }
 .btn-primary {
   color:#fff;
-  background:linear-gradient(135deg,var(--accent),#7773f4);
-  box-shadow:0 10px 26px rgba(91,87,230,.18);
+  background:linear-gradient(135deg,#3B82F6,#8B5CF6);
+  box-shadow:0 10px 26px rgba(59,130,246,.18);
 }
-.btn-primary:hover:not(:disabled) { box-shadow:0 14px 32px rgba(91,87,230,.25); }
+.btn-primary:hover:not(:disabled) { box-shadow:0 14px 32px rgba(59,130,246,.25); }
 .btn-soft { color:var(--ink); background:var(--surface-3); border-color:var(--border); }
 .btn-soft:hover:not(:disabled) { background:var(--surface-2); border-color:var(--border-strong); }
 .btn-sm { min-height:34px; padding:0 12px; font-size:12px; }
@@ -104,7 +104,7 @@ img { max-width: 100%; }
 .status-dot.online { background:var(--online); }
 
 .brand-lockup { display:flex; align-items:center; gap:10px; }
-.brand-symbol { width:38px; height:38px; border-radius:12px; display:grid; place-items:center; color:#fff; font-size:17px; font-weight:800; background:linear-gradient(135deg,var(--accent),#7d79ff); box-shadow:0 10px 24px rgba(91,87,230,.20); }
+.brand-symbol { width:38px; height:38px; border-radius:12px; display:grid; place-items:center; color:#fff; font-size:17px; font-weight:800; background:linear-gradient(135deg,#3B82F6,#8B5CF6); box-shadow:0 10px 24px rgba(59,130,246,.20); }
 .brand-mark { display:flex; flex-direction:column; line-height:1.05; }
 .brand-mark strong { font-size:17px; font-weight:800; letter-spacing:.01em; }
 .brand-mark span { margin-top:5px; font-size:9.5px; text-transform:uppercase; letter-spacing:.14em; color:var(--ink-faint); }
@@ -166,3 +166,31 @@ body.modal-open { overflow: hidden; }
 /* V6 avatar invariant: hidden avatar layers must never be displayed by component CSS. */
 .avatar img[hidden], .avatar .avatar-fallback[hidden], [hidden] { display:none !important; }
 .avatar img { display:block; }
+/* CUNNACT V6 brand system */
+:root{
+  --cunnact-blue:#3B82F6;
+  --cunnact-purple:#8B5CF6;
+  --cunnact-cyan:#06B6D4;
+  --cunnact-slate:#0F172A;
+  --accent:#3B82F6;
+  --accent-strong:#2563EB;
+  --accent-soft:#EFF6FF;
+}
+:root[data-theme="dark"]{
+  --accent:#60A5FA;
+  --accent-strong:#93C5FD;
+  --accent-soft:rgba(59,130,246,.14);
+}
+.brand-symbol,.brand-icon-logo,.nav-logo img,.auth-brand img,.page-brand-icon,.public-brand img{width:38px;height:38px;object-fit:contain;display:block}
+.brand-icon-logo{border-radius:11px}
+.brand-mark-hidden{display:none}
+.brand-wordmark-logo{display:none}
+.auth-brand{display:flex;align-items:center;gap:11px;margin-bottom:30px}
+.auth-brand strong{display:block;font-size:20px;font-weight:800;letter-spacing:.01em}
+.auth-brand span{display:block;margin-top:4px;font-size:9px;color:var(--ink-faint);letter-spacing:.16em;text-transform:uppercase}
+.profile-title-wrap{display:flex;align-items:center;gap:12px}.page-brand-icon{width:34px;height:34px;border-radius:10px}
+.public-brand{display:flex;align-items:center;gap:11px}.public-brand img{width:36px;height:36px;border-radius:10px}.public-brand strong{display:block;font-size:16px}.public-brand span{display:block;margin-top:3px;font-size:8.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-faint)}
+body,.profile-page,.public-profile-page{background:radial-gradient(circle at 10% -10%,rgba(59,130,246,.08),transparent 28%),radial-gradient(circle at 95% 110%,rgba(139,92,246,.06),transparent 28%),var(--bg)}
+/* Strict avatar invariant: a valid photo and initials can never be visible together. */
+.avatar.has-photo .avatar-fallback{display:none!important;visibility:hidden!important}
+.avatar.has-fallback img{display:none!important;visibility:hidden!important}
