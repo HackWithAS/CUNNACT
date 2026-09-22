@@ -1,6 +1,5 @@
 // CUNNACT Firebase bootstrap + shared Firestore/Auth exports.
 // Cloudinary is used for images; Firebase Storage is intentionally not used.
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword,
@@ -10,7 +9,7 @@ import {
   getFirestore,
   doc, getDoc, getDocs, setDoc, updateDoc, addDoc, deleteDoc,
   collection, query, where, orderBy, startAt, endAt, limit,
-  onSnapshot, serverTimestamp, increment
+  onSnapshot, serverTimestamp, increment, writeBatch, arrayUnion, arrayRemove
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 
@@ -23,5 +22,5 @@ export {
   signOut, updateProfile,
   doc, getDoc, getDocs, setDoc, updateDoc, addDoc, deleteDoc,
   collection, query, where, orderBy, startAt, endAt, limit,
-  onSnapshot, serverTimestamp, increment
+  onSnapshot, serverTimestamp, increment, writeBatch, arrayUnion, arrayRemove
 };

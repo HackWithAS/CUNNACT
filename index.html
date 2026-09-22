@@ -3,31 +3,61 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>CUNNACT</title>
-<meta name="description" content="CUNNACT — Stay Connected. A modern, private messaging app.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235b57e6'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='700' font-size='17' fill='white' text-anchor='middle'%3EC%3C/text%3E%3C/svg%3E">
+<title>CUNNACT — Stay Connected</title>
+<meta name="description" content="CUNNACT — Stay Connected. A modern private messaging app.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%235b57e6'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='800' font-size='17' fill='white' text-anchor='middle'%3EC%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/chat.css">
 <link rel="stylesheet" href="css/animations.css">
 </head>
 <body>
-  <div id="authGate" class="auth-gate" aria-live="polite"><div class="auth-gate-card"><span class="spinner-ring" aria-hidden="true"></span><strong>Loading CUNNACT…</strong><span>Checking your session.</span></div></div>
+  <div id="authGate" class="auth-gate" aria-live="polite">
+    <div class="auth-gate-card">
+      <span class="spinner-ring" aria-hidden="true"></span>
+      <strong>Loading CUNNACT</strong>
+      <span>Checking your session…</span>
+    </div>
+  </div>
 
   <div id="app" class="app-shell">
-    <aside class="sidebar">
+    <aside class="sidebar" aria-label="CUNNACT navigation">
       <div class="sidebar-top">
-        <div class="brand-mark">
-          <strong>CUNNACT</strong>
-          <span>Stay Connected.</span>
+        <div class="brand-lockup">
+          <div class="brand-symbol">C</div>
+          <div class="brand-mark">
+            <strong>CUNNACT</strong>
+            <span>Stay Connected.</span>
+          </div>
         </div>
-        <button id="soundToggle" class="icon-btn" aria-label="Toggle sound">🔊</button>
+        <div class="top-actions">
+          <button id="soundToggle" class="icon-btn" aria-label="Toggle sound" title="Sound on"></button>
+          <div class="menu-wrap">
+            <button id="accountMenuBtn" class="icon-btn" aria-label="Account menu" aria-expanded="false" title="Account menu">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+            </button>
+            <div id="accountMenu" class="dropdown-menu" hidden>
+              <div class="menu-profile-summary">
+                <span class="avatar sm" id="menuUserAvatar"><img alt="" hidden><span class="avatar-fallback"></span></span>
+                <div><strong id="menuUserName">Account</strong><span id="menuUserEmail"> </span></div>
+              </div>
+              <button id="profileBtn" class="dropdown-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+                <span>Profile</span>
+              </button>
+              <button id="logoutBtn" class="dropdown-item danger-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M21 19V5a2 2 0 0 0-2-2h-7"/></svg>
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="current-user">
-        <span class="avatar" id="currentUserAvatar">
+      <div class="current-user-card">
+        <span class="avatar lg" id="currentUserAvatar">
           <img id="currentUserPhoto" alt="" hidden>
           <span class="avatar-fallback" id="currentUserInitials"></span>
           <span class="status-dot online"></span>
@@ -35,132 +65,147 @@
         <div class="meta">
           <strong id="currentUserName">Guest</strong>
           <span id="currentUserEmail" class="user-email"></span>
-          <span id="currentUserStatus">Offline</span>
+          <span class="online-text"><i></i><span id="currentUserStatus">Offline</span></span>
         </div>
       </div>
 
-      <div class="search-row">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        <label for="userSearch" class="sr-only">Search people</label>
-        <input id="userSearch" type="search" placeholder="Search people (min 6 chars)..." autocomplete="off">
-      </div>
-
-      <div id="searchResults" class="list" role="listbox" aria-label="Search results"></div>
-
-      <div class="section-title">
-        <span>Chats</span>
-      </div>
-      <div id="chatList" class="list" role="listbox" aria-label="Conversations">
-        <div class="empty-state">
-          <p>Your inbox is quiet.</p>
-          <p>Find someone and start a conversation.</p>
+      <div class="sidebar-search-block">
+        <div class="section-heading-row">
+          <span>Conversations</span>
+          <button id="newChatBtn" class="new-chat-btn" type="button" aria-label="Start a new chat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            <span>New chat</span>
+          </button>
+        </div>
+        <div class="search-row compact-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <label for="userSearch" class="sr-only">Search your chats</label>
+          <input id="userSearch" type="search" placeholder="Search your chats…" autocomplete="off">
         </div>
       </div>
 
-      <div class="sidebar-nav">
-        <button id="requestsBtn" class="nav-item" aria-label="Message requests">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          <span>Requests</span>
+      <div id="chatList" class="chat-list" role="listbox" aria-label="Your conversations">
+        <div class="empty-state big">Your inbox is quiet.<br><span>Start a new chat to connect.</span></div>
+      </div>
+
+      <div class="sidebar-bottom">
+        <button id="requestsBtn" class="utility-card" aria-label="Message requests">
+          <span class="utility-icon accent-bg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+          <span><strong>Requests</strong><small>New conversations</small></span>
           <span id="requestsBadge" class="unread-badge" hidden>0</span>
         </button>
-        <button id="savedBtn" class="nav-item" aria-label="Saved messages">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-          <span>Saved</span>
+        <button id="savedBtn" class="utility-card" aria-label="Saved messages">
+          <span class="utility-icon muted-bg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span>
+          <span><strong>Saved messages</strong><small>Your bookmarked moments</small></span>
+          <svg class="utility-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
         </button>
       </div>
 
-      <div class="sidebar-actions">
-        <button id="profileBtn" class="btn btn-ghost">Profile</button>
-        <button id="logoutBtn" class="btn btn-ghost">Logout</button>
-      </div>
+      <div class="sidebar-brand-note">CUNNACT by <a href="https://hackwithas.in" target="_blank" rel="noopener noreferrer">HackWithAS</a></div>
     </aside>
 
     <main class="chat-panel">
       <header class="chat-header">
-        <button id="backBtn" class="icon-btn mobile-only" aria-label="Back to chats">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <span class="avatar" id="chatAvatar">
-          <img id="chatPhoto" alt="" hidden>
-          <span class="avatar-fallback" id="chatInitials"></span>
-          <span class="status-dot" id="chatStatusDot"></span>
-        </span>
-        <div class="meta">
-          <strong id="chatName">Select a conversation</strong>
-          <span id="chatStatus">Start a new chat</span>
+        <div class="chat-header-left">
+          <button id="backBtn" class="icon-btn mobile-only" aria-label="Back to chats">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span class="avatar" id="chatAvatar">
+            <img id="chatPhoto" alt="" hidden>
+            <span class="avatar-fallback" id="chatInitials"></span>
+            <span class="status-dot" id="chatStatusDot"></span>
+          </span>
+          <div class="meta">
+            <div class="chat-title-line"><strong id="chatName">Select a conversation</strong><span id="chatStatusPill" class="status-pill" hidden>Online</span></div>
+            <span id="chatStatus">Pick a chat from the left or start a new one.</span>
+          </div>
+        </div>
+        <div class="chat-header-actions">
+          <button id="chatMoreBtn" class="icon-btn" aria-label="Conversation options" aria-expanded="false" title="Conversation options" disabled>
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+          </button>
+          <div id="chatMoreMenu" class="dropdown-menu chat-more-menu" hidden></div>
         </div>
       </header>
 
-      <section id="messages" class="messages">
+      <section id="messages" class="messages" aria-live="polite">
         <div class="welcome">
-          <div class="logo-mark">C</div>
+          <div class="welcome-orb"><span>C</span></div>
+          <span class="eyebrow">PRIVATE • SIMPLE • CONNECTED</span>
           <h1>Welcome to CUNNACT</h1>
-          <p>Your conversations belong here.</p>
-          <p class="subtitle">Search for someone to start chatting.</p>
+          <p>Choose a conversation from the left to start messaging.</p>
         </div>
       </section>
+
+      <div id="blockedNotice" class="blocked-notice" hidden></div>
 
       <div id="imagePreviewBar" class="image-preview-bar" hidden>
         <img id="imagePreviewThumb" alt="Selected image preview">
         <div class="preview-info">
-          <span id="imagePreviewStatus" class="status-text">Ready to send</span>
+          <strong>Ready to send</strong>
+          <span id="imagePreviewStatus" class="status-text">Your image is ready.</span>
           <div class="progress"><div id="imagePreviewProgress" class="progress-fill"></div></div>
         </div>
         <div class="actions">
           <button id="imagePreviewCancel" type="button" class="icon-btn" aria-label="Cancel image">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6L6 18"/></svg>
           </button>
-          <button id="imagePreviewSend" type="button" class="btn btn-primary">Send</button>
+          <button id="imagePreviewSend" type="button" class="btn btn-primary">Send image</button>
         </div>
       </div>
 
-      <form id="messageForm" class="composer">
+      <form id="messageForm" class="composer" autocomplete="off">
         <input id="fileInput" type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif">
-        <button id="attachBtn" type="button" class="icon-btn" disabled aria-label="Send an image">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <button id="attachBtn" type="button" class="composer-icon" disabled aria-label="Send an image" title="Send image">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21.4 11.6 12 21a6 6 0 0 1-8.5-8.5l9.9-9.9a4 4 0 0 1 5.7 5.7L9.2 18.2a2 2 0 0 1-2.8-2.8l9.2-9.2"/></svg>
         </button>
         <label for="messageInput" class="sr-only">Type a message</label>
-        <input id="messageInput" autocomplete="off" placeholder="Type a message..." disabled>
-        <button type="submit" class="send-btn" disabled aria-label="Send message">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        <textarea id="messageInput" rows="1" autocomplete="off" placeholder="Write a message…" disabled></textarea>
+        <span class="composer-hint">Enter to send</span>
+        <button type="submit" class="send-btn" disabled aria-label="Send message" title="Send message">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4 20-7Z"/><path d="M22 2 11 13"/></svg>
         </button>
       </form>
     </main>
 
-    <!-- Requests Modal -->
+    <!-- New chat -->
+    <div id="newChatModal" class="modal" hidden>
+      <div class="modal-content new-chat-modal">
+        <div class="modal-header">
+          <div><span class="eyebrow">START SOMETHING NEW</span><h2>New chat</h2><p>Search by email. Enter at least 6 characters.</p></div>
+          <button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>
+        <div class="new-chat-search search-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <label for="newChatSearch" class="sr-only">Search by email</label>
+          <input id="newChatSearch" type="search" placeholder="someone@example.com" autocomplete="off">
+        </div>
+        <div id="newChatResults" class="new-chat-results"><div class="empty-state">Search for a person to send a request.</div></div>
+      </div>
+    </div>
+
+    <!-- Requests -->
     <div id="requestsModal" class="modal" hidden>
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Message Requests</h2>
-          <button class="icon-btn close-modal" aria-label="Close">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
-          </button>
+          <div><span class="eyebrow">INBOX</span><h2>Message requests</h2><p>Review people who want to connect.</p></div>
+          <button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
-        <div id="requestsList" class="requests-list">
-          <div class="empty-state">No new requests.</div>
-        </div>
+        <div id="requestsList" class="requests-list"><div class="empty-state">No new requests.</div></div>
       </div>
     </div>
 
-    <!-- Saved Messages Modal -->
+    <!-- Saved -->
     <div id="savedModal" class="modal" hidden>
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Saved Messages</h2>
-          <button class="icon-btn close-modal" aria-label="Close">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
-          </button>
+          <div><span class="eyebrow">BOOKMARKS</span><h2>Saved messages</h2><p>Messages you chose to keep.</p></div>
+          <button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
-        <div id="savedList" class="saved-list">
-          <div class="empty-state">Messages you save will appear here.</div>
-        </div>
+        <div id="savedList" class="saved-list"><div class="empty-state">Messages you save will appear here.</div></div>
       </div>
     </div>
   </div>
-
-  <footer class="app-footer">
-    <span>CUNNACT by <a href="https://hackwithas.in" target="_blank" rel="noopener noreferrer">HackWithAS</a></span>
-  </footer>
 
   <script type="module" src="js/app.js"></script>
 </body>

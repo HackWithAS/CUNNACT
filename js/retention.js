@@ -2,7 +2,7 @@
 // Expired/seen messages are hidden only for the user whose copy has expired.
 // Saved messages remain visible to the user who saved them.
 
-import { db, doc, getDoc, updateDoc, serverTimestamp } from "./firebase.js";
+import { db, doc, getDoc, updateDoc, serverTimestamp, writeBatch, arrayUnion } from "./firebase.js";
 
 const RETENTION_KEY = "cunnact_retention_mode";
 const DEFAULT_RETENTION = "24hours";
@@ -78,19 +78,23 @@ export async function cleanupExpiredMessages(dbArg, conversationId, messages, cu
   const toExpire = messages.filter((msg) =>
     shouldExpireMessage(msg, currentUserId) && !isDeletedForUser(msg, currentUserId)
   );
+  if (!toExpire.length) return 0;
 
   let count = 0;
-  for (const msg of toExpire) {
+  for (let i = 0; i < toExpire.length; i += 450) {
+    const chunk = toExpire.slice(i, i + 450);
     try {
-      const existing = Array.isArray(msg.deletedFor) ? msg.deletedFor : [];
-      if (existing.includes(currentUserId)) continue;
-      await updateDocArg(
-        doc(dbArg, "conversations", conversationId, "messages", msg.id),
-        { deletedFor: [...existing, currentUserId] }
-      );
-      count += 1;
+      const batch = writeBatch(dbArg);
+      chunk.forEach((msg) => {
+        batch.update(
+          doc(dbArg, "conversations", conversationId, "messages", msg.id),
+          { deletedFor: arrayUnion(currentUserId) }
+        );
+      });
+      await batch.commit();
+      count += chunk.length;
     } catch (error) {
-      console.warn("Failed to expire message:", msg.id, error);
+      console.warn("Failed to expire a batch of messages:", error);
     }
   }
   return count;

@@ -1,6 +1,4 @@
-// First-contact message request flow. A deterministic request id lets Firestore
-// security rules verify that a 1:1 conversation was created only after acceptance.
-
+// First-contact request flow.
 import {
   db, doc, getDoc, setDoc, updateDoc, collection, query, where,
   limit, onSnapshot, serverTimestamp
@@ -11,25 +9,20 @@ import { showToast } from "./toast.js";
 let requestsListener = null;
 let pendingRequests = [];
 
-function requestIdFor(a, b) {
-  return [a, b].sort().join("_");
-}
+function requestIdFor(a, b) { return [a, b].sort().join("_"); }
 
 export function listenMessageRequests(currentUser, callback) {
   requestsListener?.();
-
   const q = query(
     collection(db, "messageRequests"),
     where("receiverId", "==", currentUser.uid),
     limit(50)
   );
-
   requestsListener = onSnapshot(q, (snap) => {
     const next = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
       .filter((request) => request.status === "pending")
       .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
-
     if (next.length > pendingRequests.length) playNotification();
     pendingRequests = next;
     callback(next);
@@ -46,16 +39,9 @@ export async function sendMessageRequest(currentUser, recipientId, recipientData
       showToast("You can't message yourself.", "error");
       return false;
     }
-
-    // Do NOT read the conversation before a request is accepted. A non-member
-    // is intentionally not allowed to read a conversation document, so that
-    // existence check caused every first-time request to fail with
-    // "Missing or insufficient permissions". The request document is the
-    // authorized source of truth for first contact.
     const conversationId = requestIdFor(currentUser.uid, recipientId);
     const requestRef = doc(db, "messageRequests", conversationId);
-
-    const requestPayload = {
+    const payload = {
       senderId: currentUser.uid,
       receiverId: recipientId,
       senderEmail: currentUser.email || "",
@@ -67,58 +53,37 @@ export async function sendMessageRequest(currentUser, recipientId, recipientData
       updatedAt: serverTimestamp()
     };
 
-    // IMPORTANT: never call getDoc() first for a deterministic request ID.
-    // A missing document has no resource.data, so the old read rule rejected
-    // the very first request with "Missing or insufficient permissions".
-    // Create/upsert first; only inspect the document after a failed write,
-    // when it is guaranteed to already exist (pending/accepted/declined).
     try {
-      await setDoc(requestRef, requestPayload);
+      // No pre-read: a first-time request document does not exist yet.
+      await setDoc(requestRef, payload);
       showToast("Message request sent", "success");
       return true;
     } catch (writeError) {
-      let requestSnap;
-      try {
-        requestSnap = await getDoc(requestRef);
-      } catch {
-        throw writeError;
-      }
-
-      if (!requestSnap.exists()) {
-        throw writeError;
-      }
-
-      const status = requestSnap.data()?.status;
-
+      let snap;
+      try { snap = await getDoc(requestRef); } catch { throw writeError; }
+      if (!snap.exists()) throw writeError;
+      const status = snap.data()?.status;
       if (status === "pending") {
         showToast("Request already sent", "info");
         return false;
       }
-
       if (status === "accepted") {
-        showToast("You are already connected", "info");
+        showToast("You're already connected", "info");
         return { alreadyExists: true, conversationId };
       }
-
       if (status === "declined") {
-        // Re-request is intentionally a small status-only update so it matches
-        // the Firestore rule and does not overwrite the original participant IDs.
-        await updateDoc(requestRef, {
-          status: "pending",
-          updatedAt: serverTimestamp()
-        });
+        await updateDoc(requestRef, { status: "pending", updatedAt: serverTimestamp() });
         showToast("Message request sent again", "success");
         return true;
       }
-
       throw writeError;
     }
   } catch (error) {
     console.error("Error sending request:", error);
     if (error?.code === "permission-denied") {
-      showToast("Request permission denied. Deploy the latest Firestore rules.", "error");
+      showToast("Request couldn't be sent. The user may have blocked this account.", "error");
     } else if (error?.code === "failed-precondition") {
-      showToast("Firebase needs an index. Check the browser console for the index link.", "error");
+      showToast("Firebase needs an index. Open the browser console for the index link.", "error");
     } else {
       showToast("Failed to send request. Check your connection and try again.", "error");
     }
@@ -132,29 +97,26 @@ export async function acceptMessageRequest(requestId, request, currentUser) {
       showToast("This request is no longer available.", "error");
       return null;
     }
-
     const conversationId = requestIdFor(request.senderId, request.receiverId);
-
-    // Accept the request first. This makes acceptedRequest() true for the
-    // following conversation write, without trying to read a missing conversation.
     await updateDoc(doc(db, "messageRequests", requestId), {
       status: "accepted",
       updatedAt: serverTimestamp()
     });
-
-    // Members-only merge: safe for both a new conversation and an existing one.
-    // Keeping this write limited to `members` prevents existing chat metadata
-    // and unread counters from being reset when a request is accepted again.
     await setDoc(doc(db, "conversations", conversationId), {
-      members: [request.senderId, request.receiverId]
-    }, { merge: true });
-
+      members: [request.senderId, request.receiverId],
+      createdAt: serverTimestamp(),
+      unread: { [request.senderId]: 0, [request.receiverId]: 0 },
+      lastMessage: "",
+      lastMessageType: "text",
+      lastMessageSenderId: "",
+      lastMessageTime: serverTimestamp()
+    });
     playSuccess();
     showToast("You're connected! 🎉", "success");
     return conversationId;
   } catch (error) {
     console.error("Error accepting request:", error);
-    showToast("Failed to accept request", "error");
+    showToast(error?.code === "permission-denied" ? "Could not accept. Check the latest Firestore rules." : "Failed to accept request", "error");
     return null;
   }
 }
@@ -180,6 +142,4 @@ export function stopListeningRequests() {
   pendingRequests = [];
 }
 
-export function getPendingRequestsCount() {
-  return pendingRequests.length;
-}
+export function getPendingRequestsCount() { return pendingRequests.length; }

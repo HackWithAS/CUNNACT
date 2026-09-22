@@ -1,47 +1,55 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function signedIn() {
-      return request.auth != null;
+    function signedIn() { return request.auth != null; }
+    function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
+    function requestIdFor(a, b) { return a < b ? a + "_" + b : b + "_" + a; }
+    function userPath(uid) { return /databases/$(database)/documents/users/$(uid); }
+    function userExists(uid) { return exists(userPath(uid)); }
+    function blockPath(blockerUid, otherUid) {
+      return /databases/$(database)/documents/users/$(blockerUid)/blockedUsers/$(otherUid);
     }
-
-    function isSelf(uid) {
-      return signedIn() && request.auth.uid == uid;
+    function blockedBy(blockerUid, otherUid) {
+      return exists(blockPath(blockerUid, otherUid));
     }
-
-    function requestIdFor(a, b) {
-      return a < b ? a + "_" + b : b + "_" + a;
+    function canContact(otherUid) {
+      return userExists(request.auth.uid)
+        && userExists(otherUid)
+        && !blockedBy(request.auth.uid, otherUid)
+        && !blockedBy(otherUid, request.auth.uid);
     }
-
     function acceptedRequest(otherUid) {
       let requestRef = /databases/$(database)/documents/messageRequests/$(requestIdFor(request.auth.uid, otherUid));
       return exists(requestRef) && get(requestRef).data.status == "accepted";
     }
-
     function isMember(conversationId) {
       return signedIn()
         && exists(/databases/$(database)/documents/conversations/$(conversationId))
         && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.members;
     }
 
-    // ---------------- Users ----------------
     match /users/{uid} {
       allow read: if signedIn();
       allow create, update: if isSelf(uid);
       allow delete: if false;
     }
 
-    // ---------------- Message requests ----------------
+    match /users/{uid}/blockedUsers/{blockedUid} {
+      allow read: if isSelf(uid);
+      allow create: if isSelf(uid) && blockedUid != uid;
+      allow update: if false;
+      allow delete: if isSelf(uid);
+    }
+
     match /messageRequests/{requestId} {
       allow read: if signedIn()
-        && (request.auth.uid == resource.data.senderId
-            || request.auth.uid == resource.data.receiverId);
+        && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
 
       allow create: if signedIn()
         && request.auth.uid == request.resource.data.senderId
         && request.resource.data.senderId != request.resource.data.receiverId
-        && request.resource.data.status == "pending";
+        && request.resource.data.status == "pending"
+        && canContact(request.resource.data.receiverId);
 
       allow update: if signedIn()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"])
@@ -50,19 +58,19 @@ service cloud.firestore {
             request.auth.uid == resource.data.receiverId
             && resource.data.status == "pending"
             && request.resource.data.status in ["accepted", "declined"]
+            && canContact(resource.data.senderId)
           )
           ||
           (
             request.auth.uid == resource.data.senderId
             && resource.data.status == "declined"
             && request.resource.data.status == "pending"
+            && canContact(resource.data.receiverId)
           )
         );
-
       allow delete: if false;
     }
 
-    // ---------------- Conversations ----------------
     match /conversations/{conversationId} {
       allow create: if signedIn()
         && request.resource.data.members is list
@@ -73,22 +81,23 @@ service cloud.firestore {
           request.resource.data.members[0] == request.auth.uid
             ? acceptedRequest(request.resource.data.members[1])
             : acceptedRequest(request.resource.data.members[0])
+        )
+        && canContact(
+          request.resource.data.members[0] == request.auth.uid
+            ? request.resource.data.members[1]
+            : request.resource.data.members[0]
         );
 
-      allow read: if signedIn()
-        && request.auth.uid in resource.data.members;
+      allow read: if signedIn() && request.auth.uid in resource.data.members;
 
-      // Members can update chat metadata, but cannot change who belongs to a chat.
       allow update: if signedIn()
         && request.auth.uid in resource.data.members
         && request.resource.data.members == resource.data.members
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           "lastMessage", "lastMessageType", "lastMessageSenderId", "lastMessageTime", "unread"
         ]);
-
       allow delete: if false;
 
-      // ---------------- Messages ----------------
       match /messages/{messageId} {
         allow read: if isMember(conversationId);
 
@@ -97,10 +106,10 @@ service cloud.firestore {
           && request.resource.data.receiverId != request.auth.uid
           && request.resource.data.receiverId in get(/databases/$(database)/documents/conversations/$(conversationId)).data.members
           && request.resource.data.type in ["text", "image"]
-          && request.resource.data.createdAt != null;
+          && request.resource.data.createdAt != null
+          && canContact(request.resource.data.receiverId);
 
         allow update: if isMember(conversationId) && (
-          // Save / unsave: exactly one user's saved state can change at a time.
           (
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(["savedBy"])
             && request.resource.data.get("savedBy", []) is list
@@ -122,7 +131,6 @@ service cloud.firestore {
             )
           )
           ||
-          // Read receipt: only the receiver can set their own readBy field.
           (
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(["readBy"])
             && request.auth.uid == resource.data.receiverId
@@ -131,7 +139,6 @@ service cloud.firestore {
             && request.resource.data.get("readBy", {}).diff(resource.data.get("readBy", {})).affectedKeys().hasOnly([request.auth.uid])
           )
           ||
-          // Delete for me / retention: only append the current user's uid.
           (
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(["deletedFor"])
             && request.resource.data.get("deletedFor", []) is list
@@ -143,9 +150,7 @@ service cloud.firestore {
           )
         );
 
-        // Permanent delete is sender-only. "Delete for me" uses deletedFor above.
-        allow delete: if isMember(conversationId)
-          && request.auth.uid == resource.data.senderId;
+        allow delete: if isMember(conversationId) && request.auth.uid == resource.data.senderId;
       }
     }
   }
