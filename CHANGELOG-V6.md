@@ -42,3 +42,7 @@
 - HTML IDs checked for duplicates.
 - Browser alert/confirm/prompt calls removed.
 - No backup files are included in the production project.
+
+## V6 fixes
+- Removed duplicated Requests, Saved Messages, and New Chat controls from the narrow navigation rail; these remain as the primary controls in the main sidebar/conversation header.
+- Acceptance flow now updates the request first and creates the deterministic conversation under a simpler Firestore authorization path.

@@ -107,3 +107,6 @@ A contextual third-panel architecture can be introduced later without changing t
 - Avoid expensive shadows/blur on every message bubble.
 - Keep real-time listeners scoped to the signed-in user's conversations and active chat.
 - Never put secrets in client code.
+
+## Navigation deduplication
+The desktop rail is intentionally minimal (Chats + theme), while Requests and Saved Messages live in the main sidebar and New Chat lives beside Conversations. This avoids duplicated controls while retaining mobile accessibility.

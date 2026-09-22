@@ -14,7 +14,7 @@ service cloud.firestore {
     }
     function acceptedRequest(otherUid) {
       let ref = /databases/$(database)/documents/messageRequests/$(requestIdFor(request.auth.uid, otherUid));
-      return exists(ref) && getAfter(ref).data.status == "accepted";
+      return exists(ref) && get(ref).data.status == "accepted";
     }
     function isMember(conversationId) {
       return signedIn() && exists(/databases/$(database)/documents/conversations/$(conversationId))

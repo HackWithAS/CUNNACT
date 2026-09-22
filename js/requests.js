@@ -1,6 +1,6 @@
 import {
   db, doc, getDoc, setDoc, updateDoc, collection, query, where,
-  limit, onSnapshot, serverTimestamp, runTransaction
+  limit, onSnapshot, serverTimestamp
 } from "./firebase.js";
 import { playNotification, playSuccess } from "./sound.js";
 import { showToast } from "./toast.js";
@@ -79,24 +79,46 @@ export async function acceptMessageRequest(requestId, request, currentUser) {
     const conversationId = requestIdFor(request.senderId, request.receiverId);
     const requestRef = doc(db, "messageRequests", requestId);
     const conversationRef = doc(db, "conversations", conversationId);
-    await runTransaction(db, async (tx) => {
-      const existing = await tx.get(conversationRef);
-      if (existing.exists()) {
-        tx.update(requestRef, { status:"accepted", updatedAt:serverTimestamp() });
-        return;
-      }
-      tx.update(requestRef, { status:"accepted", updatedAt:serverTimestamp() });
-      tx.set(conversationRef, {
+
+    // Mark the request accepted first. Conversation creation is then authorized by
+    // Firestore rules through the now-accepted request record. This avoids relying on
+    // getAfter() inside the conversation-create rule, which is unnecessarily fragile
+    // across clients/CLI rule deployments.
+    await updateDoc(requestRef, { status:"accepted", updatedAt:serverTimestamp() });
+
+    const existing = await getDoc(conversationRef);
+    if (!existing.exists()) {
+      const conversationData = {
         members:[request.senderId, request.receiverId],
         createdAt:serverTimestamp(),
         unread:{ [request.senderId]:0, [request.receiverId]:0 },
-        lastMessage:"", lastMessageType:"text", lastMessageSenderId:"", lastMessageId:"", lastMessageTime:serverTimestamp()
-      });
-    });
-    playSuccess(); showToast("You're connected! 🎉", "success"); return conversationId;
+        lastMessage:"",
+        lastMessageType:"text",
+        lastMessageSenderId:"",
+        lastMessageId:"",
+        lastMessageTime:serverTimestamp()
+      };
+      try {
+        await setDoc(conversationRef, conversationData, { merge:false });
+      } catch (createError) {
+        // A short retry handles transient network failures after the request is accepted.
+        if (createError?.code === "permission-denied") throw createError;
+        await new Promise(r => setTimeout(r, 300));
+        await setDoc(conversationRef, conversationData, { merge:true });
+      }
+    }
+
+    playSuccess();
+    showToast("You're connected! 🎉", "success");
+    return conversationId;
   } catch (error) {
     console.error("Error accepting request:", error);
-    showToast(error?.code === "permission-denied" ? "Could not accept. Deploy the latest Firestore rules first." : "Failed to accept request", "error");
+    const code = error?.code || "";
+    if (code === "permission-denied") {
+      showToast("Firebase rejected the connection. Deploy the latest firestore.rules and try again.", "error");
+    } else {
+      showToast("Failed to create the chat. Please try again.", "error");
+    }
     return null;
   }
 }
