@@ -5,3 +5,5 @@
 .error{color:var(--danger);min-height:18px;font-size:11.5px;margin:0}.switch{text-align:center;color:var(--ink-faint);font-size:11.5px;margin-top:18px}.switch a,.back-link{color:var(--accent);text-decoration:none;font-weight:700}.switch a:hover,.back-link:hover{text-decoration:underline}
 .auth-footer{margin-top:28px;padding-top:19px;border-top:1px solid var(--border);text-align:center;font-size:10px;color:var(--ink-faint)}.auth-footer a{color:var(--accent);text-decoration:none;font-weight:700}.auth-footer a:hover{text-decoration:underline}
 @media(max-width:520px){.auth-page{padding:14px}.auth-card{padding:28px 20px 24px;border-radius:22px}}
+.field-hint{margin:-6px 0 0;font-size:10.5px;color:var(--ink-faint)}
+.field-hint-inline{font-weight:500;text-transform:none;letter-spacing:0;color:var(--ink-faint)}

@@ -5,3 +5,21 @@
 @keyframes message-enter-right{from{opacity:0;transform:translateY(6px) translateX(5px)}to{opacity:1;transform:translateY(0) translateX(0)}}
 @keyframes search-result{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.message,.message.outgoing,.new-person-row,.request-item{animation:none}}
+
+/* Splash / loading screen: CUNNACT mark "assembling" itself piece by piece. */
+.splash-card{gap:14px;padding:38px 40px}
+.splash-mark{width:76px;height:76px;overflow:visible}
+.splash-part{transform-origin:256px 256px;transform-box:fill-box;opacity:0;transform:scale(.4);animation:splash-piece .55s cubic-bezier(.2,.9,.25,1.2) forwards}
+.splash-part.p1{animation-delay:.05s}
+.splash-part.p2{animation-delay:.2s}
+.splash-part.p3{animation-delay:.38s}
+.splash-part.p4{animation-delay:.55s}
+.splash-part.p5{animation-delay:.62s}
+.splash-part.p6{animation-delay:.69s}
+.splash-mark{animation:splash-pulse 2.2s ease-in-out .95s infinite}
+.splash-word{opacity:0;letter-spacing:.14em;font-size:15px;font-weight:800;animation:splash-fade .4s ease forwards .78s}
+.splash-tagline{opacity:0;font-size:11px;letter-spacing:.08em;animation:splash-fade .4s ease forwards .92s}
+@keyframes splash-piece{from{opacity:0;transform:scale(.4) rotate(-8deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes splash-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@keyframes splash-pulse{0%,100%{filter:drop-shadow(0 0 0 rgba(59,130,246,0))}50%{filter:drop-shadow(0 0 14px rgba(59,130,246,.35))}}
+@media(prefers-reduced-motion:reduce){.splash-part,.splash-mark,.splash-word,.splash-tagline{animation:none;opacity:1;transform:none}}

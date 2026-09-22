@@ -1,5 +1,5 @@
 import {
-  auth, db, onAuthStateChanged, signOut,
+  auth, db, onAuthStateChanged, signOut, sendEmailVerification, reload,
   doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection,
   query, where, orderBy, startAt, endAt, limit, onSnapshot,
   serverTimestamp, increment, writeBatch, runTransaction, arrayUnion, arrayRemove
@@ -160,6 +160,7 @@ function toggleDropdown(id, buttonId) {
 applyTheme(localStorage.getItem("cunnact_theme") || "light", false);
 onAuthStateChanged(auth, async (user) => {
   if (!user) { location.replace("login.html"); return; }
+  if (!user.emailVerified) { currentUser = user; showVerifyGate(user); return; }
   currentUser = user;
   try {
     const ref = doc(db, "users", user.uid);
@@ -209,6 +210,14 @@ onAuthStateChanged(auth, async (user) => {
     }
   }
 });
+function showVerifyGate(user){
+  const gate=$id("authGate"); if(!gate) return;
+  gate.hidden=false;
+  gate.innerHTML=`<div class="auth-gate-card"><strong>Verify your email</strong><span>We sent a confirmation link to ${escapeHtml(user.email||"your email")}. Please verify it to keep CUNNACT free of fake accounts.</span><button id="resendVerifyBtn" class="btn btn-primary">Resend email</button><button id="checkVerifyBtn" class="btn btn-soft">I've verified — continue</button><button id="verifyLogoutBtn" class="btn btn-soft danger-item">Log out</button></div>`;
+  $id("resendVerifyBtn")?.addEventListener("click", async ()=>{ try{ await sendEmailVerification(user); showToast("Verification email sent","success"); }catch(e){ showToast("Could not send email. Try again shortly.","error"); } });
+  $id("checkVerifyBtn")?.addEventListener("click", async ()=>{ try{ await reload(user); if(user.emailVerified){ location.reload(); } else { showToast("Still not verified. Check your inbox/spam folder.","info"); } }catch(e){ showToast("Could not refresh status.","error"); } });
+  $id("verifyLogoutBtn")?.addEventListener("click", ()=> signOut(auth));
+}
 async function ensurePublicProfile() {
   if (!currentUser) return;
   const data = currentUserData || {};
@@ -311,7 +320,7 @@ function updateRequestsBadge(count) {
 function renderMessageRequests(requests) {
   const container=$id("requestsList"); if(!container) return;
   if(!requests.length){container.innerHTML='<div class="empty-state">No new requests.<br><span>New connection requests will appear here.</span></div>';return;}
-  container.innerHTML=requests.map(req=>`<div class="request-item" data-request-id="${escapeHtml(req.id)}">${avatarHtml({name:req.senderName,email:req.senderEmail},{dot:false})}<div class="meta"><strong>${escapeHtml(req.senderName||req.senderEmail||"User")}</strong><span class="email">${escapeHtml(req.senderEmail||"")}</span><span class="subtitle">Wants to start a conversation</span></div><div class="actions"><button class="btn btn-sm btn-primary accept-request" type="button">Accept</button><button class="btn btn-sm btn-soft decline-request" type="button">Decline</button></div></div>`).join("");
+  container.innerHTML=requests.map(req=>`<div class="request-item" data-request-id="${escapeHtml(req.id)}">${avatarHtml({name:req.senderName,email:req.senderEmail},{dot:false})}<div class="meta"><strong>${escapeHtml(req.senderName||req.senderUsername||"User")}</strong>${req.senderUsername?`<span class="email">@${escapeHtml(req.senderUsername)}</span>`:""}<span class="subtitle">Wants to start a conversation</span></div><div class="actions"><button class="btn btn-sm btn-primary accept-request" type="button">Accept</button><button class="btn btn-sm btn-soft decline-request" type="button">Decline</button></div></div>`).join("");
   requests.forEach((req,index)=>{const row=container.querySelectorAll(".request-item")[index];paintAvatar(row?.querySelector(".avatar"),{photoURL:req.senderPhotoURL||"",name:req.senderName,email:req.senderEmail});});
   container.querySelectorAll(".request-item").forEach(row=>{
     const req=requests.find(r=>r.id===row.dataset.requestId); if(!req)return;
@@ -337,8 +346,8 @@ async function loadNewChatSearch(value){
 }
 function renderNewChatResults(matches,box){
   if(!matches.length){box.innerHTML='<div class="empty-state">No CUNNACT account found.</div>';return;}
-  box.innerHTML=matches.map(user=>{const connected=conversations.some(c=>c.members?.includes(user.uid));const blocked=currentBlockedUsers.has(user.uid);let label=blocked?"Blocked":connected?"Open chat":"Send request";return `<div class="new-person-row" data-uid="${escapeHtml(user.uid)}">${avatarHtml(user,{dot:false})}<div class="meta"><strong>${escapeHtml(user.name||user.displayName||"User")}</strong><span>@${escapeHtml(user.username||"")}</span>${user.email?`<span>${escapeHtml(user.email)}</span>`:""}</div><button class="btn ${blocked?"btn-soft":"btn-primary"} btn-sm new-chat-action" ${blocked?"disabled":""}>${label}</button></div>`;}).join("");
-  box.querySelectorAll(".new-person-row").forEach((row,index)=>{const user=matches[index];paintAvatar(row.querySelector(".avatar"),user);row.querySelector(".new-chat-action")?.addEventListener("click",async()=>{const btn=row.querySelector(".new-chat-action");if(btn.disabled)return;if(conversations.some(c=>c.members?.includes(user.uid))){const c=conversations.find(c=>c.members?.includes(user.uid));closeModal("newChatModal");return openChatById(c.id,user.uid);}btn.disabled=true;btn.textContent="Sending…";const result=await sendMessageRequest(currentUser,user.uid,user);if(result?.alreadyExists){closeModal("newChatModal");await openChatById(result.conversationId);}else if(result){btn.textContent="Sent ✓";setTimeout(()=>closeModal("newChatModal"),550);}else{btn.disabled=false;btn.textContent="Send request";}});});
+  box.innerHTML=matches.map(user=>{const connected=conversations.some(c=>c.members?.includes(user.uid));const blocked=currentBlockedUsers.has(user.uid);let label=blocked?"Blocked":connected?"Open chat":"Send request";return `<div class="new-person-row" data-uid="${escapeHtml(user.uid)}">${avatarHtml(user,{dot:false})}<div class="meta"><strong>${escapeHtml(user.name||user.displayName||"User")}</strong><span>@${escapeHtml(user.username||"")}</span></div><button class="btn ${blocked?"btn-soft":"btn-primary"} btn-sm new-chat-action" ${blocked?"disabled":""}>${label}</button></div>`;}).join("");
+  box.querySelectorAll(".new-person-row").forEach((row,index)=>{const user=matches[index];paintAvatar(row.querySelector(".avatar"),user);row.querySelector(".new-chat-action")?.addEventListener("click",async()=>{const btn=row.querySelector(".new-chat-action");if(btn.disabled)return;if(conversations.some(c=>c.members?.includes(user.uid))){const c=conversations.find(c=>c.members?.includes(user.uid));closeModal("newChatModal");return openChatById(c.id,user.uid);}btn.disabled=true;btn.textContent="Sending…";const senderProfile={uid:currentUser.uid,email:currentUser.email,displayName:currentUserData.name||currentUser.displayName,photoURL:currentUserData.photoURL||currentUser.photoURL||"",username:currentUserData.username||""};const result=await sendMessageRequest(senderProfile,user.uid,user);if(result?.alreadyExists){closeModal("newChatModal");await openChatById(result.conversationId);}else if(result){btn.textContent="Sent ✓";setTimeout(()=>closeModal("newChatModal"),550);}else{btn.disabled=false;btn.textContent="Send request";}});});
 }
 function openNewChatWithQuery(value){openModal("newChatModal");const input=$id("newChatSearch");if(input){input.value=value.startsWith("@")?value:`@${value}`;loadNewChatSearch(input.value);setTimeout(()=>input.focus(),20);}history.replaceState({},"",location.pathname);}
 
@@ -358,11 +367,20 @@ function otherUid(c){return Array.isArray(c.members)?c.members.find(uid=>uid!==c
 function ensureUserListener(uid){if(!uid||userListeners.has(uid))return;const entry={data:null,unsub:null};entry.unsub=onSnapshot(doc(db,"users",uid),snap=>{entry.data=snap.exists()?{uid,...snap.data()}:{uid};renderChatList();if(activeUser?.uid===uid){activeUser={...activeUser,...entry.data};refreshChatHeader();renderProfileDrawer();}},e=>console.warn("User listener failed",uid,e));userListeners.set(uid,entry);}
 function renderChatList(){
   const box=$id("chatList");if(!box||!currentUser)return;
-  const filtered=conversations.filter(c=>matchesChat(userListeners.get(otherUid(c))?.data||{},chatSearchTerm));
+  const visible=conversations.filter(c=>!c.hiddenFor?.[currentUser.uid]);
+  const filtered=visible.filter(c=>matchesChat(userListeners.get(otherUid(c))?.data||{},chatSearchTerm))
+    .sort((a,b)=>{const pa=a.pinned?.[currentUser.uid]?1:0,pb=b.pinned?.[currentUser.uid]?1:0;if(pa!==pb)return pb-pa;return(b.lastMessageTime?.toMillis?.()??b.createdAt?.toMillis?.()??0)-(a.lastMessageTime?.toMillis?.()??a.createdAt?.toMillis?.()??0);});
   if(!filtered.length){box.innerHTML=chatSearchTerm?`<div class="empty-state">No conversations match “${escapeHtml(chatSearchTerm)}”.</div>`:'<div class="empty-state big">Your inbox is quiet.<br><span>Start a new chat to connect.</span></div>';return;}
-  box.innerHTML=filtered.map(c=>{const uid=otherUid(c),user=userListeners.get(uid)?.data||{uid,name:"Conversation"},unread=Number(c.unread?.[currentUser.uid]||0),when=c.lastMessageTime?.toDate?.()||c.createdAt?.toDate?.(),blocked=currentBlockedUsers.has(uid);let preview=c.lastMessage?previewText({type:c.lastMessageType,text:c.lastMessage},{isMine:c.lastMessageSenderId===currentUser.uid}):"No messages yet";if(localHiddenLatest.has(c.id))preview="Message hidden for you";return `<button class="chat-item ${activeConversationId===c.id?"active":""}" data-conversation-id="${escapeHtml(c.id)}" type="button">${avatarHtml(user,{dot:true})}<span class="meta"><span class="top-line"><strong>${escapeHtml(user.name||user.email||"User")}</strong><span class="time">${escapeHtml(when?formatWhen(when):"")}</span></span><span class="preview-line"><span class="text">${escapeHtml(blocked?"Blocked":preview)}</span>${unread>0&&!blocked?`<span class="unread-badge">${unread>99?"99+":unread}</span>`:""}</span></span></button>`;}).join("");
+  box.innerHTML=filtered.map(c=>{const uid=otherUid(c),user=userListeners.get(uid)?.data||{uid,name:"Conversation"},unread=Number(c.unread?.[currentUser.uid]||0),when=c.lastMessageTime?.toDate?.()||c.createdAt?.toDate?.(),blocked=currentBlockedUsers.has(uid),pinned=!!c.pinned?.[currentUser.uid];let preview=c.lastMessage?previewText({type:c.lastMessageType,text:c.lastMessage},{isMine:c.lastMessageSenderId===currentUser.uid}):"No messages yet";if(localHiddenLatest.has(c.id))preview="Message hidden for you";return `<button class="chat-item ${activeConversationId===c.id?"active":""} ${pinned?"is-pinned":""}" data-conversation-id="${escapeHtml(c.id)}" type="button">${avatarHtml(user,{dot:true})}<span class="meta"><span class="top-line"><strong>${escapeHtml(user.name||"User")}</strong>${pinned?`<span class="pin-indicator" title="Pinned">${ICONS.bookmark}</span>`:""}<span class="time">${escapeHtml(when?formatWhen(when):"")}</span></span><span class="preview-line"><span class="text">${escapeHtml(blocked?"Blocked":preview)}</span>${unread>0&&!blocked?`<span class="unread-badge">${unread>99?"99+":unread}</span>`:""}</span></span></button>`;}).join("");
   filtered.forEach(c=>{const uid=otherUid(c),row=box.querySelector(`[data-conversation-id="${CSS.escape(c.id)}"]`),user=userListeners.get(uid)?.data||{uid};paintAvatar(row?.querySelector(".avatar"),user);setStatusDot(row?.querySelector(".status-dot"),isUserOnline(user));});
-  box.querySelectorAll(".chat-item").forEach(row=>row.addEventListener("click",()=>{const c=conversations.find(x=>x.id===row.dataset.conversationId);if(!c)return;playClick();openChatById(c.id); }));
+  box.querySelectorAll(".chat-item").forEach(row=>{
+    let pressTimer=null,longPressed=false;
+    row.addEventListener("click",()=>{if(longPressed){longPressed=false;return;}const c=conversations.find(x=>x.id===row.dataset.conversationId);if(!c)return;playClick();openChatById(c.id); });
+    row.addEventListener("contextmenu",(e)=>{e.preventDefault();showChatItemContextMenu(row.dataset.conversationId,row,e.clientX,e.clientY);});
+    row.addEventListener("touchstart",()=>{longPressed=false;pressTimer=setTimeout(()=>{longPressed=true;if(navigator.vibrate)navigator.vibrate(12);const r=row.getBoundingClientRect();showChatItemContextMenu(row.dataset.conversationId,row,r.left+20,r.top+20);},480);},{passive:true});
+    row.addEventListener("touchend",()=>{clearTimeout(pressTimer);});
+    row.addEventListener("touchmove",()=>{clearTimeout(pressTimer);});
+  });
 }
 
 /* Active chat */
@@ -379,10 +397,86 @@ async function openChatById(conversationId,hintedUid=null){
     listenMessages();listenTyping();
   }catch(e){console.error("Open chat failed",e);showToast(e?.code==="permission-denied"?"You don't have access to this chat.":"Could not open this chat.","error");}
 }
-function refreshChatHeader(){if(!activeUser)return;const live=userListeners.get(activeUser.uid)?.data;if(live)activeUser={...activeUser,...live};const online=isUserOnline(activeUser),blocked=currentBlockedUsers.has(activeUser.uid);$id("chatName").textContent=activeUser.name||activeUser.email||"User";const status=blocked?"Blocked by you":online?"Active now":`Offline · ${formatLastSeen(activeUser.lastSeen?.toDate?.()||null)}`;$id("chatStatus").textContent=status;$id("chatStatusPill").hidden=!online||blocked;if(!$id("chatStatusPill").hidden)$id("chatStatusPill").textContent="Online";setStatusDot($id("chatStatusDot"),online&&!blocked);paintAvatar($id("chatAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name,email:activeUser.email});setComposerState();}
+function refreshChatHeader(){if(!activeUser)return;const live=userListeners.get(activeUser.uid)?.data;if(live)activeUser={...activeUser,...live};const online=isUserOnline(activeUser),blocked=currentBlockedUsers.has(activeUser.uid);$id("chatName").textContent=activeUser.name||(activeUser.username?`@${activeUser.username}`:"User");const status=blocked?"Blocked by you":online?"Active now":`Offline · ${formatLastSeen(activeUser.lastSeen?.toDate?.()||null)}`;$id("chatStatus").textContent=status;$id("chatStatusPill").hidden=!online||blocked;if(!$id("chatStatusPill").hidden)$id("chatStatusPill").textContent="Online";setStatusDot($id("chatStatusDot"),online&&!blocked);paintAvatar($id("chatAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name,email:activeUser.email});setComposerState();}
 function isBlockedByEither(){return !!(activeUser&&currentBlockedUsers.has(activeUser.uid));}
 function setComposerState(){const blocked=isBlockedByEither(),enabled=!!activeUser&&!!activeConversationId&&!blocked&&!sendingMessage;$id("messageInput").disabled=!enabled;$id("attachBtn").disabled=!enabled;$id("messageForm").querySelector("button[type=submit]").disabled=!enabled;$id("messageInput").placeholder=blocked?"Messaging is blocked":"Write a message…";const notice=$id("blockedNotice");if(blocked){notice.hidden=false;notice.innerHTML=`<span>${ICONS.block}</span><span>You blocked this person. Unblock them to continue.</span>`;}else notice.hidden=true;}
-function renderChatMoreMenu(){const menu=$id("chatMoreMenu");if(!menu||!activeUser)return;const blocked=currentBlockedUsers.has(activeUser.uid);menu.innerHTML=`<div class="dropdown-label">Conversation</div><button class="dropdown-item" id="viewProfileBtn">${ICONS.profile}<span>View profile</span></button><button class="dropdown-item" id="sharedMediaBtn">${ICONS.copy}<span>Shared media</span></button><button class="dropdown-item" id="callSoonBtn">${ICONS.reply}<span>Voice / video call</span></button><button class="dropdown-item ${blocked?"":"danger-item"}" id="blockToggleBtn">${blocked?ICONS.unlock:ICONS.block}<span>${blocked?"Unblock user":"Block user"}</span></button>`;menu.querySelector("#viewProfileBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();});menu.querySelector("#sharedMediaBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();document.querySelector("#sharedMediaGrid")?.scrollIntoView({block:"nearest"});});menu.querySelector("#callSoonBtn")?.addEventListener("click",()=>{menu.hidden=true;showToast("Voice and video calls are coming soon.","info");});menu.querySelector("#blockToggleBtn")?.addEventListener("click",async()=>{menu.hidden=true;const shouldBlock=!blocked;if(shouldBlock){const ok=await showConfirmDialog({title:"Block this user?",message:"They won't be able to send you messages until you unblock them.",confirmText:"Block user",cancelText:"Cancel",danger:true});if(!ok)return;}await toggleBlockUser(activeUser.uid,shouldBlock);});}
+function renderChatMoreMenu(){const menu=$id("chatMoreMenu");if(!menu||!activeUser)return;const blocked=currentBlockedUsers.has(activeUser.uid);menu.innerHTML=`<div class="dropdown-label">Conversation</div><button class="dropdown-item" id="viewProfileBtn">${ICONS.profile}<span>View profile</span></button><button class="dropdown-item" id="sharedMediaBtn">${ICONS.copy}<span>Shared media</span></button><button class="dropdown-item" id="callSoonBtn">${ICONS.reply}<span>Voice / video call</span></button><button class="dropdown-item" id="clearChatBtn">${ICONS.trash}<span>Clear chat</span></button><button class="dropdown-item ${blocked?"":"danger-item"}" id="blockToggleBtn">${blocked?ICONS.unlock:ICONS.block}<span>${blocked?"Unblock user":"Block user"}</span></button>`;menu.querySelector("#viewProfileBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();});menu.querySelector("#sharedMediaBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();document.querySelector("#sharedMediaGrid")?.scrollIntoView({block:"nearest"});});menu.querySelector("#callSoonBtn")?.addEventListener("click",()=>{menu.hidden=true;showToast("Voice and video calls are coming soon.","info");});menu.querySelector("#clearChatBtn")?.addEventListener("click",async()=>{menu.hidden=true;await clearChatForMe();});menu.querySelector("#blockToggleBtn")?.addEventListener("click",async()=>{menu.hidden=true;const shouldBlock=!blocked;if(shouldBlock){const ok=await showConfirmDialog({title:"Block this user?",message:"They won't be able to send you messages until you unblock them.",confirmText:"Block user",cancelText:"Cancel",danger:true});if(!ok)return;}await toggleBlockUser(activeUser.uid,shouldBlock);});}
+
+async function clearChatForMe(){
+  if(!activeConversationId||!currentUser)return false;
+  const ok=await showConfirmDialog({title:"Clear this chat?",message:"All messages will be removed from your view only. The other person will still see them.",confirmText:"Clear chat",cancelText:"Cancel",danger:true});
+  if(!ok)return false;
+  try{
+    const msgsSnap=await getDocs(collection(db,"conversations",activeConversationId,"messages"));
+    if(msgsSnap.empty){showToast("Chat is already empty","info");return true;}
+    const docs=msgsSnap.docs;
+    for(let i=0;i<docs.length;i+=450){
+      const batch=writeBatch(db);
+      docs.slice(i,i+450).forEach(d=>batch.update(d.ref,{deletedFor:arrayUnion(currentUser.uid)}));
+      await batch.commit();
+    }
+    localHiddenLatest.add(activeConversationId);
+    renderChatList();
+    showToast("Chat cleared","success");
+    return true;
+  }catch(e){
+    console.error("Clear chat failed",e);
+    showToast(e?.code==="permission-denied"?"You don't have permission to clear this chat.":"Could not clear the chat. Try again.","error");
+    return false;
+  }
+}
+
+async function deleteConversationForMe(conversationId){
+  if(!conversationId||!currentUser)return false;
+  const ok=await showConfirmDialog({title:"Delete this chat?",message:"This removes the entire conversation from your chat list. The other person keeps their copy.",confirmText:"Delete chat",cancelText:"Cancel",danger:true});
+  if(!ok)return false;
+  try{
+    await updateDoc(doc(db,"conversations",conversationId),{[`hiddenFor.${currentUser.uid}`]:true,[`pinned.${currentUser.uid}`]:false});
+    if(activeConversationId===conversationId){activeConversationId=null;activeUser=null;$id("app")?.classList.remove("chat-open");}
+    renderChatList();
+    showToast("Chat deleted","success");
+    return true;
+  }catch(e){
+    console.error("Delete chat failed",e);
+    showToast(e?.code==="permission-denied"?"You don't have permission to delete this chat.":"Could not delete the chat. Try again.","error");
+    return false;
+  }
+}
+
+async function togglePinConversation(conversationId){
+  if(!conversationId||!currentUser)return false;
+  const c=conversations.find(x=>x.id===conversationId);
+  const nowPinned=!(c?.pinned?.[currentUser.uid]);
+  try{
+    await updateDoc(doc(db,"conversations",conversationId),{[`pinned.${currentUser.uid}`]:nowPinned});
+    renderChatList();
+    showToast(nowPinned?"Chat pinned":"Chat unpinned","success");
+    return true;
+  }catch(e){
+    console.error("Pin chat failed",e);
+    showToast("Could not update pin. Try again.","error");
+    return false;
+  }
+}
+
+function closeChatItemContextMenu(){document.querySelector(".chat-item-context-menu")?.remove();}
+function showChatItemContextMenu(conversationId,anchorEl,clientX,clientY){
+  closeChatItemContextMenu();
+  const c=conversations.find(x=>x.id===conversationId);
+  const isPinned=!!(c?.pinned?.[currentUser?.uid]);
+  const menu=document.createElement("div");
+  menu.className="message-action-menu chat-item-context-menu";
+  menu.innerHTML=`<button class="menu-item pin-chat" type="button">${ICONS.bookmark}<span>${isPinned?"Unpin chat":"Pin chat"}</span></button><button class="menu-item danger-item delete-chat" type="button">${ICONS.trash}<span>Delete chat</span></button>`;
+  document.body.appendChild(menu);
+  const rect=anchorEl.getBoundingClientRect();
+  const mr=menu.getBoundingClientRect();
+  const top=Math.min(Math.max(8,clientY||rect.top),innerHeight-mr.height-8);
+  const left=Math.min(Math.max(8,clientX||rect.left),innerWidth-mr.width-8);
+  menu.style.top=`${top}px`;menu.style.left=`${left}px`;
+  menu.querySelector(".pin-chat")?.addEventListener("click",async()=>{menu.remove();await togglePinConversation(conversationId);});
+  menu.querySelector(".delete-chat")?.addEventListener("click",async()=>{menu.remove();await deleteConversationForMe(conversationId);});
+  setTimeout(()=>document.addEventListener("click",closeChatItemContextMenu,{once:true}),0);
+}
 async function loadBlockedUsers(){currentBlockedUsers=new Set();if(!currentUser)return;try{const snap=await getDocs(collection(db,"users",currentUser.uid,"blockedUsers"));snap.docs.forEach(d=>currentBlockedUsers.add(d.id));}catch(e){console.warn(e);}}
 async function toggleBlockUser(uid,shouldBlock){try{const ref=doc(db,"users",currentUser.uid,"blockedUsers",uid);if(shouldBlock)await setDoc(ref,{uid,createdAt:serverTimestamp()});else await deleteDoc(ref);shouldBlock?currentBlockedUsers.add(uid):currentBlockedUsers.delete(uid);renderChatList();refreshChatHeader();setComposerState();showToast(shouldBlock?"User blocked":"User unblocked","success");}catch(e){console.error(e);showToast("Could not update block setting.","error");}}
 
@@ -591,7 +685,7 @@ function autoGrowComposer(){const input=$id("messageInput");if(!input)return;inp
 /* Profile drawer / shared media */
 function openProfileDrawer(){if(!activeUser)return;renderProfileDrawer();$id("profileDrawer").hidden=false;$id("app")?.classList.add("drawer-open");}
 function closeProfileDrawer(){const d=$id("profileDrawer");if(!d)return;d.hidden=true;$id("app")?.classList.remove("drawer-open");}
-function renderProfileDrawer(){if(!activeUser)return;const live=userListeners.get(activeUser.uid)?.data;if(live)activeUser={...activeUser,...live};paintAvatar($id("drawerAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name,email:activeUser.email});$id("drawerName").textContent=activeUser.name||activeUser.email||"Contact";$id("drawerUsername").textContent=activeUser.username?`@${activeUser.username}`:"";$id("drawerBio").textContent=activeUser.bio||"";const grid=$id("sharedMediaGrid");if(!grid)return;const images=currentMessages.filter(m=>m.type==="image"&&isTrustedImageUrl(m.imageURL)).slice(-12).reverse();if(!images.length){grid.innerHTML='<div class="empty-state">No shared images yet.</div>';return;}grid.innerHTML=images.map(m=>`<button type="button" class="shared-media-item" data-image="${escapeHtml(m.imageURL)}"><img src="${escapeHtml(imageUrl(m.imageURL,"chat"))}" alt="Shared image" loading="lazy"></button>`).join("");grid.querySelectorAll(".shared-media-item").forEach(b=>b.addEventListener("click",()=>openLightbox(b.dataset.image)));}
+function renderProfileDrawer(){if(!activeUser)return;const live=userListeners.get(activeUser.uid)?.data;if(live)activeUser={...activeUser,...live};paintAvatar($id("drawerAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name,email:activeUser.email});$id("drawerName").textContent=activeUser.name||(activeUser.username?`@${activeUser.username}`:"Contact");$id("drawerUsername").textContent=activeUser.username?`@${activeUser.username}`:"";$id("drawerBio").textContent=activeUser.bio||"";const grid=$id("sharedMediaGrid");if(!grid)return;const images=currentMessages.filter(m=>m.type==="image"&&isTrustedImageUrl(m.imageURL)).slice(-12).reverse();if(!images.length){grid.innerHTML='<div class="empty-state">No shared images yet.</div>';return;}grid.innerHTML=images.map(m=>`<button type="button" class="shared-media-item" data-image="${escapeHtml(m.imageURL)}"><img src="${escapeHtml(imageUrl(m.imageURL,"chat"))}" alt="Shared image" loading="lazy"></button>`).join("");grid.querySelectorAll(".shared-media-item").forEach(b=>b.addEventListener("click",()=>openLightbox(b.dataset.image)));}
 
 /* Saved messages */
 async function renderSavedMessages(){const box=$id("savedList");if(!box||!currentUser)return;box.innerHTML='<div class="empty-state">Loading saved messages…</div>';try{const indexSnap=await getDocs(query(collection(db,"users",currentUser.uid,"savedMessages"),orderBy("savedAt","desc"),limit(100)));let entries=indexSnap.docs.map(d=>({id:d.id,...d.data()}));if(!entries.length){entries=await migrateLegacySavedMessages();}if(!entries.length){box.innerHTML='<div class="empty-state big">No saved messages yet.<br><span>Use ••• on a message to save it.</span></div>';return;}const resolved=[];for(const entry of entries){try{const s=await getDoc(doc(db,"conversations",entry.conversationId,"messages",entry.messageId));if(!s.exists())continue;const m={id:s.id,...s.data()};if(isDeletedForUser(m,currentUser.uid))continue;const partner=userListeners.get(entry.partnerUid)?.data||{uid:entry.partnerUid,name:"Conversation"};resolved.push({entry,m,partner});}catch{}}box.innerHTML=resolved.map(({entry,m,partner})=>`<button class="saved-item" type="button" data-conversation-id="${escapeHtml(entry.conversationId)}" data-message-id="${escapeHtml(entry.messageId)}">${avatarHtml(partner)}<span class="meta"><span class="top-line"><strong>${escapeHtml(partner.name||"Conversation")}</strong><span class="time">${escapeHtml(m.createdAt?.toDate?formatWhen(m.createdAt.toDate()):"")}</span></span><span class="preview-line"><span class="text">${escapeHtml(m.type==="image"?"📷 Photo":m.text||"")}</span></span></span><span class="saved-bookmark">${ICONS.bookmark}</span></button>`).join("");resolved.forEach((x,i)=>{const row=box.querySelectorAll(".saved-item")[i];paintAvatar(row?.querySelector(".avatar"),x.partner);row?.addEventListener("click",async()=>{closeModal("savedModal");await openChatById(x.entry.conversationId);setTimeout(()=>scrollToMessage(x.entry.messageId),250);});});}catch(e){console.error(e);box.innerHTML='<div class="empty-state">Saved messages could not be loaded.</div>';}}

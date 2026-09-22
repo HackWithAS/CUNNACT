@@ -22,10 +22,14 @@
     <h1>Create account</h1>
     <p>Join CUNNACT and start connecting.</p>
     <form id="registerForm" novalidate>
+      <label>CUNNACT ID (username)
+        <input id="username" type="text" autocomplete="off" placeholder="e.g. rahul_23" maxlength="24" required>
+      </label>
+      <p class="field-hint">This is what other people see. Lowercase letters, numbers and _ only.</p>
       <label>Name
         <input id="name" type="text" autocomplete="name" required>
       </label>
-      <label>Email
+      <label>Email <span class="field-hint-inline">(for login only — never shown to others)</span>
         <input id="email" type="email" autocomplete="email" required>
       </label>
       <label>Password

@@ -155,3 +155,31 @@ html[data-theme="dark"] .chat-header-actions .icon-btn:not(:disabled){
   -webkit-text-fill-color:#F8FAFC;
 }
 .chat-header-actions .icon-btn svg{display:block!important;width:19px!important;height:19px!important;opacity:1!important}
+
+/* BUGFIX: on desktop the sidebar must show the text wordmark only — the
+   mobile logo image was winning a specificity fight against the media
+   query and rendering alongside the text, producing a duplicated brand
+   name. This rule is scoped tighter than the offending selector so it
+   always wins, and also stops the extra-wide image logo from squeezing
+   the account 3-dot menu out of the header on desktop widths. */
+@media(min-width:1001px){
+  .sidebar .brand-wordmark-wrap .mobile-brand-wordmark.theme-logo-light,
+  .sidebar .brand-wordmark-wrap .mobile-brand-wordmark.theme-logo-dark{
+    display:none!important;
+  }
+  .sidebar .top-actions{flex:none}
+  .sidebar .menu-wrap,
+  .sidebar #accountMenuBtn{display:inline-flex!important;visibility:visible!important;opacity:1!important}
+}
+
+/* Online = green, Offline = red (matches request for clearer presence colors) */
+.status-dot{background:#EF4444!important;border-color:var(--surface)!important}
+.status-dot.online{background:#22C55E!important}
+.online-text{color:#22C55E!important}
+.online-text i{background:#22C55E!important;box-shadow:0 0 0 3px rgba(34,197,94,.15)!important}
+.status-pill{background:rgba(34,197,94,.12)!important;color:#16A34A!important}
+
+/* Pin indicator + long-press/right-click context menu for chat list rows */
+.pin-indicator{display:inline-flex;width:12px;height:12px;color:var(--accent);flex:none}
+.pin-indicator svg{width:12px;height:12px}
+.chat-item.is-pinned{background:color-mix(in srgb,var(--accent) 6%,transparent)}

@@ -107,7 +107,8 @@ service cloud.firestore {
         && request.auth.uid in resource.data.members
         && request.resource.data.members == resource.data.members
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "lastMessage","lastMessageType","lastMessageSenderId","lastMessageId","lastMessageTime","unread"
+          "lastMessage","lastMessageType","lastMessageSenderId","lastMessageId","lastMessageTime","unread",
+          "pinned","hiddenFor"
         ]);
       allow delete: if false;
 
