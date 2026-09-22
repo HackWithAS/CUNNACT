@@ -104,3 +104,9 @@ Voice/video buttons are presented as product UI placeholders; no call signaling/
 Every JavaScript file in this deliverable passes Node syntax validation. The final two-device Firebase flow still needs to be exercised against your live Firebase/Vercel deployment.
 
 Created by HackWithAS.
+
+## V6 UI navigation + brand correction
+
+- On large desktop layouts (>1100px), New Chat, Requests, and Saved Messages are available from the narrow navigation rail only; the wider conversation sidebar keeps the existing mobile/tablet controls.
+- On tablet/mobile layouts, the existing wider sidebar controls remain visible as before.
+- CUNNACT uses a single shared brand identity across app icon, favicon, authentication, landing, profile, public profile, and in-app welcome surfaces.

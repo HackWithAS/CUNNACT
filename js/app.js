@@ -302,7 +302,11 @@ async function logout() {
 
 /* Requests */
 function updateRequestsBadge(count) {
-  [$id("requestsBadge")].forEach((badge) => { if (!badge) return; badge.textContent=count>99?"99+":String(count); badge.hidden=count<=0; });
+  [$id("requestsBadge"), $id("navRequestsBadge")].forEach((badge) => {
+    if (!badge) return;
+    badge.textContent=count>99?"99+":String(count);
+    badge.hidden=count<=0;
+  });
 }
 function renderMessageRequests(requests) {
   const container=$id("requestsList"); if(!container) return;

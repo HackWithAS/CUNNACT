@@ -194,3 +194,18 @@ body,.profile-page,.public-profile-page{background:radial-gradient(circle at 10%
 /* Strict avatar invariant: a valid photo and initials can never be visible together. */
 .avatar.has-photo .avatar-fallback{display:none!important;visibility:hidden!important}
 .avatar.has-fallback img{display:none!important;visibility:hidden!important}
+
+/* CUNNACT brand logo system — shared across all pages */
+.theme-logo-dark{display:none!important}
+:root[data-theme="dark"] .theme-logo-light{display:none!important}
+:root[data-theme="dark"] .theme-logo-dark{display:block!important}
+.brand-wordmark-wrap{display:block;text-decoration:none;color:inherit;min-width:0}
+.brand-wordmark-wrap .brand-wordmark-logo{width:176px;height:auto;max-height:54px;object-fit:contain;object-position:left center}
+.auth-brand{min-height:58px}
+.auth-brand .auth-wordmark-logo{width:min(290px,100%);height:auto;object-fit:contain;object-position:left center}
+.public-brand .public-wordmark-logo{width:min(205px,100%);height:auto;max-height:58px;object-fit:contain;object-position:left center}
+.welcome-orb img{width:60px;height:60px;object-fit:contain;display:block}
+/* Theme variants for full wordmark images */
+.brand-wordmark-wrap .theme-logo-dark{display:none!important}
+:root[data-theme="dark"] .brand-wordmark-wrap .theme-logo-light{display:none!important}
+:root[data-theme="dark"] .brand-wordmark-wrap .theme-logo-dark{display:block!important}

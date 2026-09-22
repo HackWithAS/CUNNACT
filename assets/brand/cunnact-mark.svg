@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">CUNNACT logo mark</title>
+  <desc id="desc">A stylized C with a chat bubble cutout and three conversation dots.</desc>
+  <defs>
+    <linearGradient id="main" x1="120" y1="80" x2="420" y2="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2F80FF"/>
+      <stop offset="0.58" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#25B8FF"/>
+    </linearGradient>
+    <linearGradient id="back" x1="130" y1="150" x2="310" y2="390" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8B5CF6" stop-opacity=".92"/>
+      <stop offset="1" stop-color="#5B67F1" stop-opacity=".55"/>
+    </linearGradient>
+  </defs>
+  <path d="M196 92c-70 31-118 99-118 175 0 93 64 165 151 178 30 5 61 2 89-8-31 3-60-2-85-13-56-25-91-80-91-144 0-84 57-151 135-164 10-2 21-3 31-2-33-32-76-39-112-22Z" fill="url(#back)"/>
+  <path d="M395 160c-35-43-85-68-140-68-104 0-187 78-187 178 0 101 84 182 191 182 60 0 114-26 148-70l-72-42c-20 23-47 36-77 36-57 0-101-43-101-98s44-99 101-99c31 0 59 14 79 38l76-37c-4-7-9-14-18-20Z" fill="url(#main)"/>
+  <path d="M214 175h126c42 0 77 35 77 77v34c0 42-35 77-77 77h-74l-43 31 10-31h-19c-42 0-77-35-77-77v-34c0-42 35-77 77-77Z" fill="#0F172A"/>
+  <circle cx="244" cy="269" r="13.5" fill="#42BFFF"/>
+  <circle cx="290" cy="269" r="13.5" fill="#42BFFF"/>
+  <circle cx="336" cy="269" r="13.5" fill="#42BFFF"/>
+</svg>

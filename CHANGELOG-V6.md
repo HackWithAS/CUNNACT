@@ -46,3 +46,10 @@
 ## V6 fixes
 - Removed duplicated Requests, Saved Messages, and New Chat controls from the narrow navigation rail; these remain as the primary controls in the main sidebar/conversation header.
 - Acceptance flow now updates the request first and creates the deterministic conversation under a simpler Firestore authorization path.
+
+### Final UI correction
+- Corrected CUNNACT brand assets to the approved blue/purple/cyan C mark + chat-dot identity.
+- Added desktop navigation rail actions for New Chat, Requests, and Saved Messages.
+- Kept the existing wider sidebar actions visible on tablet/mobile.
+- Removed those wider sidebar action controls from large-desktop presentation to avoid duplicate dashboard/sidebar options.
+- Kept backend/Firebase/Cloudinary behavior unchanged apart from the existing UI request badge wiring.

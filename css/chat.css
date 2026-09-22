@@ -55,3 +55,26 @@
   .message-action-menu .reaction-picker{justify-content:space-between;padding:5px 4px}
   .message-action-menu .reaction-choice{width:42px;height:42px}
 }
+
+/* Desktop navigation: keep New chat / Requests / Saved in the narrow rail.
+   On tablet/mobile the wider sidebar controls remain available as before. */
+@media(min-width:1101px){
+  .sidebar .section-heading-row .new-chat-btn{display:none}
+  .sidebar .sidebar-bottom{display:none}
+  .nav-rail .nav-rail-btn{cursor:pointer}
+}
+@media(max-width:1100px){
+  .sidebar .section-heading-row .new-chat-btn{display:inline-flex}
+  .sidebar .sidebar-bottom{display:flex}
+}
+@media(max-width:820px){
+  .sidebar .section-heading-row .new-chat-btn{display:inline-flex}
+  .sidebar .sidebar-bottom{display:flex}
+}
+
+/* Brand wordmark sizing in the conversation/sidebar header */
+.brand-wordmark-wrap{flex:none;display:flex;align-items:center}
+.brand-wordmark-wrap .brand-wordmark-logo{display:block!important}
+:root[data-theme="dark"] .brand-wordmark-wrap .theme-logo-light{display:none!important}
+:root[data-theme="dark"] .brand-wordmark-wrap .theme-logo-dark{display:block!important}
+.nav-rail-btn .rail-badge[hidden]{display:none!important}

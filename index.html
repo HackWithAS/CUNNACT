@@ -28,6 +28,12 @@
       <a class="nav-logo" href="index.html" aria-label="CUNNACT home"><img src="assets/brand/cunnact-icon.svg" alt="CUNNACT" loading="eager"></a>
       <nav class="nav-rail-links">
         <button class="nav-rail-btn active" id="navChatsBtn" type="button" aria-label="Chats" title="Chats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.4c-1.3 0-2.5-.3-3.6-.9L4 20l1.4-3.7A7.3 7.3 0 0 1 4.5 12 7.5 7.5 0 0 1 12 4.5c4.1 0 7.5 3.1 8 7Z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/></svg></button>
+        <button class="nav-rail-btn" id="navRequestsBtn" type="button" aria-label="Message requests" title="Requests">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span id="navRequestsBadge" class="rail-badge" hidden>0</span>
+        </button>
+        <button class="nav-rail-btn" id="navSavedBtn" type="button" aria-label="Saved messages" title="Saved messages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>
+        <button class="nav-rail-btn" id="navNewChatBtn" type="button" aria-label="New chat" title="New chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
       </nav>
       <div class="nav-rail-bottom">
         <button class="nav-rail-btn" id="navThemeBtn" type="button" aria-label="Toggle theme" title="Toggle theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 14.6A8.7 8.7 0 0 1 9.4 3 8.7 8.7 0 1 0 21 14.6Z"/></svg></button>
@@ -35,13 +41,10 @@
     </aside>
     <aside class="sidebar" aria-label="CUNNACT navigation">
       <div class="sidebar-top">
-        <div class="brand-lockup">
-          <img class="brand-icon-logo" src="assets/brand/cunnact-icon.svg" alt="CUNNACT" loading="eager">
-          <div class="brand-mark">
-            <strong>CUNNACT</strong>
-            <span>Stay Connected.</span>
-          </div>
-        </div>
+        <a class="brand-lockup brand-wordmark-wrap" href="index.html" aria-label="CUNNACT home">
+          <img class="brand-wordmark-logo theme-logo-light" src="assets/brand/cunnact-logo.svg" alt="CUNNACT — Stay Connected" loading="eager">
+          <img class="brand-wordmark-logo theme-logo-dark" src="assets/brand/cunnact-logo-light.svg" alt="CUNNACT — Stay Connected" loading="eager">
+        </a>
         <div class="top-actions">
           <button id="soundToggle" class="icon-btn" aria-label="Toggle sound" title="Sound on"></button>
           <div class="menu-wrap">
@@ -144,7 +147,7 @@
 
       <section id="messages" class="messages" aria-live="polite">
         <div class="welcome">
-          <div class="welcome-orb"><img src="assets/brand/cunnact-icon.svg" alt="CUNNACT" loading="eager"></div>
+          <div class="welcome-orb"><img src="assets/brand/cunnact-mark.svg" alt="CUNNACT" loading="eager"></div>
           <span class="eyebrow">PRIVATE • SIMPLE • CONNECTED</span>
           <h1>Welcome to CUNNACT</h1>
           <p>Choose a conversation from the left to start messaging.</p>
