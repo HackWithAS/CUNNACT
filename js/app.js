@@ -36,6 +36,7 @@ let messageListenerToken = 0;
 let initialMessageSnapshot = true;
 let onlineHeartbeat = null;
 let confirmDialogResolver = null;
+const renderedMessageEls = new Map(); // messageId -> DOM node, so renderMessages() can update in place instead of rebuilding everything
 const ONLINE_WINDOW_MS = 90 * 1000;
 
 const $id = (id) => document.getElementById(id);
@@ -672,6 +673,8 @@ function listenMessages() {
   unsubscribeMessages?.();
   cleanupInterval?.();
   currentMessages = [];
+  renderedMessageEls.clear();
+  $id("messages").innerHTML = '<div class="empty-state big">Loading messages…</div>';
   const token = ++messageListenerToken;
   initialMessageSnapshot = true;
   const messagesRef = collection(db, "conversations", activeConversationId, "messages");
@@ -708,14 +711,51 @@ function renderMessages() {
   const box = $id("messages");
   if (!box) return;
   const visible = currentMessages.filter((m) => !isDeletedForUser(m, currentUser.uid) && !shouldExpireMessage(m, currentUser.uid));
-  box.innerHTML = "";
+
   if (!visible.length) {
+    renderedMessageEls.clear();
     box.innerHTML = '<div class="empty-state big">No messages yet.<br><span>Send a message to start the conversation.</span></div>';
     return;
   }
-  const fragment = document.createDocumentFragment();
-  visible.forEach((message) => fragment.appendChild(buildMessageElement(message)));
-  box.appendChild(fragment);
+  // First real message after the "No messages yet" placeholder: clear it out once.
+  if (!renderedMessageEls.size && box.querySelector(".empty-state")) box.innerHTML = "";
+
+  // Drop nodes for messages that disappeared (deleted / expired / deleted-for-me).
+  const visibleIds = new Set(visible.map((m) => m.id));
+  for (const [id, el] of renderedMessageEls) {
+    if (!visibleIds.has(id)) { el.remove(); renderedMessageEls.delete(id); }
+  }
+
+  // Add new messages, update changed ones in place, and keep existing nodes untouched otherwise.
+  let previousEl = null;
+  visible.forEach((message) => {
+    let el = renderedMessageEls.get(message.id);
+    if (!el) {
+      el = buildMessageElement(message);
+      renderedMessageEls.set(message.id, el);
+    } else {
+      updateMessageElement(el, message);
+    }
+    const anchor = previousEl ? previousEl.nextSibling : box.firstChild;
+    if (anchor !== el) box.insertBefore(el, anchor);
+    previousEl = el;
+  });
+}
+/** Refreshes the mutable parts (saved state, latest data for the action menu) of an already-rendered message node. */
+function updateMessageElement(el, message) {
+  el._message = message;
+  const saved = isSavedByUser(message, currentUser.uid);
+  el.classList.toggle("saved", saved);
+  const existingBookmark = el.querySelector(".bookmark-icon");
+  if (saved && !existingBookmark) {
+    const bookmark = document.createElement("span");
+    bookmark.className = "bookmark-icon";
+    bookmark.innerHTML = icon.bookmark;
+    bookmark.title = "Saved";
+    el.appendChild(bookmark);
+  } else if (!saved && existingBookmark) {
+    existingBookmark.remove();
+  }
 }
 function buildMessageElement(message) {
   const outgoing = message.senderId === currentUser.uid;
@@ -724,6 +764,7 @@ function buildMessageElement(message) {
   const el = document.createElement("article");
   el.className = `message ${outgoing ? "outgoing" : "incoming"} ${saved ? "saved" : ""}`;
   el.dataset.messageId = message.id;
+  el._message = message; // kept current by updateMessageElement() on later snapshots
 
   const bubble = document.createElement("div");
   bubble.className = "message-bubble";
@@ -752,13 +793,13 @@ function buildMessageElement(message) {
   actionTrigger.addEventListener("click", (event) => {
     event.stopPropagation();
     playClick();
-    showMessageActions(el, message, outgoing, actionTrigger);
+    showMessageActions(el, el._message, outgoing, actionTrigger);
   });
   el.appendChild(actionTrigger);
 
   el.addEventListener("contextmenu", (event) => {
     event.preventDefault();
-    showMessageActions(el, message, outgoing, actionTrigger);
+    showMessageActions(el, el._message, outgoing, actionTrigger);
   });
   return el;
 }
