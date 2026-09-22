@@ -4,7 +4,7 @@ import { paintAvatar } from "./avatar.js";
 import { showToast } from "./toast.js";
 import { $ } from "./ui.js";
 import { isSoundEnabled, setSoundEnabled, playClick, playSuccess } from "./sound.js";
-import { getRetentionMode, setRetentionMode } from "./retention.js";
+import { getRetentionMode, loadRetentionMode, setRetentionMode } from "./retention.js";
 
 let currentUser = null;
 let currentPhotoURL = "";
@@ -19,33 +19,46 @@ const bioCount = $("bioCount");
 const profileMessage = $("profileMessage");
 
 onAuthStateChanged(auth, async (user) => {
-  if (!user) { location.href = "login.html"; return; }
-  currentUser = user;
-  const snap = await getDoc(doc(db, "users", user.uid));
-  const data = snap.exists() ? snap.data() : {};
-  const name = data.name || user.displayName || "";
-  currentPhotoURL = data.photoURL || user.photoURL || "";
+  if (!user) {
+    location.replace("login.html");
+    return;
+  }
 
-  $("profileName").value = name;
-  $("profileEmail").value = user.email || "";
-  bioInput.value = data.bio || "";
-  bioCount.textContent = bioInput.value.length;
-  paintAvatar(avatarEl, { photoURL: currentPhotoURL, name, email: user.email, preset: "avatarXl" });
-  
-  // Load retention setting
-  const retention = getRetentionMode();
-  document.querySelector(`input[name="retention"][value="${retention}"]`).checked = true;
-  
-  // Load sound setting
-  $("soundToggle").checked = isSoundEnabled();
+  currentUser = user;
+  try {
+    const snap = await getDoc(doc(db, "users", user.uid));
+    const data = snap.exists() ? snap.data() : {};
+    const name = data.name || user.displayName || "";
+    currentPhotoURL = data.photoURL || user.photoURL || "";
+
+    $("profileName").value = name;
+    $("profileEmail").value = user.email || data.email || "";
+    bioInput.value = data.bio || "";
+    bioCount.textContent = bioInput.value.length;
+    paintAvatar(avatarEl, { photoURL: currentPhotoURL, name, email: user.email, preset: "avatarXl" });
+
+    const retention = await loadRetentionMode(user.uid);
+    const radio = document.querySelector(`input[name="retention"][value="${retention}"]`);
+    if (radio) radio.checked = true;
+    $("soundToggle").checked = isSoundEnabled();
+  } catch (error) {
+    console.error("Profile load error:", error);
+    profileMessage.textContent = "Could not load your profile. Please refresh.";
+    profileMessage.className = "message error";
+  }
 });
 
-bioInput.addEventListener("input", () => { bioCount.textContent = bioInput.value.length; });
+bioInput.addEventListener("input", () => {
+  bioCount.textContent = String(bioInput.value.length);
+});
 
-$("changePhotoBtn").addEventListener("click", () => { playClick(); $("photoInput").click(); });
+$("changePhotoBtn").addEventListener("click", () => {
+  playClick();
+  $("photoInput").click();
+});
 
 $("photoInput").addEventListener("change", async () => {
-  const file = $("photoInput").files[0];
+  const file = $("photoInput").files?.[0];
   $("photoInput").value = "";
   if (!file || !currentUser) return;
 
@@ -67,11 +80,16 @@ $("photoInput").addEventListener("change", async () => {
   try {
     const url = await uploadImageToCloudinary(file, {
       signal: uploadController.signal,
-      onProgress: (p) => { progressFill.style.width = `${Math.round(p * 100)}%`; }
+      onProgress: (progress) => {
+        progressFill.style.width = `${Math.round(progress * 100)}%`;
+      }
     });
     currentPhotoURL = url;
     await updateProfile(currentUser, { photoURL: url });
-    await updateDoc(doc(db, "users", currentUser.uid), { photoURL: url, lastSeen: serverTimestamp() });
+    await updateDoc(doc(db, "users", currentUser.uid), {
+      photoURL: url,
+      lastSeen: serverTimestamp()
+    });
     uploadStatus.textContent = "Profile picture updated.";
     playSuccess();
     showToast("Profile picture updated.", "success");
@@ -80,71 +98,80 @@ $("photoInput").addEventListener("change", async () => {
     const message = error instanceof UploadError ? error.userMessage : "Couldn't upload image. Please try again.";
     uploadStatus.textContent = message;
     showToast(message, "error");
-    paintAvatar(avatarEl, { photoURL: previousPhotoURL, name: $("profileName").value, email: currentUser.email, preset: "avatarXl" });
+    paintAvatar(avatarEl, {
+      photoURL: previousPhotoURL,
+      name: $("profileName").value,
+      email: currentUser.email,
+      preset: "avatarXl"
+    });
   } finally {
     URL.revokeObjectURL(objectUrl);
     uploadBox.classList.remove("uploading");
-    setTimeout(() => { if (uploadStatus.textContent) uploadStatus.textContent = ""; }, 3000);
+    setTimeout(() => { uploadStatus.textContent = ""; }, 3000);
   }
 });
 
-// Back button
 $("backToChat")?.addEventListener("click", () => {
   playClick();
   location.href = "index.html";
 });
 
-// Sound toggle
-$("soundToggle")?.addEventListener("change", (e) => {
-  const enabled = e.target.checked;
+$("soundToggle")?.addEventListener("change", (event) => {
+  const enabled = event.target.checked;
   setSoundEnabled(enabled);
   if (enabled) playClick();
 });
 
-// Retention radio buttons
-document.querySelectorAll('input[name="retention"]').forEach(radio => {
-  radio.addEventListener("change", (e) => {
+document.querySelectorAll('input[name="retention"]').forEach((radio) => {
+  radio.addEventListener("change", async (event) => {
     playClick();
-    setRetentionMode(e.target.value);
+    if (!currentUser) return;
+    try {
+      await setRetentionMode(event.target.value, currentUser.uid);
+      showToast("Retention setting saved", "success");
+    } catch (error) {
+      console.error("Retention setting error:", error);
+      showToast("Could not save retention setting", "error");
+    }
   });
 });
 
-$("profileForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
+$("profileForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
   playClick();
   profileMessage.className = "message";
   profileMessage.textContent = "";
-  
+
+  if (!currentUser) return;
   const name = $("profileName").value.trim();
   if (!name) {
     profileMessage.textContent = "Name can't be empty.";
     profileMessage.className = "message error";
     return;
   }
-  
-  const submitBtn = e.target.querySelector('button[type="submit"]');
+
+  const submitBtn = event.target.querySelector('button[type="submit"]');
   const originalText = submitBtn.textContent;
   submitBtn.disabled = true;
-  submitBtn.textContent = "Saving...";
-  
+  submitBtn.textContent = "Saving…";
+
   try {
     await updateProfile(currentUser, { displayName: name });
     await updateDoc(doc(db, "users", currentUser.uid), {
       name,
+      email: currentUser.email || "",
+      emailLower: String(currentUser.email || "").toLowerCase(),
       bio: bioInput.value.trim(),
+      retentionMode: getRetentionMode(),
       lastSeen: serverTimestamp()
     });
-    
+
     profileMessage.textContent = "Profile updated ✓";
     profileMessage.className = "message success profile-success";
     playSuccess();
     showToast("Profile updated ✓", "success");
-    
-    // Auto-navigate back after 1 second
-    setTimeout(() => {
-      location.href = "index.html";
-    }, 1000);
-    
+
+    setTimeout(() => { location.href = "index.html"; }, 900);
   } catch (error) {
     console.error("Profile save error:", error);
     profileMessage.textContent = "Could not save your profile.";

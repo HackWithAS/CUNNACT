@@ -63,18 +63,20 @@ $("registerForm")?.addEventListener("submit", async (e) => {
   setBusy(form, true);
   try {
     const fullName = $("name").value.trim();
-    const email = $("email").value.trim();
+    const email = $("email").value.trim().toLowerCase();
     const credential = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(credential.user, { displayName: fullName });
     await setDoc(doc(db, "users", credential.user.uid), {
       uid: credential.user.uid,
       name: fullName,
       email,
+      emailLower: email,
       photoURL: "",
       bio: "",
       createdAt: serverTimestamp(),
       lastSeen: serverTimestamp(),
-      isOnline: true
+      isOnline: true,
+      retentionMode: "24hours"
     });
     location.href = "index.html";
   } catch (error) {

@@ -6,6 +6,15 @@
     "public": ".",
     "ignore": [
       "firebase.json",
+      "firestore.rules",
+      "storage.rules",
+      "**/*.backup",
+      "DEPLOYMENT_GUIDE.md",
+      "README.md",
+      "UPGRADE_SUMMARY.md",
+      "QUICK_REFERENCE.txt",
+      "FILE_LIST.txt",
+      "UPDATE_APP.sh",
       "**/.*",
       "**/node_modules/**"
     ]

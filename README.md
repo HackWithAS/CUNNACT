@@ -17,7 +17,7 @@ CUNNACT has been transformed from a basic chat application into a polished, prof
 ### 🎵 Interactive Experience
 - **Sound System**: Subtle UI sounds (Web Audio API)
 - **Smooth Animations**: Every interaction feels alive
-- **Message Actions**: Save, reply, delete with context menu
+- **Message Actions**: Save, delete for me, delete for everyone with context menu
 - **Real-time**: Instant message delivery
 
 ### 🎨 Modern Design
@@ -45,16 +45,16 @@ CUNNACT has been transformed from a basic chat application into a polished, prof
 9. ✅ **HackWithAS Branding** - Professional attribution
 
 ### Security Improvements:
-- ✅ Complete security audit (no malicious code found)
+- ✅ Source review checked for common suspicious browser-code patterns
 - ✅ Updated Firestore rules for requests and saved messages
 - ✅ XSS protection verified
 - ✅ File upload validation strengthened
 
 ## 🚀 Quick Start
 
-### Deploy Firestore Rules
+### Deploy Firestore Rules + Hosting
 ```bash
-firebase deploy --only firestore:rules
+firebase deploy --only firestore:rules,hosting
 ```
 
 ### Test Locally
@@ -103,10 +103,7 @@ Current implementation uses **client-side cleanup**. Messages expire when:
 For guaranteed server-side deletion, upgrade to Firebase Blaze plan and deploy Cloud Functions.
 
 ### Chrome "Dangerous Site" Warning
-The source code is **clean** (verified by security audit). The warning is likely due to:
-- Google Safe Browsing false positive
-- Domain reputation issue
-- Submit for review at: https://safebrowsing.google.com/
+A source-code review cannot prove why Google Safe Browsing or a browser warning was triggered. Verify the live domain through Google Safe Browsing/Search Console and your hosting provider.
 
 ## 📄 License
 

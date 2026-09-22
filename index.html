@@ -14,6 +14,8 @@
 <link rel="stylesheet" href="css/animations.css">
 </head>
 <body>
+  <div id="authGate" class="auth-gate" aria-live="polite"><div class="auth-gate-card"><span class="spinner-ring" aria-hidden="true"></span><strong>Loading CUNNACT…</strong><span>Checking your session.</span></div></div>
+
   <div id="app" class="app-shell">
     <aside class="sidebar">
       <div class="sidebar-top">
@@ -32,6 +34,7 @@
         </span>
         <div class="meta">
           <strong id="currentUserName">Guest</strong>
+          <span id="currentUserEmail" class="user-email"></span>
           <span id="currentUserStatus">Offline</span>
         </div>
       </div>

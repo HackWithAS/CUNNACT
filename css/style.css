@@ -437,3 +437,56 @@ body.no-scroll { overflow: hidden; }
     max-height: 90vh;
   }
 }
+
+/* Auth bootstrap gate: prevents a broken/unauthenticated dashboard flash. */
+.auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--page, #f7f8fc);
+  padding: 24px;
+}
+.auth-gate[hidden] { display: none; }
+.auth-gate-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 26px 30px;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 18px 50px rgba(0,0,0,.08);
+  text-align: center;
+}
+.auth-gate-card > span:last-child { color: #7a7f8c; font-size: 13px; }
+.spinner-ring {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(91,87,230,.18);
+  border-top-color: #5b57e6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.saved-item {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid #f0f0f0;
+  background: transparent;
+  cursor: pointer;
+}
+.saved-item .meta { min-width: 0; flex: 1; }
+
+.current-user .user-email {
+  display: block;
+  font-size: 11px;
+  color: #8c91a0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}

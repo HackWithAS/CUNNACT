@@ -1,105 +1,126 @@
-// Message retention system for CUNNACT
-// Handles message expiration and saved messages
+// Account-level message retention settings + per-user cleanup.
+// Expired/seen messages are hidden only for the user whose copy has expired.
+// Saved messages remain visible to the user who saved them.
+
+import { db, doc, getDoc, updateDoc, serverTimestamp } from "./firebase.js";
 
 const RETENTION_KEY = "cunnact_retention_mode";
-const DEFAULT_RETENTION = "24hours"; // "seen" or "24hours"
+const DEFAULT_RETENTION = "24hours";
+let retentionMode = localStorage.getItem(RETENTION_KEY) || DEFAULT_RETENTION;
+
+function validMode(mode) {
+  return mode === "seen" || mode === "24hours";
+}
 
 export function getRetentionMode() {
-  return localStorage.getItem(RETENTION_KEY) || DEFAULT_RETENTION;
+  return validMode(retentionMode) ? retentionMode : DEFAULT_RETENTION;
 }
 
-export function setRetentionMode(mode) {
-  if (mode !== "seen" && mode !== "24hours") {
-    throw new Error("Invalid retention mode");
+export async function loadRetentionMode(uid) {
+  if (!uid) return getRetentionMode();
+  try {
+    const snap = await getDoc(doc(db, "users", uid));
+    const remote = snap.exists() ? snap.data().retentionMode : null;
+    if (validMode(remote)) retentionMode = remote;
+  } catch (error) {
+    console.warn("Could not load retention mode:", error);
   }
+  localStorage.setItem(RETENTION_KEY, getRetentionMode());
+  return getRetentionMode();
+}
+
+export async function setRetentionMode(mode, uid = null) {
+  if (!validMode(mode)) throw new Error("Invalid retention mode");
+  retentionMode = mode;
   localStorage.setItem(RETENTION_KEY, mode);
+
+  if (uid) {
+    await updateDoc(doc(db, "users", uid), {
+      retentionMode: mode,
+      updatedAt: serverTimestamp()
+    });
+  }
 }
 
-export function shouldExpireMessage(message, currentUserId) {
-  // Never expire saved messages
-  if (message.savedBy && message.savedBy.includes(currentUserId)) {
-    return false;
-  }
-  
-  const mode = getRetentionMode();
-  const now = new Date();
-  
-  if (mode === "24hours") {
-    // Expire if 24 hours have passed since creation
-    if (message.createdAt && message.createdAt.toDate) {
-      const createdDate = message.createdAt.toDate();
-      const hoursPassed = (now - createdDate) / (1000 * 60 * 60);
-      return hoursPassed >= 24;
-    }
-  } else if (mode === "seen") {
-    // Expire if the recipient has read it
-    if (message.readBy && message.readBy[currentUserId]) {
-      return true;
-    }
-  }
-  
+export function isSavedByUser(message, currentUserId) {
+  const savedBy = message?.savedBy;
+  if (Array.isArray(savedBy)) return savedBy.includes(currentUserId);
+  if (savedBy && typeof savedBy === "object") return savedBy[currentUserId] === true;
   return false;
 }
 
-export async function cleanupExpiredMessages(db, conversationId, messages, currentUserId, deleteDoc) {
-  const toDelete = [];
-  
-  for (const msg of messages) {
-    if (shouldExpireMessage(msg, currentUserId)) {
-      toDelete.push(msg.id);
-    }
+export function isDeletedForUser(message, currentUserId) {
+  const deletedFor = message?.deletedFor;
+  if (Array.isArray(deletedFor)) return deletedFor.includes(currentUserId);
+  if (deletedFor && typeof deletedFor === "object") return deletedFor[currentUserId] === true;
+  return false;
+}
+
+export function shouldExpireMessage(message, currentUserId) {
+  if (!message || isDeletedForUser(message, currentUserId)) return false;
+  if (isSavedByUser(message, currentUserId)) return false;
+
+  if (getRetentionMode() === "24hours") {
+    const created = message.createdAt?.toDate ? message.createdAt.toDate() : null;
+    if (!created) return false;
+    return Date.now() - created.getTime() >= 24 * 60 * 60 * 1000;
   }
-  
-  // Delete expired messages
-  for (const msgId of toDelete) {
+
+  if (getRetentionMode() === "seen") {
+    const readBy = message.readBy;
+    return !!(readBy && typeof readBy === "object" && readBy[currentUserId]);
+  }
+
+  return false;
+}
+
+export async function cleanupExpiredMessages(dbArg, conversationId, messages, currentUserId, updateDocArg) {
+  const toExpire = messages.filter((msg) =>
+    shouldExpireMessage(msg, currentUserId) && !isDeletedForUser(msg, currentUserId)
+  );
+
+  let count = 0;
+  for (const msg of toExpire) {
     try {
-      const { doc } = await import("./firebase.js");
-      await deleteDoc(doc(db, "conversations", conversationId, "messages", msgId));
+      const existing = Array.isArray(msg.deletedFor) ? msg.deletedFor : [];
+      if (existing.includes(currentUserId)) continue;
+      await updateDocArg(
+        doc(dbArg, "conversations", conversationId, "messages", msg.id),
+        { deletedFor: [...existing, currentUserId] }
+      );
+      count += 1;
     } catch (error) {
-      console.warn("Failed to delete expired message:", msgId, error);
+      console.warn("Failed to expire message:", msg.id, error);
     }
   }
-  
-  return toDelete.length;
+  return count;
 }
 
 export function calculateExpirationTime(createdAt) {
-  if (!createdAt || !createdAt.toDate) return null;
-  
-  const created = createdAt.toDate();
-  const expiry = new Date(created.getTime() + 24 * 60 * 60 * 1000);
-  return expiry;
+  if (!createdAt?.toDate) return null;
+  return new Date(createdAt.toDate().getTime() + 24 * 60 * 60 * 1000);
 }
 
 export function formatTimeRemaining(expiryDate) {
   if (!expiryDate) return null;
-  
-  const now = new Date();
-  const diff = expiryDate - now;
-  
+  const diff = expiryDate.getTime() - Date.now();
   if (diff <= 0) return "Expired";
-  
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  return `${minutes}m`;
+  const hours = Math.floor(diff / 3600000);
+  const minutes = Math.floor((diff % 3600000) / 60000);
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
-// Periodic cleanup - runs every 5 minutes
-export function startPeriodicCleanup(db, conversationId, getMessages, currentUserId, deleteDoc) {
+export function startPeriodicCleanup(dbArg, conversationId, getMessages, currentUserId, updateDocArg) {
   const interval = setInterval(async () => {
     try {
-      const messages = getMessages();
-      if (messages && messages.length > 0) {
-        await cleanupExpiredMessages(db, conversationId, messages, currentUserId, deleteDoc);
+      const messages = getMessages?.() || [];
+      if (messages.length) {
+        await cleanupExpiredMessages(dbArg, conversationId, messages, currentUserId, updateDocArg);
       }
     } catch (error) {
       console.warn("Periodic cleanup failed:", error);
     }
-  }, 5 * 60 * 1000); // Every 5 minutes
-  
+  }, 5 * 60 * 1000);
+
   return () => clearInterval(interval);
 }
