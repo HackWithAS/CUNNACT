@@ -54,3 +54,6 @@ A server-side scheduled deletion system would require backend/server infrastruct
 ## Safe Browsing warning
 
 A source-code inspection cannot establish why Google Safe Browsing or a browser warning was triggered. Do not treat the warning as fixed merely because the code was changed. Use Google's Safe Browsing/Search Console review tools and the hosting provider's diagnostics to verify the domain status.
+### Request-flow fix (important)
+The request bug can happen even when `firestore.rules` is deployed if the browser is still running an older `requests.js`. Redeploy the updated application files, then hard-refresh the site (`Ctrl+Shift+R`) or open it in an Incognito window. The fixed code no longer reads a missing deterministic request document before the first request.
+

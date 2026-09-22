@@ -53,52 +53,66 @@ export async function sendMessageRequest(currentUser, recipientId, recipientData
     // "Missing or insufficient permissions". The request document is the
     // authorized source of truth for first contact.
     const conversationId = requestIdFor(currentUser.uid, recipientId);
-    const requestId = conversationId;
-    const requestRef = doc(db, "messageRequests", requestId);
-    const requestSnap = await getDoc(requestRef);
+    const requestRef = doc(db, "messageRequests", conversationId);
 
-    if (requestSnap.exists()) {
-      const status = requestSnap.data().status;
-      if (status === "pending") {
-        showToast("Request already sent", "info");
-        return false;
-      }
-      if (status === "accepted") {
-        // At this point the current user is a member of the conversation, so
-        // reading it is permitted by Firestore rules. This also keeps older
-        // accounts from getting stuck on an already-accepted request.
-        const conversationSnap = await getDoc(doc(db, "conversations", conversationId));
-        if (conversationSnap.exists()) {
-          showToast("Conversation already exists", "info");
-          return { alreadyExists: true, conversationId };
-        }
-        showToast("Request is already accepted. Please refresh.", "info");
-        return false;
-      }
-
-      // Re-request is allowed after a previous decline.
-      await updateDoc(requestRef, {
-        status: "pending",
-        updatedAt: serverTimestamp()
-      });
-      showToast("Message request sent again", "success");
-      return true;
-    }
-
-    await setDoc(requestRef, {
+    const requestPayload = {
       senderId: currentUser.uid,
       receiverId: recipientId,
       senderEmail: currentUser.email || "",
       senderName: currentUser.displayName || currentUser.email || "User",
-      receiverEmail: recipientData.email || "",
-      receiverName: recipientData.name || recipientData.email || "User",
+      receiverEmail: recipientData?.email || "",
+      receiverName: recipientData?.name || recipientData?.email || "User",
       status: "pending",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    });
+    };
 
-    showToast("Message request sent", "success");
-    return true;
+    // IMPORTANT: never call getDoc() first for a deterministic request ID.
+    // A missing document has no resource.data, so the old read rule rejected
+    // the very first request with "Missing or insufficient permissions".
+    // Create/upsert first; only inspect the document after a failed write,
+    // when it is guaranteed to already exist (pending/accepted/declined).
+    try {
+      await setDoc(requestRef, requestPayload);
+      showToast("Message request sent", "success");
+      return true;
+    } catch (writeError) {
+      let requestSnap;
+      try {
+        requestSnap = await getDoc(requestRef);
+      } catch {
+        throw writeError;
+      }
+
+      if (!requestSnap.exists()) {
+        throw writeError;
+      }
+
+      const status = requestSnap.data()?.status;
+
+      if (status === "pending") {
+        showToast("Request already sent", "info");
+        return false;
+      }
+
+      if (status === "accepted") {
+        showToast("You are already connected", "info");
+        return { alreadyExists: true, conversationId };
+      }
+
+      if (status === "declined") {
+        // Re-request is intentionally a small status-only update so it matches
+        // the Firestore rule and does not overwrite the original participant IDs.
+        await updateDoc(requestRef, {
+          status: "pending",
+          updatedAt: serverTimestamp()
+        });
+        showToast("Message request sent again", "success");
+        return true;
+      }
+
+      throw writeError;
+    }
   } catch (error) {
     console.error("Error sending request:", error);
     if (error?.code === "permission-denied") {
@@ -120,27 +134,20 @@ export async function acceptMessageRequest(requestId, request, currentUser) {
     }
 
     const conversationId = requestIdFor(request.senderId, request.receiverId);
-    const existingConversation = await getDoc(doc(db, "conversations", conversationId));
 
+    // Accept the request first. This makes acceptedRequest() true for the
+    // following conversation write, without trying to read a missing conversation.
     await updateDoc(doc(db, "messageRequests", requestId), {
       status: "accepted",
       updatedAt: serverTimestamp()
     });
 
-    if (!existingConversation.exists()) {
-      await setDoc(doc(db, "conversations", conversationId), {
-        members: [request.senderId, request.receiverId],
-        createdAt: serverTimestamp(),
-        lastMessageTime: null,
-        lastMessage: "",
-        lastMessageType: "text",
-        lastMessageSenderId: "",
-        unread: {
-          [request.senderId]: 0,
-          [request.receiverId]: 0
-        }
-      });
-    }
+    // Members-only merge: safe for both a new conversation and an existing one.
+    // Keeping this write limited to `members` prevents existing chat metadata
+    // and unread counters from being reset when a request is accepted again.
+    await setDoc(doc(db, "conversations", conversationId), {
+      members: [request.senderId, request.receiverId]
+    }, { merge: true });
 
     playSuccess();
     showToast("You're connected! 🎉", "success");
