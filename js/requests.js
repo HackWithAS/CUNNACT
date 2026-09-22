@@ -47,14 +47,13 @@ export async function sendMessageRequest(currentUser, recipientId, recipientData
       return false;
     }
 
+    // Do NOT read the conversation before a request is accepted. A non-member
+    // is intentionally not allowed to read a conversation document, so that
+    // existence check caused every first-time request to fail with
+    // "Missing or insufficient permissions". The request document is the
+    // authorized source of truth for first contact.
     const conversationId = requestIdFor(currentUser.uid, recipientId);
-    const conversationSnap = await getDoc(doc(db, "conversations", conversationId));
-    if (conversationSnap.exists()) {
-      showToast("Conversation already exists", "info");
-      return { alreadyExists: true, conversationId };
-    }
-
-    const requestId = requestIdFor(currentUser.uid, recipientId);
+    const requestId = conversationId;
     const requestRef = doc(db, "messageRequests", requestId);
     const requestSnap = await getDoc(requestRef);
 
@@ -65,7 +64,15 @@ export async function sendMessageRequest(currentUser, recipientId, recipientData
         return false;
       }
       if (status === "accepted") {
-        showToast("Request was already accepted. Please refresh.", "info");
+        // At this point the current user is a member of the conversation, so
+        // reading it is permitted by Firestore rules. This also keeps older
+        // accounts from getting stuck on an already-accepted request.
+        const conversationSnap = await getDoc(doc(db, "conversations", conversationId));
+        if (conversationSnap.exists()) {
+          showToast("Conversation already exists", "info");
+          return { alreadyExists: true, conversationId };
+        }
+        showToast("Request is already accepted. Please refresh.", "info");
         return false;
       }
 
@@ -94,7 +101,13 @@ export async function sendMessageRequest(currentUser, recipientId, recipientData
     return true;
   } catch (error) {
     console.error("Error sending request:", error);
-    showToast("Failed to send request", "error");
+    if (error?.code === "permission-denied") {
+      showToast("Request permission denied. Deploy the latest Firestore rules.", "error");
+    } else if (error?.code === "failed-precondition") {
+      showToast("Firebase needs an index. Check the browser console for the index link.", "error");
+    } else {
+      showToast("Failed to send request. Check your connection and try again.", "error");
+    }
     return false;
   }
 }
