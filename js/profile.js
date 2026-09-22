@@ -17,6 +17,23 @@ const progressFill = $("uploadProgressFill");
 const bioInput = $("profileBio");
 const bioCount = $("bioCount");
 const profileMessage = $("profileMessage");
+const profileForm = $("profileForm");
+const saveButton = profileForm?.querySelector('button[type="submit"]');
+
+function setProfileStatus(text = "", type = "") {
+  if (!profileMessage) return;
+  profileMessage.textContent = text;
+  profileMessage.className = type ? `profile-status ${type}` : "profile-status";
+}
+
+function updateBioCount() {
+  if (bioCount && bioInput) bioCount.textContent = String(bioInput.value.length);
+}
+
+function openPhotoPicker() {
+  playClick();
+  $("photoInput")?.click();
+}
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -25,6 +42,8 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   currentUser = user;
+  setProfileStatus("Loading profile…");
+
   try {
     const snap = await getDoc(doc(db, "users", user.uid));
     const data = snap.exists() ? snap.data() : {};
@@ -34,30 +53,33 @@ onAuthStateChanged(auth, async (user) => {
     $("profileName").value = name;
     $("profileEmail").value = user.email || data.email || "";
     bioInput.value = data.bio || "";
-    bioCount.textContent = bioInput.value.length;
-    paintAvatar(avatarEl, { photoURL: currentPhotoURL, name, email: user.email, preset: "avatarXl" });
+    updateBioCount();
+
+    paintAvatar(avatarEl, {
+      photoURL: currentPhotoURL,
+      name,
+      email: user.email,
+      preset: "avatarXl"
+    });
 
     const retention = await loadRetentionMode(user.uid);
     const radio = document.querySelector(`input[name="retention"][value="${retention}"]`);
     if (radio) radio.checked = true;
     $("soundToggle").checked = isSoundEnabled();
+
+    setProfileStatus();
   } catch (error) {
     console.error("Profile load error:", error);
-    profileMessage.textContent = "Could not load your profile. Please refresh.";
-    profileMessage.className = "message error";
+    setProfileStatus("Could not load your profile. Please refresh.", "error");
   }
 });
 
-bioInput.addEventListener("input", () => {
-  bioCount.textContent = String(bioInput.value.length);
-});
+bioInput?.addEventListener("input", updateBioCount);
 
-$("changePhotoBtn").addEventListener("click", () => {
-  playClick();
-  $("photoInput").click();
-});
+$("changePhotoBtn")?.addEventListener("click", openPhotoPicker);
+$("avatarButton")?.addEventListener("click", openPhotoPicker);
 
-$("photoInput").addEventListener("change", async () => {
+$("photoInput")?.addEventListener("change", async () => {
   const file = $("photoInput").files?.[0];
   $("photoInput").value = "";
   if (!file || !currentUser) return;
@@ -74,7 +96,7 @@ $("photoInput").addEventListener("change", async () => {
   fallback.hidden = true;
 
   uploadBox.classList.add("uploading");
-  uploadStatus.textContent = "Uploading…";
+  uploadStatus.textContent = "Uploading photo…";
   progressFill.style.width = "0%";
 
   try {
@@ -84,18 +106,23 @@ $("photoInput").addEventListener("change", async () => {
         progressFill.style.width = `${Math.round(progress * 100)}%`;
       }
     });
+
     currentPhotoURL = url;
     await updateProfile(currentUser, { photoURL: url });
     await updateDoc(doc(db, "users", currentUser.uid), {
       photoURL: url,
       lastSeen: serverTimestamp()
     });
-    uploadStatus.textContent = "Profile picture updated.";
+
+    uploadStatus.textContent = "Profile photo updated ✓";
     playSuccess();
-    showToast("Profile picture updated.", "success");
+    showToast("Profile photo updated.", "success");
   } catch (error) {
     if (error?.kind === "aborted") return;
-    const message = error instanceof UploadError ? error.userMessage : "Couldn't upload image. Please try again.";
+    const message = error instanceof UploadError
+      ? error.userMessage
+      : "Couldn't upload image. Please try again.";
+
     uploadStatus.textContent = message;
     showToast(message, "error");
     paintAvatar(avatarEl, {
@@ -107,7 +134,10 @@ $("photoInput").addEventListener("change", async () => {
   } finally {
     URL.revokeObjectURL(objectUrl);
     uploadBox.classList.remove("uploading");
-    setTimeout(() => { uploadStatus.textContent = ""; }, 3000);
+    setTimeout(() => {
+      uploadStatus.textContent = "";
+      progressFill.style.width = "0%";
+    }, 2800);
   }
 });
 
@@ -120,15 +150,20 @@ $("soundToggle")?.addEventListener("change", (event) => {
   const enabled = event.target.checked;
   setSoundEnabled(enabled);
   if (enabled) playClick();
+  showToast(enabled ? "Sound effects on" : "Sound effects off", "success");
 });
 
 document.querySelectorAll('input[name="retention"]').forEach((radio) => {
   radio.addEventListener("change", async (event) => {
     playClick();
     if (!currentUser) return;
+
     try {
       await setRetentionMode(event.target.value, currentUser.uid);
-      showToast("Retention setting saved", "success");
+      showToast(
+        event.target.value === "seen" ? "Messages will delete after seen" : "Messages will delete after 24 hours",
+        "success"
+      );
     } catch (error) {
       console.error("Retention setting error:", error);
       showToast("Could not save retention setting", "error");
@@ -136,24 +171,23 @@ document.querySelectorAll('input[name="retention"]').forEach((radio) => {
   });
 });
 
-$("profileForm").addEventListener("submit", async (event) => {
+profileForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   playClick();
-  profileMessage.className = "message";
-  profileMessage.textContent = "";
+  setProfileStatus();
 
   if (!currentUser) return;
+
   const name = $("profileName").value.trim();
   if (!name) {
-    profileMessage.textContent = "Name can't be empty.";
-    profileMessage.className = "message error";
+    setProfileStatus("Please enter your name.", "error");
+    $("profileName")?.focus();
     return;
   }
 
-  const submitBtn = event.target.querySelector('button[type="submit"]');
-  const originalText = submitBtn.textContent;
-  submitBtn.disabled = true;
-  submitBtn.textContent = "Saving…";
+  const originalText = saveButton.textContent;
+  saveButton.disabled = true;
+  saveButton.textContent = "Saving…";
 
   try {
     await updateProfile(currentUser, { displayName: name });
@@ -166,17 +200,14 @@ $("profileForm").addEventListener("submit", async (event) => {
       lastSeen: serverTimestamp()
     });
 
-    profileMessage.textContent = "Profile updated ✓";
-    profileMessage.className = "message success profile-success";
+    setProfileStatus("Changes saved", "success");
     playSuccess();
     showToast("Profile updated ✓", "success");
-
-    setTimeout(() => { location.href = "index.html"; }, 900);
   } catch (error) {
     console.error("Profile save error:", error);
-    profileMessage.textContent = "Could not save your profile.";
-    profileMessage.className = "message error";
-    submitBtn.disabled = false;
-    submitBtn.textContent = originalText;
+    setProfileStatus("Could not save your profile. Please try again.", "error");
+  } finally {
+    saveButton.disabled = false;
+    saveButton.textContent = originalText;
   }
 });
