@@ -10,42 +10,109 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/profile.css">
+<link rel="stylesheet" href="css/animations.css">
 </head>
 <body class="profile-page">
-  <main class="profile-card">
-    <a href="index.html" class="back-link">← Back to CUNNACT</a>
-    <h1>Your profile</h1>
+  <div class="profile-container">
+    <header class="profile-header">
+      <button id="backToChat" class="icon-btn" aria-label="Back to chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <h1>Profile</h1>
+    </header>
 
-    <div class="avatar-upload" id="avatarUpload">
-      <div class="avatar-edit">
-        <span class="avatar xl" id="profileAvatar">
-          <img id="profilePhoto" alt="" hidden>
-          <span class="avatar-fallback" id="profileInitials"></span>
-        </span>
-        <button type="button" class="camera-btn" id="changePhotoBtn" aria-label="Change profile picture">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h1.2a2 2 0 0 0 1.6-.8l.4-.53A2 2 0 0 1 10.8 4h2.4a2 2 0 0 1 1.6.67l.4.53a2 2 0 0 0 1.6.8H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"/><circle cx="12" cy="13" r="3.5"/></svg>
-        </button>
-      </div>
-      <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
-      <span class="upload-status" id="uploadStatus"></span>
-      <div class="upload-progress"><div class="upload-progress-fill" id="uploadProgressFill"></div></div>
-    </div>
+    <main class="profile-content">
+      <section class="profile-section">
+        <h2>Profile Photo</h2>
+        <div class="avatar-upload" id="avatarUpload">
+          <span class="avatar avatar-xl" id="profileAvatar">
+            <img alt="Profile picture" hidden>
+            <span class="avatar-fallback"></span>
+          </span>
+          <button id="changePhotoBtn" type="button" class="btn btn-secondary">Change Photo</button>
+          <input id="photoInput" type="file" hidden accept="image/jpeg,image/png,image/webp">
+          <div class="upload-status">
+            <span id="uploadStatus"></span>
+            <div class="progress"><div id="uploadProgressFill" class="progress-fill"></div></div>
+          </div>
+        </div>
+      </section>
 
-    <form id="profileForm" novalidate>
-      <label>Name
-        <input id="profileName" type="text" required>
-      </label>
-      <label>Bio
-        <textarea id="profileBio" maxlength="160"></textarea>
-      </label>
-      <div class="char-count"><span id="bioCount">0</span>/160</div>
-      <label>Email
-        <input id="profileEmail" type="email" disabled>
-      </label>
-      <button type="submit" class="btn btn-primary">Save changes</button>
-      <p id="profileMessage" role="status" aria-live="polite"></p>
-    </form>
-  </main>
+      <form id="profileForm">
+        <section class="profile-section">
+          <h2>Personal Information</h2>
+          <label>Name
+            <input id="profileName" type="text" required>
+          </label>
+          <label>Email
+            <input id="profileEmail" type="email" disabled>
+          </label>
+          <label>Bio
+            <textarea id="profileBio" rows="3" maxlength="150" placeholder="Tell people about yourself..."></textarea>
+            <small><span id="bioCount">0</span>/150</small>
+          </label>
+        </section>
+
+        <section class="profile-section">
+          <h2>Message Retention</h2>
+          <p class="section-description">Choose how messages behave. Saved messages are always kept.</p>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="retention" value="24hours" checked>
+              <div class="radio-content">
+                <strong>Delete after 24 hours</strong>
+                <span>Messages expire 24 hours after being sent</span>
+              </div>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="retention" value="seen">
+              <div class="radio-content">
+                <strong>Delete after seen</strong>
+                <span>Messages disappear after being read</span>
+              </div>
+            </label>
+          </div>
+        </section>
+
+        <section class="profile-section">
+          <h2>Sound Effects</h2>
+          <div class="toggle-row">
+            <div class="toggle-content">
+              <strong>Sound Effects</strong>
+              <span>Play sounds for interactions</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="soundToggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </section>
+
+        <section class="profile-section">
+          <h2>Privacy</h2>
+          <div class="info-card">
+            <p><strong>Message Requests:</strong> People need your acceptance before chatting with you.</p>
+            <p><strong>Retention:</strong> Messages may disappear according to your retention setting.</p>
+            <p><strong>Saved Messages:</strong> Messages you save are kept and won't expire.</p>
+            <p><strong>Conversations:</strong> Only you and the other person can see your chat.</p>
+          </div>
+        </section>
+
+        <section class="profile-section">
+          <h2>About</h2>
+          <div class="about-card">
+            <strong>CUNNACT</strong>
+            <p>Stay Connected.</p>
+            <p class="brand-link">Built by <a href="https://hackwithas.in" target="_blank" rel="noopener noreferrer">HackWithAS</a></p>
+          </div>
+        </section>
+
+        <button type="submit" class="btn btn-primary btn-block">Save Changes</button>
+        <p id="profileMessage" class="message" role="alert" aria-live="polite"></p>
+      </form>
+    </main>
+  </div>
+
   <script type="module" src="js/profile.js"></script>
 </body>
 </html>

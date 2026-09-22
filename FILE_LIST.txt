@@ -1,0 +1,22 @@
+total 84K
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner  15K Sep 22 15:04 DEPLOYMENT_GUIDE.md
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner    0 Sep 22 15:04 FILE_LIST.txt
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner 2.7K Sep 22 15:04 QUICK_REFERENCE.txt
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner 3.5K Sep 22 15:04 README.md
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner  440 Sep 22 14:53 UPDATE_APP.sh
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner 7.7K Sep 22 14:52 UPGRADE_SUMMARY.md
+drwx------ 1 trusting-eager-meitner trusting-eager-meitner  512 Sep 22 12:38 assets
+drwx------ 1 trusting-eager-meitner trusting-eager-meitner  512 Sep 22 14:57 css
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner  182 Sep 22 12:38 firebase.json
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner 2.9K Sep 22 15:01 firestore.rules
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner 1.2K Sep 22 15:01 firestore.rules.backup
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner 7.5K Sep 22 15:00 index.html
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner 5.2K Sep 22 15:00 index.html.backup
+drwx------ 1 trusting-eager-meitner trusting-eager-meitner  512 Sep 22 15:01 js
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner 1.8K Sep 22 15:00 login.html
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner 1.6K Sep 22 15:00 login.html.backup
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner 5.0K Sep 22 15:00 profile.html
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner 2.6K Sep 22 15:00 profile.html.backup
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner 2.1K Sep 22 15:00 register.html
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner 1.9K Sep 22 15:00 register.html.backup
+-rwx------ 1 trusting-eager-meitner trusting-eager-meitner  478 Sep 22 12:38 storage.rules

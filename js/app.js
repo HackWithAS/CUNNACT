@@ -1,6 +1,6 @@
 import {
   auth, db, onAuthStateChanged, signOut,
-  doc, getDoc, getDocs, setDoc, updateDoc, addDoc, collection,
+  doc, getDoc, getDocs, setDoc, updateDoc, addDoc, deleteDoc, collection,
   query, where, orderBy, limit, onSnapshot, serverTimestamp, increment
 } from "./firebase.js";
 import { uploadImageToCloudinary, validateImageFile, UploadError, MESSAGES as UPLOAD_MESSAGES } from "./cloudinary.js";
@@ -9,7 +9,10 @@ import { openLightbox } from "./lightbox.js";
 import { showToast } from "./toast.js";
 import { $, escapeHtml, formatTime, formatWhen, formatLastSeen, debounce } from "./ui.js";
 import { buildConversationId, previewText } from "./chat.js";
-import { normalizeSearch, matchesSearch } from "./users.js";
+import { normalizeSearch, matchesSearch, isSearchValid, getSearchMessage, SEARCH_MIN_LENGTH } from "./users.js";
+import { listenMessageRequests, sendMessageRequest, acceptMessageRequest, declineMessageRequest, getPendingRequestsCount } from "./requests.js";
+import { playClick, playSend, playReceive, isSoundEnabled, toggleSound } from "./sound.js";
+import { shouldExpireMessage, cleanupExpiredMessages, startPeriodicCleanup } from "./retention.js";
 
 let currentUser = null;
 let activeUser = null;
@@ -17,11 +20,13 @@ let activeConversationId = null;
 
 let unsubscribeMessages = null;
 let unsubscribeConversations = null;
-const userListeners = new Map();   // uid -> { unsub, data }
-let conversations = [];            // latest conversation docs, newest first
+const userListeners = new Map();
+let conversations = [];
 let pendingImageFile = null;
 let pendingImageUrl = null;
 let uploadController = null;
+let cleanupInterval = null;
+let currentMessages = [];
 
 /* ===================== Auth bootstrap ===================== */
 
@@ -37,6 +42,15 @@ onAuthStateChanged(auth, async (user) => {
 
   await setDoc(doc(db, "users", user.uid), { isOnline: true, lastSeen: serverTimestamp() }, { merge: true });
 
+  // Update sound toggle UI
+  updateSoundToggle();
+
+  // Listen to message requests
+  listenMessageRequests(currentUser, (requests) => {
+    updateRequestsBadge(requests.length);
+    renderMessageRequests(requests);
+  });
+
   listenConversations();
 });
 
@@ -44,28 +58,144 @@ document.addEventListener("visibilitychange", () => {
   if (!currentUser) return;
   const isOnline = document.visibilityState === "visible";
   updateDoc(doc(db, "users", currentUser.uid), { isOnline, lastSeen: serverTimestamp() }).catch(() => {});
+  
+  // Cleanup expired messages when app becomes visible
+  if (isOnline && activeConversationId && currentMessages.length > 0) {
+    cleanupExpiredMessages(db, activeConversationId, currentMessages, currentUser.uid, deleteDoc);
+  }
 });
+
 window.addEventListener("pagehide", () => {
   if (!currentUser) return;
   updateDoc(doc(db, "users", currentUser.uid), { isOnline: false, lastSeen: serverTimestamp() }).catch(() => {});
 });
 
 $("logoutBtn").addEventListener("click", async () => {
+  playClick();
   if (currentUser) await setDoc(doc(db, "users", currentUser.uid), { isOnline: false, lastSeen: serverTimestamp() }, { merge: true });
   await signOut(auth);
 });
 
-$("profileBtn").addEventListener("click", () => location.href = "profile.html");
-$("backBtn").addEventListener("click", () => $("app").classList.remove("chat-open"));
+$("profileBtn").addEventListener("click", () => { playClick(); location.href = "profile.html"; });
+$("backBtn").addEventListener("click", () => { playClick(); $("app").classList.remove("chat-open"); });
+
+// Sound toggle button
+$("soundToggle")?.addEventListener("click", () => {
+  const enabled = toggleSound();
+  if (enabled) playClick();
+  updateSoundToggle();
+});
+
+function updateSoundToggle() {
+  const btn = $("soundToggle");
+  if (!btn) return;
+  const enabled = isSoundEnabled();
+  btn.textContent = enabled ? "🔊" : "🔇";
+  btn.setAttribute("aria-label", enabled ? "Sound on" : "Sound off");
+  btn.title = enabled ? "Sound on" : "Sound off";
+}
+
+/* ===================== Message Requests ===================== */
+
+function updateRequestsBadge(count) {
+  const badge = $("requestsBadge");
+  if (!badge) return;
+  
+  if (count > 0) {
+    badge.textContent = count > 99 ? "99+" : count;
+    badge.hidden = false;
+    badge.classList.add("unread-badge");
+  } else {
+    badge.hidden = true;
+  }
+}
+
+function renderMessageRequests(requests) {
+  const container = $("requestsList");
+  if (!container) return;
+  
+  if (requests.length === 0) {
+    container.innerHTML = `<div class="empty-state">No new requests.</div>`;
+    return;
+  }
+  
+  container.innerHTML = requests.map(req => `
+    <div class="request-item" data-request-id="${req.id}">
+      ${avatarHtml({ name: req.senderName, email: req.senderEmail }, { dot: false })}
+      <div class="meta">
+        <strong>${escapeHtml(req.senderName)}</strong>
+        <span class="email">${escapeHtml(req.senderEmail)}</span>
+        <span class="subtitle">Wants to start a conversation</span>
+      </div>
+      <div class="actions">
+        <button class="btn btn-sm btn-primary accept-request" data-request-id="${req.id}">Accept</button>
+        <button class="btn btn-sm btn-ghost decline-request" data-request-id="${req.id}">Decline</button>
+      </div>
+    </div>
+  `).join("");
+  
+  // Paint avatars
+  container.querySelectorAll(".request-item").forEach((el, i) => {
+    paintAvatar(el.querySelector(".avatar"), {
+      photoURL: "",
+      name: requests[i].senderName,
+      email: requests[i].senderEmail
+    });
+  });
+  
+  // Attach event listeners
+  container.querySelectorAll(".accept-request").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      playClick();
+      const requestId = e.target.dataset.requestId;
+      const request = requests.find(r => r.id === requestId);
+      if (!request) return;
+      
+      e.target.disabled = true;
+      e.target.textContent = "Accepting...";
+      
+      const conversationId = await acceptMessageRequest(requestId, request, currentUser);
+      if (conversationId) {
+        openChatById(conversationId);
+      }
+    });
+  });
+  
+  container.querySelectorAll(".decline-request").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      playClick();
+      const requestId = e.target.dataset.requestId;
+      e.target.disabled = true;
+      e.target.textContent = "Declining...";
+      await declineMessageRequest(requestId);
+    });
+  });
+}
 
 /* ===================== Search ===================== */
 
-$("userSearch").addEventListener("input", debounce((e) => loadSearch(normalizeSearch(e.target.value)), 220));
+$("userSearch").addEventListener("input", debounce((e) => {
+  const term = normalizeSearch(e.target.value);
+  loadSearch(term);
+}, 220));
 
 async function loadSearch(term) {
   const box = $("searchResults");
-  if (!term) { box.innerHTML = ""; return; }
+  
+  if (!term) {
+    box.innerHTML = "";
+    return;
+  }
+  
+  // Check minimum length
+  if (!isSearchValid(term)) {
+    const message = getSearchMessage(term);
+    box.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+    return;
+  }
+  
   box.innerHTML = `<div class="empty-state">Searching…</div>`;
+  
   let users;
   try {
     const snap = await getDocs(query(collection(db, "users"), orderBy("name"), limit(50)));
@@ -74,23 +204,55 @@ async function loadSearch(term) {
     box.innerHTML = `<div class="empty-state">Search is unavailable right now.</div>`;
     return;
   }
+  
   const matches = users.filter((u) => matchesSearch(u, term, currentUser?.uid));
-  if (!matches.length) { box.innerHTML = `<div class="empty-state">No people found for “${escapeHtml(term)}”.</div>`; return; }
+  
+  if (!matches.length) {
+    box.innerHTML = `<div class="empty-state">No people found for "${escapeHtml(term)}".</div>`;
+    return;
+  }
 
   box.innerHTML = matches.map((u) => `
     <div class="row-item search-user" data-uid="${u.uid}" role="option" tabindex="0">
       ${avatarHtml(u, { dot: false })}
       <div class="meta">
         <div class="top-line"><strong>${escapeHtml(u.name || u.email)}</strong></div>
-        <div class="preview-line"><span class="bio">${escapeHtml(u.bio || u.email || "")}</span></div>
+        <div class="preview-line"><span class="bio">${escapeHtml(u.email || "")}</span></div>
       </div>
+      <button class="btn btn-sm btn-primary send-request" data-uid="${u.uid}">Send Request</button>
     </div>`).join("");
 
   box.querySelectorAll(".search-user").forEach((el, i) => {
     paintAvatar(el.querySelector(".avatar"), { photoURL: matches[i].photoURL, name: matches[i].name, email: matches[i].email });
-    const open = () => { $("userSearch").value = ""; box.innerHTML = ""; openChat(el.dataset.uid); };
-    el.addEventListener("click", open);
-    el.addEventListener("keydown", (e) => { if (e.key === "Enter") open(); });
+    
+    const btn = el.querySelector(".send-request");
+    btn.addEventListener("click", async (e) => {
+      playClick();
+      e.stopPropagation();
+      const uid = e.target.dataset.uid;
+      const user = matches.find(u => u.uid === uid);
+      if (!user) return;
+      
+      btn.disabled = true;
+      btn.textContent = "Sending...";
+      
+      const result = await sendMessageRequest(currentUser, uid, user);
+      
+      if (result && result.alreadyExists) {
+        $("userSearch").value = "";
+        box.innerHTML = "";
+        openChatById(result.conversationId);
+      } else if (result) {
+        btn.textContent = "Sent ✓";
+        setTimeout(() => {
+          $("userSearch").value = "";
+          box.innerHTML = "";
+        }, 1500);
+      } else {
+        btn.disabled = false;
+        btn.textContent = "Send Request";
+      }
+    });
   });
 }
 
@@ -103,6 +265,7 @@ function listenConversations() {
     orderBy("lastMessageTime", "desc"),
     limit(50)
   );
+  
   unsubscribeConversations?.();
   unsubscribeConversations = onSnapshot(q, (snap) => {
     conversations = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -131,12 +294,13 @@ function ensureUserListener(uid) {
 function renderChatList() {
   const box = $("chatList");
   if (!conversations.length) {
-    box.innerHTML = `<div class="empty-state">No conversations yet. Search for someone to start chatting.</div>`;
+    box.innerHTML = `<div class="empty-state">
+      <p>Your inbox is quiet.</p>
+      <p>Find someone and start a conversation.</p>
+    </div>`;
     return;
   }
-  // If a conversation's own doc changes while it's the one open on screen (not just a brand
-  // new message — e.g. the other person's client updates lastMessage/unread as a separate
-  // write), make sure it doesn't sit with a stale unread badge until the user reopens it.
+  
   const active = conversations.find((c) => c.id === activeConversationId);
   if (active && (active.unread?.[currentUser.uid] || 0) > 0 && document.visibilityState === "visible") {
     markRead(activeConversationId);
@@ -151,6 +315,7 @@ function renderChatList() {
       c.lastMessage ? { type: c.lastMessageType, text: c.lastMessage } : null,
       { isMine: c.lastMessageSenderId === currentUser.uid }
     );
+    
     return `
       <div class="row-item chat-item ${activeConversationId === c.id ? "active" : ""}" data-uid="${uid}" role="option" tabindex="0">
         ${avatarHtml(user)}
@@ -170,7 +335,8 @@ function renderChatList() {
     paintAvatar(el.querySelector(".avatar"), { photoURL: user.photoURL, name: user.name, email: user.email });
     const dot = el.querySelector(".status-dot");
     if (dot) dot.classList.toggle("online", !!user.isOnline);
-    const open = () => openChat(uid);
+    
+    const open = () => { playClick(); openChat(uid); };
     el.addEventListener("click", open);
     el.addEventListener("keydown", (e) => { if (e.key === "Enter") open(); });
   });
@@ -182,6 +348,7 @@ function refreshChatHeader() {
   if (!activeUser) return;
   const live = userListeners.get(activeUser.uid)?.data;
   if (live) activeUser = { ...activeUser, ...live };
+  
   $("chatName").textContent = activeUser.name || activeUser.email;
   $("chatStatus").textContent = activeUser.isOnline
     ? "Online"
@@ -194,14 +361,28 @@ async function openChat(uid) {
   const snap = await getDoc(doc(db, "users", uid));
   if (!snap.exists()) return;
   activeUser = { uid, ...snap.data() };
-  activeConversationId = buildConversationId(currentUser.uid, uid);
-  ensureUserListener(uid);
+  openChatById(buildConversationId(currentUser.uid, uid));
+}
 
+async function openChatById(conversationId) {
+  activeConversationId = conversationId;
+  
+  // Extract UIDs from conversation ID
+  const [uid1, uid2] = conversationId.split("_");
+  const otherUid = uid1 === currentUser.uid ? uid2 : uid1;
+  
+  const snap = await getDoc(doc(db, "users", otherUid));
+  if (!snap.exists()) return;
+  activeUser = { uid: otherUid, ...snap.data() };
+  
+  ensureUserListener(otherUid);
   refreshChatHeader();
+  
   $("messageInput").disabled = false;
   $("attachBtn").disabled = false;
   $("messageForm").querySelector("button[type=submit]").disabled = false;
   $("app").classList.add("chat-open");
+  
   clearImagePreview();
   renderChatList();
   listenMessages();
@@ -214,33 +395,188 @@ function markRead(conversationId) {
 
 function listenMessages() {
   unsubscribeMessages?.();
+  if (cleanupInterval) cleanupInterval();
+  
   const messagesRef = collection(db, "conversations", activeConversationId, "messages");
   const q = query(messagesRef, orderBy("createdAt"), limit(200));
-  unsubscribeMessages = onSnapshot(q, (snap) => {
+  
+  unsubscribeMessages = onSnapshot(q, async (snap) => {
     const box = $("messages");
     box.innerHTML = "";
-    snap.docs.forEach((d) => renderMessage({ id: d.id, ...d.data() }));
+    
+    currentMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    // Cleanup expired messages
+    await cleanupExpiredMessages(db, activeConversationId, currentMessages, currentUser.uid, deleteDoc);
+    
+    // Render remaining messages
+    currentMessages.forEach((msg) => {
+      if (!shouldExpireMessage(msg, currentUser.uid)) {
+        renderMessage(msg);
+      }
+    });
+    
     box.scrollTop = box.scrollHeight;
-    if (document.visibilityState === "visible") markRead(activeConversationId);
+    
+    if (document.visibilityState === "visible") {
+      markRead(activeConversationId);
+    }
   }, () => {
     $("messages").innerHTML = `<div class="empty-state">Messages could not be loaded. Check your Firebase rules.</div>`;
   });
+  
+  // Start periodic cleanup
+  cleanupInterval = startPeriodicCleanup(db, activeConversationId, () => currentMessages, currentUser.uid, deleteDoc);
 }
 
 function renderMessage(message) {
   const el = document.createElement("div");
   const outgoing = message.senderId === currentUser.uid;
   const time = message.createdAt?.toDate ? formatTime(message.createdAt.toDate()) : "";
+  const saved = message.savedBy && message.savedBy.includes(currentUser.uid);
 
   if (message.type === "image" && message.imageURL) {
-    el.className = `message image-message ${outgoing ? "outgoing" : ""}`;
-    el.innerHTML = `<img src="${escapeHtml(message.imageURL)}" alt="Shared image" loading="lazy"><small>${time}</small>`;
+    el.className = `message image-message ${outgoing ? "outgoing" : ""} ${saved ? "saved" : ""}`;
+    el.innerHTML = `
+      <img src="${escapeHtml(message.imageURL)}" alt="Shared image" loading="lazy">
+      <small>${time}</small>
+      ${saved ? '<span class="bookmark-icon">🔖</span>' : ''}
+    `;
     el.querySelector("img").addEventListener("click", () => openLightbox(message.imageURL));
   } else {
-    el.className = `message ${outgoing ? "outgoing" : ""}`;
-    el.innerHTML = `<p>${escapeHtml(message.text || "")}</p><small>${time}${outgoing ? " ✓" : ""}</small>`;
+    el.className = `message ${outgoing ? "outgoing" : ""} ${saved ? "saved" : ""}`;
+    el.innerHTML = `
+      <p>${escapeHtml(message.text || "")}</p>
+      <small>${time}${outgoing ? " ✓" : ""}</small>
+      ${saved ? '<span class="bookmark-icon">🔖</span>' : ''}
+    `;
   }
+  
+  // Add message actions on right-click or long-press
+  el.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    showMessageActions(el, message, outgoing);
+  });
+  
+  el.addEventListener("touchstart", (e) => {
+    let timer = setTimeout(() => {
+      showMessageActions(el, message, outgoing);
+    }, 500);
+    
+    el.addEventListener("touchend", () => clearTimeout(timer), { once: true });
+    el.addEventListener("touchmove", () => clearTimeout(timer), { once: true });
+  });
+  
   $("messages").appendChild(el);
+  
+  // Play receive sound for new incoming messages
+  if (!outgoing && !message._rendered) {
+    playReceive();
+    message._rendered = true;
+  }
+}
+
+function showMessageActions(messageEl, message, isOutgoing) {
+  // Remove any existing menu
+  document.querySelectorAll(".message-action-menu").forEach(m => m.remove());
+  
+  const menu = document.createElement("div");
+  menu.className = "message-action-menu";
+  
+  const saved = message.savedBy && message.savedBy.includes(currentUser.uid);
+  
+  menu.innerHTML = `
+    <button class="menu-item save-msg">${saved ? "Unsave" : "Save"}</button>
+    ${isOutgoing ? '<button class="menu-item delete-msg">Delete for everyone</button>' : ''}
+    <button class="menu-item delete-for-me">Delete for me</button>
+  `;
+  
+  document.body.appendChild(menu);
+  
+  const rect = messageEl.getBoundingClientRect();
+  menu.style.top = `${rect.top - menu.offsetHeight - 5}px`;
+  menu.style.left = `${rect.left}px`;
+  
+  menu.querySelector(".save-msg").addEventListener("click", async () => {
+    playClick();
+    await toggleSaveMessage(message.id, saved);
+    menu.remove();
+  });
+  
+  if (isOutgoing) {
+    menu.querySelector(".delete-msg")?.addEventListener("click", async () => {
+      playClick();
+      await deleteMessageForEveryone(message.id);
+      menu.remove();
+    });
+  }
+  
+  menu.querySelector(".delete-for-me").addEventListener("click", async () => {
+    playClick();
+    await deleteMessageForMe(message.id, messageEl);
+    menu.remove();
+  });
+  
+  // Close menu on outside click
+  const closeMenu = (e) => {
+    if (!menu.contains(e.target)) {
+      menu.remove();
+      document.removeEventListener("click", closeMenu);
+    }
+  };
+  setTimeout(() => document.addEventListener("click", closeMenu), 100);
+}
+
+async function toggleSaveMessage(messageId, currentlySaved) {
+  try {
+    const msgRef = doc(db, "conversations", activeConversationId, "messages", messageId);
+    
+    if (currentlySaved) {
+      // Unsave
+      const snap = await getDoc(msgRef);
+      const savedBy = snap.data()?.savedBy || [];
+      const updated = savedBy.filter(uid => uid !== currentUser.uid);
+      await updateDoc(msgRef, { savedBy: updated });
+      showToast("Message unsaved", "info");
+    } else {
+      // Save
+      const snap = await getDoc(msgRef);
+      const savedBy = snap.data()?.savedBy || [];
+      if (!savedBy.includes(currentUser.uid)) {
+        savedBy.push(currentUser.uid);
+      }
+      await updateDoc(msgRef, { savedBy, savedAt: serverTimestamp() });
+      showToast("Message saved 🔖", "success");
+    }
+  } catch (error) {
+    console.error("Error toggling save:", error);
+    showToast("Failed to update message", "error");
+  }
+}
+
+async function deleteMessageForEveryone(messageId) {
+  if (!confirm("Delete this message for everyone?")) return;
+  
+  try {
+    await deleteDoc(doc(db, "conversations", activeConversationId, "messages", messageId));
+    showToast("Message deleted", "info");
+  } catch (error) {
+    console.error("Error deleting message:", error);
+    showToast("Failed to delete message", "error");
+  }
+}
+
+async function deleteMessageForMe(messageId, messageEl) {
+  try {
+    messageEl.classList.add("deleting");
+    setTimeout(async () => {
+      await deleteDoc(doc(db, "conversations", activeConversationId, "messages", messageId));
+    }, 300);
+  } catch (error) {
+    console.error("Error deleting message:", error);
+    messageEl.classList.remove("deleting");
+    showToast("Failed to delete message", "error");
+  }
 }
 
 /* ===================== Sending text ===================== */
@@ -248,23 +584,30 @@ function renderMessage(message) {
 $("messageForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!activeUser) return;
+  
   const text = $("messageInput").value.trim();
   if (!text) return;
+  
   $("messageInput").value = "";
+  playSend();
   await sendMessage({ type: "text", text });
 });
 
 async function sendMessage({ type, text, imageURL }) {
   const cid = activeConversationId;
   const otherId = activeUser.uid;
+  
   await setDoc(doc(db, "conversations", cid), { members: [currentUser.uid, otherId] }, { merge: true });
+  
   await addDoc(collection(db, "conversations", cid, "messages"), {
     senderId: currentUser.uid,
     receiverId: otherId,
     type,
     ...(type === "image" ? { imageURL } : { text }),
-    createdAt: serverTimestamp()
+    createdAt: serverTimestamp(),
+    savedBy: []
   });
+  
   await updateDoc(doc(db, "conversations", cid), {
     lastMessage: type === "image" ? "" : text,
     lastMessageType: type,
@@ -276,7 +619,7 @@ async function sendMessage({ type, text, imageURL }) {
 
 /* ===================== Sending images ===================== */
 
-$("attachBtn").addEventListener("click", () => $("fileInput").click());
+$("attachBtn").addEventListener("click", () => { playClick(); $("fileInput").click(); });
 
 $("fileInput").addEventListener("change", async () => {
   const file = $("fileInput").files[0];
@@ -301,6 +644,7 @@ $("fileInput").addEventListener("change", async () => {
 });
 
 $("imagePreviewCancel").addEventListener("click", () => {
+  playClick();
   uploadController?.abort();
   clearImagePreview();
   $("messageInput").disabled = !activeUser;
@@ -308,6 +652,8 @@ $("imagePreviewCancel").addEventListener("click", () => {
 
 $("imagePreviewSend").addEventListener("click", async () => {
   if (!pendingImageFile || !activeUser) return;
+  
+  playClick();
   const file = pendingImageFile;
   const bar = $("imagePreviewBar");
   bar.classList.add("uploading");
@@ -321,6 +667,7 @@ $("imagePreviewSend").addEventListener("click", async () => {
       onProgress: (p) => { $("imagePreviewProgress").style.width = `${Math.round(p * 100)}%`; }
     });
     await sendMessage({ type: "image", imageURL: url });
+    playSend();
     showToast("Image sent", "success");
     clearImagePreview();
   } catch (error) {

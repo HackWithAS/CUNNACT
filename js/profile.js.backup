@@ -3,8 +3,6 @@ import { uploadImageToCloudinary, UploadError } from "./cloudinary.js";
 import { paintAvatar } from "./avatar.js";
 import { showToast } from "./toast.js";
 import { $ } from "./ui.js";
-import { isSoundEnabled, setSoundEnabled, playClick, playSuccess } from "./sound.js";
-import { getRetentionMode, setRetentionMode } from "./retention.js";
 
 let currentUser = null;
 let currentPhotoURL = "";
@@ -31,22 +29,15 @@ onAuthStateChanged(auth, async (user) => {
   bioInput.value = data.bio || "";
   bioCount.textContent = bioInput.value.length;
   paintAvatar(avatarEl, { photoURL: currentPhotoURL, name, email: user.email, preset: "avatarXl" });
-  
-  // Load retention setting
-  const retention = getRetentionMode();
-  document.querySelector(`input[name="retention"][value="${retention}"]`).checked = true;
-  
-  // Load sound setting
-  $("soundToggle").checked = isSoundEnabled();
 });
 
 bioInput.addEventListener("input", () => { bioCount.textContent = bioInput.value.length; });
 
-$("changePhotoBtn").addEventListener("click", () => { playClick(); $("photoInput").click(); });
+$("changePhotoBtn").addEventListener("click", () => $("photoInput").click());
 
 $("photoInput").addEventListener("change", async () => {
   const file = $("photoInput").files[0];
-  $("photoInput").value = "";
+  $("photoInput").value = ""; // allow re-selecting the same file later
   if (!file || !currentUser) return;
 
   uploadController?.abort();
@@ -73,7 +64,6 @@ $("photoInput").addEventListener("change", async () => {
     await updateProfile(currentUser, { photoURL: url });
     await updateDoc(doc(db, "users", currentUser.uid), { photoURL: url, lastSeen: serverTimestamp() });
     uploadStatus.textContent = "Profile picture updated.";
-    playSuccess();
     showToast("Profile picture updated.", "success");
   } catch (error) {
     if (error?.kind === "aborted") return;
@@ -88,45 +78,15 @@ $("photoInput").addEventListener("change", async () => {
   }
 });
 
-// Back button
-$("backToChat")?.addEventListener("click", () => {
-  playClick();
-  location.href = "index.html";
-});
-
-// Sound toggle
-$("soundToggle")?.addEventListener("change", (e) => {
-  const enabled = e.target.checked;
-  setSoundEnabled(enabled);
-  if (enabled) playClick();
-});
-
-// Retention radio buttons
-document.querySelectorAll('input[name="retention"]').forEach(radio => {
-  radio.addEventListener("change", (e) => {
-    playClick();
-    setRetentionMode(e.target.value);
-  });
-});
-
 $("profileForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  playClick();
-  profileMessage.className = "message";
-  profileMessage.textContent = "";
-  
+  profileMessage.className = "";
   const name = $("profileName").value.trim();
   if (!name) {
     profileMessage.textContent = "Name can't be empty.";
-    profileMessage.className = "message error";
+    profileMessage.className = "error";
     return;
   }
-  
-  const submitBtn = e.target.querySelector('button[type="submit"]');
-  const originalText = submitBtn.textContent;
-  submitBtn.disabled = true;
-  submitBtn.textContent = "Saving...";
-  
   try {
     await updateProfile(currentUser, { displayName: name });
     await updateDoc(doc(db, "users", currentUser.uid), {
@@ -134,22 +94,10 @@ $("profileForm").addEventListener("submit", async (e) => {
       bio: bioInput.value.trim(),
       lastSeen: serverTimestamp()
     });
-    
-    profileMessage.textContent = "Profile updated ✓";
-    profileMessage.className = "message success profile-success";
-    playSuccess();
-    showToast("Profile updated ✓", "success");
-    
-    // Auto-navigate back after 1 second
-    setTimeout(() => {
-      location.href = "index.html";
-    }, 1000);
-    
-  } catch (error) {
-    console.error("Profile save error:", error);
+    profileMessage.textContent = "Profile saved.";
+    profileMessage.className = "success";
+  } catch {
     profileMessage.textContent = "Could not save your profile.";
-    profileMessage.className = "message error";
-    submitBtn.disabled = false;
-    submitBtn.textContent = originalText;
+    profileMessage.className = "error";
   }
 });
