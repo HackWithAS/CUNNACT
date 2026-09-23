@@ -5,8 +5,8 @@
   "scope": "/",
   "id": "/index.html",
   "display": "standalone",
-  "background_color": "#0F172A",
-  "theme_color": "#3B82F6",
+  "background_color": "#171F30",
+  "theme_color": "#2376FC",
   "description": "Private real-time messaging with CUNNACT IDs and shareable profiles.",
   "icons": [
     {
