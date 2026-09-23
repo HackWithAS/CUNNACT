@@ -16,7 +16,7 @@ let usernameToken = 0;
 let uploadController = null;
 let pendingTheme = localStorage.getItem("cunnact_theme") || "light";
 const RESERVED = new Set(["admin","administrator","support","help","cunnact","official","security","system","root","api","www","user","users","profile","login","register","settings"]);
-const PATTERN = /^[a-z0-9_]{5,24}$/;
+const PATTERN = /^[a-z0-9_]{3,24}$/;
 
 const normalizeUsername = (value) => String(value || "").trim().replace(/^@+/, "").toLowerCase();
 const suggestedUsername = (name, email) => {
@@ -29,7 +29,7 @@ function updatePreview(){const name=$("profileName")?.value.trim()||"Your name",
 async function usernameAvailable(value){
   const username=normalizeUsername(value),status=$("usernameStatus");
   if(!username){status.textContent="Choose a unique ID to share your profile.";status.className="";return false;}
-  if(!PATTERN.test(username)){status.textContent="Use 5–24 lowercase letters, numbers or underscores.";status.className="error";return false;}
+  if(!PATTERN.test(username)){status.textContent="Use 3–24 lowercase letters, numbers or underscores.";status.className="error";return false;}
   if(RESERVED.has(username)){status.textContent="That CUNNACT ID is reserved.";status.className="error";return false;}
   const token=++usernameToken;status.textContent="Checking availability…";status.className="";
   try{const snap=await getDoc(doc(db,"usernames",username));if(token!==usernameToken)return false;const free=!snap.exists()||snap.data()?.uid===currentUser?.uid;status.textContent=free?"✓ Available":"✕ Username already taken";status.className=free?"success":"error";return free;}

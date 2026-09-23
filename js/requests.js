@@ -55,8 +55,16 @@ export async function sendMessageRequest(currentUser, recipientId, recipientData
       let snap;
       try { snap = await getDoc(requestRef); } catch { throw writeError; }
       if (!snap.exists()) throw writeError;
-      const status = snap.data()?.status;
-      if (status === "pending") { showToast("Request already sent", "info"); return false; }
+      const existingRequest = snap.data() || {};
+      const status = existingRequest.status;
+      if (status === "pending") {
+        if (existingRequest.senderId === recipientId && existingRequest.receiverId === currentUser.uid) {
+          showToast("This person already sent you a request. Open Message Requests to accept it.", "info");
+          return { incomingPending:true };
+        }
+        showToast("Request already sent", "info");
+        return { pending:true };
+      }
       if (status === "accepted") { showToast("You're already connected", "info"); return { alreadyExists:true, conversationId }; }
       if (status === "declined") {
         await updateDoc(requestRef, { status:"pending", updatedAt:serverTimestamp() });

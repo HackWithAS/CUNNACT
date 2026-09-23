@@ -218,7 +218,10 @@ service cloud.firestore {
           ||
           (
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(["readBy"])
-            && request.auth.uid == resource.data.receiverId
+            && (
+              (resource.data.get("receiverId", "") == request.auth.uid)
+              || (get(/databases/$(database)/documents/conversations/$(conversationId)).data.type == "group" && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.members)
+            )
             && request.resource.data.get("readBy", {}) is map
             && resource.data.get("readBy", {}) is map
             && request.resource.data.get("readBy", {}).diff(resource.data.get("readBy", {})).affectedKeys().hasOnly([request.auth.uid])
@@ -226,7 +229,10 @@ service cloud.firestore {
           ||
           (
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(["deliveredBy"])
-            && request.auth.uid == resource.data.receiverId
+            && (
+              (resource.data.get("receiverId", "") == request.auth.uid)
+              || (get(/databases/$(database)/documents/conversations/$(conversationId)).data.type == "group" && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.members)
+            )
             && request.resource.data.get("deliveredBy", {}) is map
             && resource.data.get("deliveredBy", {}) is map
             && request.resource.data.get("deliveredBy", {}).diff(resource.data.get("deliveredBy", {})).affectedKeys().hasOnly([request.auth.uid])

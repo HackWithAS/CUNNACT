@@ -50,7 +50,7 @@ const queuedDeliveredIds = new Set();
 let ownHeartbeatAt = 0;
 const localHiddenLatest = new Set();
 const ONLINE_WINDOW_MS = 90 * 1000;
-const USERNAME_PATTERN = /^[a-z0-9_]{5,24}$/;
+const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
 
 const $id = (id) => document.getElementById(id);
 const ICONS = {
@@ -363,7 +363,7 @@ async function loadNewChatSearch(value){
   const raw=String(value||"").trim();
   if(!raw){box.innerHTML='<div class="empty-state">Search by @CUNNACT ID or email.</div>';return;}
   const username=raw.replace(/^@/i,"").toLowerCase();
-  if((raw.startsWith("@") || (!raw.includes("@") && USERNAME_PATTERN.test(username))) && username.length>=5){
+  if((raw.startsWith("@") || (!raw.includes("@") && USERNAME_PATTERN.test(username))) && username.length>=3){
     box.innerHTML='<div class="empty-state">Searching CUNNACT ID…</div>';
     try{const map=await getDoc(doc(db,"usernames",username));if(!map.exists()){box.innerHTML='<div class="empty-state">No CUNNACT account found.</div>';return;}const uid=map.data()?.uid;if(!uid||uid===currentUser.uid){box.innerHTML='<div class="empty-state">No other account found.</div>';return;}const snap=await getDoc(doc(db,"publicProfiles",uid));if(!snap.exists()){box.innerHTML='<div class="empty-state">Public profile is unavailable.</div>';return;}const profile=snap.data();renderNewChatResults([{uid,...profile,email:""}],box);}catch(e){console.error(e);box.innerHTML='<div class="empty-state">Could not search right now.</div>';}return;
   }
@@ -374,7 +374,7 @@ async function loadNewChatSearch(value){
 function renderNewChatResults(matches,box){
   if(!matches.length){box.innerHTML='<div class="empty-state">No CUNNACT account found.</div>';return;}
   box.innerHTML=matches.map(user=>{const connected=conversations.some(c=>c.members?.includes(user.uid));const blocked=currentBlockedUsers.has(user.uid);let label=blocked?"Blocked":connected?"Open chat":"Send request";return `<div class="new-person-row" data-uid="${escapeHtml(user.uid)}">${avatarHtml(user,{dot:false})}<div class="meta"><strong>${escapeHtml(user.name||user.displayName||"User")}</strong><span>@${escapeHtml(user.username||"")}</span></div><button class="btn ${blocked?"btn-soft":"btn-primary"} btn-sm new-chat-action" ${blocked?"disabled":""}>${label}</button></div>`;}).join("");
-  box.querySelectorAll(".new-person-row").forEach((row,index)=>{const user=matches[index];paintAvatar(row.querySelector(".avatar"),user);row.querySelector(".new-chat-action")?.addEventListener("click",async()=>{const btn=row.querySelector(".new-chat-action");if(btn.disabled)return;if(conversations.some(c=>c.members?.includes(user.uid))){const c=conversations.find(c=>c.members?.includes(user.uid));closeModal("newChatModal");return openChatById(c.id,user.uid);}btn.disabled=true;btn.textContent="Sending…";const senderProfile={uid:currentUser.uid,email:currentUser.email,displayName:currentUserData.name||currentUser.displayName,photoURL:currentUserData.photoURL||currentUser.photoURL||"",username:currentUserData.username||""};const result=await sendMessageRequest(senderProfile,user.uid,user);if(result?.alreadyExists){closeModal("newChatModal");await openChatById(result.conversationId);}else if(result){btn.textContent="Sent ✓";setTimeout(()=>closeModal("newChatModal"),550);}else{btn.disabled=false;btn.textContent="Send request";}});});
+  box.querySelectorAll(".new-person-row").forEach((row,index)=>{const user=matches[index];paintAvatar(row.querySelector(".avatar"),user);row.querySelector(".new-chat-action")?.addEventListener("click",async()=>{const btn=row.querySelector(".new-chat-action");if(btn.disabled)return;if(conversations.some(c=>c.members?.includes(user.uid))){const c=conversations.find(c=>c.members?.includes(user.uid));closeModal("newChatModal");return openChatById(c.id,user.uid);}btn.disabled=true;btn.textContent="Sending…";const senderProfile={uid:currentUser.uid,email:currentUser.email,displayName:currentUserData.name||currentUser.displayName,photoURL:currentUserData.photoURL||currentUser.photoURL||"",username:currentUserData.username||""};const result=await sendMessageRequest(senderProfile,user.uid,user);if(result?.alreadyExists){closeModal("newChatModal");await openChatById(result.conversationId);}else if(result?.pending){btn.disabled=true;btn.textContent="Request sent ✓";}else if(result?.incomingPending){btn.disabled=false;btn.textContent="Check requests";}else if(result){btn.disabled=true;btn.textContent="Request sent ✓";setTimeout(()=>closeModal("newChatModal"),550);}else{btn.disabled=false;btn.textContent="Send request";}});});
 }
 function openNewChatWithQuery(value){openModal("newChatModal");const input=$id("newChatSearch");if(input){input.value=value.startsWith("@")?value:`@${value}`;loadNewChatSearch(input.value);setTimeout(()=>input.focus(),20);}history.replaceState({},"",location.pathname);}
 
@@ -748,18 +748,27 @@ function listenMessages(){
     showLoadError("Messages couldn't be loaded.",detail+` (${code})`);
   };
 
-  // Keep the query simple and reliable. We sort client-side so legacy messages or
-  // missing composite/index metadata cannot leave the room stuck on Loading.
-  const messagesQuery=query(collection(db,"conversations",activeConversationId,"messages"),limit(100));
+  // Load the newest 100 messages first. This avoids showing an old slice of a
+  // long conversation and gives Firestore a deterministic index-free query.
+  // We reverse them in applySnapshot so the chat still renders oldest → newest.
+  const messagesQuery=query(collection(db,"conversations",activeConversationId,"messages"),orderBy("createdAt","desc"),limit(100));
   unsubscribeMessages=onSnapshot(messagesQuery,applySnapshot,handleError);
 
   // Never leave a user staring at an infinite loader if the listener is stalled.
   retryTimer=setTimeout(()=>{
     if(token!==messageListenerToken||settled)return;
-    console.warn("Message listener timed out; retrying once with a fresh listener.");
+    console.warn("Message listener timed out; retrying with a fresh listener.");
     unsubscribeMessages?.();
-    const freshQuery=query(collection(db,"conversations",activeConversationId,"messages"),limit(100));
-    unsubscribeMessages=onSnapshot(freshQuery,applySnapshot,(e)=>showLoadError("Messages couldn't be loaded.",e?.code||"listener-timeout"));
+    const freshQuery=query(collection(db,"conversations",activeConversationId,"messages"),orderBy("createdAt","desc"),limit(100));
+    unsubscribeMessages=onSnapshot(freshQuery,applySnapshot,(e)=>{
+      if(["failed-precondition","invalid-argument"].includes(e?.code)){
+        // Legacy installations may contain records without createdAt. Fall back
+        // to a plain listener rather than trapping the user on Loading.
+        unsubscribeMessages?.();
+        const fallbackQuery=query(collection(db,"conversations",activeConversationId,"messages"),limit(100));
+        unsubscribeMessages=onSnapshot(fallbackQuery,applySnapshot,(fallbackErr)=>showLoadError("Messages couldn't be loaded.",fallbackErr?.code||e?.code||"listener-error"));
+      } else showLoadError("Messages couldn't be loaded.",e?.code||"listener-timeout");
+    });
   },7000);
 
   cleanupInterval=startPeriodicCleanup(db,activeConversationId,()=>currentMessages,currentUser.uid,updateDoc);

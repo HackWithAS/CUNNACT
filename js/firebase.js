@@ -5,7 +5,6 @@ import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, signOut, updateProfile,
   sendEmailVerification, reload, sendPasswordResetEmail,
-  sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink,
   GoogleAuthProvider, signInWithPopup, EmailAuthProvider, linkWithCredential
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import {
@@ -23,7 +22,6 @@ export const db = getFirestore(app);
 export {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signOut, updateProfile, sendEmailVerification, reload, sendPasswordResetEmail,
-  sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink,
   GoogleAuthProvider, signInWithPopup, EmailAuthProvider, linkWithCredential,
   doc, getDoc, getDocs, setDoc, updateDoc, addDoc, deleteDoc,
   collection, query, where, orderBy, startAt, endAt, limit,

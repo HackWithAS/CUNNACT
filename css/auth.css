@@ -11,3 +11,9 @@
 .or-divider::before,.or-divider::after{content:"";flex:1;height:1px;background:var(--border)}
 .complete-profile-box{margin-top:20px;padding-top:20px;border-top:1px solid var(--border);display:grid;gap:14px}
 .complete-profile-box p{margin:0;font-size:13px}
+
+
+.email-verify-option{display:flex;align-items:flex-start;gap:10px;margin:2px 0 14px;padding:12px 13px;border:1px solid var(--border,#dbe3ef);border-radius:12px;background:var(--surface-soft,#f8fafc);font-size:13px;line-height:1.45}
+.email-verify-option .email-verify-icon{flex:0 0 22px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:rgba(59,130,246,.12);color:#2563eb;font-weight:800}
+.email-verify-option strong{display:block;margin-bottom:2px}
+.email-verify-option span{display:block;color:var(--muted,#64748b)}

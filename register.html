@@ -32,13 +32,20 @@
       <label>Email <span class="field-hint-inline">(for login only — never shown to others)</span>
         <input id="email" type="email" autocomplete="email" required>
       </label>
+      <div class="email-verify-option" id="emailVerifyOption">
+        <div class="email-verify-icon" aria-hidden="true">✓</div>
+        <div>
+          <strong>Verify with email link</strong>
+          <span>A verification link will be sent to this email after you create the account. Open it from your inbox to activate CUNNACT.</span>
+        </div>
+      </div>
       <label>Password
         <input id="password" type="password" minlength="6" autocomplete="new-password" required>
       </label>
       <label>Confirm password
         <input id="confirmPassword" type="password" minlength="6" autocomplete="new-password" required>
       </label>
-      <button type="submit" class="btn btn-primary">Create account</button>
+      <button type="submit" class="btn btn-primary" id="registerSubmitBtn">Create account &amp; send verification link</button>
       <p id="authError" class="error" role="alert" aria-live="polite"></p>
     </form>
     <p class="switch">Already registered? <a href="login.html">Login</a></p>

@@ -2,14 +2,12 @@ import {
   auth, db, onAuthStateChanged, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, signOut, updateProfile,
   sendEmailVerification, sendPasswordResetEmail,
-  sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink,
   GoogleAuthProvider, signInWithPopup, EmailAuthProvider, linkWithCredential,
   doc, getDoc, setDoc, serverTimestamp, runTransaction
 } from "./firebase.js";
 import { $ } from "./ui.js";
 
 const errorBox = $("authError");
-const EMAIL_LINK_STORAGE_KEY = "cunnact_email_for_link";
 const FRIENDLY_ERRORS = {
   "auth/invalid-credential":"Invalid email or password.",
   "auth/user-not-found":"Invalid email or password.",
@@ -21,7 +19,11 @@ const FRIENDLY_ERRORS = {
   "auth/network-request-failed":"Network error. Check your connection and try again.",
   "auth/invalid-action-code":"That sign-in link is invalid or has expired. Please request a new one.",
   "auth/popup-closed-by-user":"Sign-in window was closed before finishing.",
-  "auth/account-exists-with-different-credential":"That email is already registered a different way. Try logging in with email/password instead."
+  "auth/account-exists-with-different-credential":"That email is already registered a different way. Try the existing sign-in method for this account.",
+  "auth/operation-not-allowed":"This sign-in method is not enabled in Firebase yet.",
+  "auth/unauthorized-domain":"This website domain is not authorized in Firebase Authentication.",
+  "auth/user-disabled":"This account has been disabled.",
+  "auth/requires-recent-login":"Please sign in again and retry this action."
 };
 const RESERVED = new Set(["admin","administrator","support","help","cunnact","official","security","system","root","api","www","user","users","profile","login","register","settings"]);
 const sanitize = value => String(value||"").toLowerCase().replace(/[^a-z0-9_]/g, "");
@@ -53,37 +55,17 @@ function setAuthMessage(text, isError = true) {
   errorBox.style.color = isError ? "" : "var(--online, #16A34A)";
 }
 
-// --- Finishing an email-link sign-in (person tapped the link in their inbox) ---
-async function completeEmailLinkSignInIfNeeded() {
-  if (!isSignInWithEmailLink(auth, window.location.href)) return;
-  let email = localStorage.getItem(EMAIL_LINK_STORAGE_KEY);
-  if (!email) email = window.prompt("Confirm the email you used to request the link:");
-  if (!email) return;
-  try {
-    await signInWithEmailLink(auth, email, window.location.href);
-    localStorage.removeItem(EMAIL_LINK_STORAGE_KEY);
-    history.replaceState(null, "", location.pathname);
-    // onAuthStateChanged below picks this up and either sends the person
-    // straight in, or shows the "finish setup" box for a brand-new account.
-  } catch (err) {
-    console.error("Email link sign-in failed", err);
-    setAuthMessage(friendlyError(err));
-  }
-}
-completeEmailLinkSignInIfNeeded();
-
 // --- Deciding what to do with a signed-in user who's sitting on login/register ---
 function showCompleteProfile(user) {
   const box = $("completeProfileBox");
   if (!box) { location.href = "index.html"; return; }
   $("loginForm")?.setAttribute("hidden", "");
   document.querySelectorAll(".auth-card > .switch, .or-divider").forEach(el => el.setAttribute("hidden", ""));
-  $("emailLinkBtn")?.setAttribute("hidden", "");
   $("googleSignInBtn")?.setAttribute("hidden", "");
   box.hidden = false;
   const nameField = $("completeName");
   if (nameField && !nameField.value) nameField.value = user.displayName || "";
-  // Google / email-link accounts have no password yet — offer to set one.
+  // Google accounts may not have a password yet — offer to set one.
   const hasPassword = (user.providerData || []).some(p => p.providerId === "password");
   const pwBox = $("completePasswordFields");
   if (pwBox) pwBox.hidden = hasPassword;
@@ -132,24 +114,6 @@ $("googleSignInBtn")?.addEventListener("click", async () => {
     setAuthMessage(friendlyError(err));
   } finally {
     btn.disabled = false;
-  }
-});
-
-$("emailLinkBtn")?.addEventListener("click", async () => {
-  setAuthMessage("");
-  const email = $("email")?.value.trim();
-  if (!email) { setAuthMessage("Enter your email above first, then tap this button."); return; }
-  const btn = $("emailLinkBtn"); const label = btn.dataset.label ||= btn.textContent;
-  btn.disabled = true; btn.textContent = "Sending…";
-  try {
-    const actionCodeSettings = { url: `${location.origin}/login.html`, handleCodeInApp: true };
-    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-    localStorage.setItem(EMAIL_LINK_STORAGE_KEY, email);
-    setAuthMessage(`Sign-in link sent to ${email} — open it on this device. Check Spam/Promotions if it doesn't show up in a few minutes.`, false);
-  } catch (err) {
-    setAuthMessage(friendlyError(err));
-  } finally {
-    btn.disabled = false; btn.textContent = label;
   }
 });
 
