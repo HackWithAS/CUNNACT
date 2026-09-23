@@ -113,4 +113,4 @@ export function startAppLockGuard(user,getSettings,showLock){
   return {unlock:()=>{unlocked=true;},lock:()=>{unlocked=false;showLock?.()},check:()=>check(true),destroy:()=>document.removeEventListener("visibilitychange",onVisibility)};
 }
 
-export { platformLabel, getDeviceSessionId };
+export { platformLabel };

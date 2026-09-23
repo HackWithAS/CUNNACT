@@ -1,4 +1,4 @@
-const CACHE = "cunnact-shell-v10";
+const CACHE = "cunnact-shell-v11";
 const SHELL = [
   "/index.html","/login.html","/register.html","/landing.html","/profile.html",
   "/css/style.css","/css/chat.css","/css/profile.css","/css/security.css","/css/animations.css",

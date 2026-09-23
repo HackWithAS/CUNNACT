@@ -29,7 +29,7 @@ export {
   GoogleAuthProvider, signInWithPopup, reauthenticateWithPopup, reauthenticateWithCredential,
   EmailAuthProvider, linkWithCredential, PhoneAuthProvider, PhoneMultiFactorGenerator,
   RecaptchaVerifier, multiFactor, getMultiFactorResolver,
-  functions, httpsCallable,
+  httpsCallable,
   doc, getDoc, getDocs, setDoc, updateDoc, addDoc, deleteDoc,
   collection, query, where, orderBy, startAt, endAt, limit,
   onSnapshot, serverTimestamp, increment, writeBatch, runTransaction, arrayUnion, arrayRemove
