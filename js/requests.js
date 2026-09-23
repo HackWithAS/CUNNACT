@@ -1,18 +1,22 @@
 import {
   db, doc, getDoc, setDoc, updateDoc, collection, query, where,
-  limit, onSnapshot, serverTimestamp
+  limit, onSnapshot, serverTimestamp, deleteDoc
 } from "./firebase.js";
 import { playNotification, playSuccess } from "./sound.js";
 import { showToast } from "./toast.js";
 
 let requestsListener = null;
+let outgoingRequestsListener = null;
 let pendingRequests = [];
+let pendingOutgoingRequests = [];
 const requestIdFor = (a, b) => [a, b].sort().join("_");
 
-export function listenMessageRequests(currentUser, callback) {
+export function listenMessageRequests(currentUser, callback, outgoingCallback = () => {}) {
   requestsListener?.();
-  const q = query(collection(db, "messageRequests"), where("receiverId", "==", currentUser.uid), limit(50));
-  requestsListener = onSnapshot(q, (snap) => {
+  outgoingRequestsListener?.();
+
+  const incomingQ = query(collection(db, "messageRequests"), where("receiverId", "==", currentUser.uid), limit(50));
+  requestsListener = onSnapshot(incomingQ, (snap) => {
     const next = snap.docs.map(d => ({ id:d.id, ...d.data() }))
       .filter(r => r.status === "pending")
       .sort((a,b)=>(b.createdAt?.toMillis?.()??0)-(a.createdAt?.toMillis?.()??0));
@@ -20,10 +24,26 @@ export function listenMessageRequests(currentUser, callback) {
     pendingRequests = next;
     callback(next);
   }, (error) => {
-    console.error("Message request listener failed:", error);
+    console.error("Incoming message request listener failed:", error);
     pendingRequests = [];
     callback([]);
   });
+
+  const outgoingQ = query(collection(db, "messageRequests"), where("senderId", "==", currentUser.uid), limit(50));
+  outgoingRequestsListener = onSnapshot(outgoingQ, (snap) => {
+    pendingOutgoingRequests = snap.docs
+      .map(d => ({ id:d.id, ...d.data() }))
+      .filter(r => r.status === "pending");
+    outgoingCallback(pendingOutgoingRequests);
+  }, (error) => {
+    console.error("Outgoing message request listener failed:", error);
+    pendingOutgoingRequests = [];
+    outgoingCallback([]);
+  });
+}
+
+export function getOutgoingPendingRequest(recipientId) {
+  return pendingOutgoingRequests.find(r => r.receiverId === recipientId && r.status === "pending") || null;
 }
 
 export async function sendMessageRequest(currentUser, recipientId, recipientData = {}) {
@@ -31,8 +51,48 @@ export async function sendMessageRequest(currentUser, recipientId, recipientData
     if (!currentUser?.uid || !recipientId || currentUser.uid === recipientId) {
       showToast("You can't message yourself.", "error"); return false;
     }
+
     const conversationId = requestIdFor(currentUser.uid, recipientId);
     const requestRef = doc(db, "messageRequests", conversationId);
+
+    // Read first so an existing request is never accidentally overwritten with
+    // a full create payload. Firestore treats setDoc(..., merge:false) on an
+    // existing document as an update, which is rejected by our restricted rules.
+    let existing = null;
+    try {
+      const snap = await getDoc(requestRef);
+      if (snap.exists()) existing = snap.data() || {};
+    } catch (readError) {
+      // A missing/legacy request should still be creatable. Re-throw only for
+      // a real permission failure on an existing record.
+      if (readError?.code === "permission-denied") {
+        console.warn("Unable to inspect existing request before create:", readError);
+      }
+    }
+
+    if (existing) {
+      const status = existing.status;
+      if (status === "pending") {
+        if (existing.senderId === recipientId && existing.receiverId === currentUser.uid) {
+          showToast("This person already sent you a request. Open Message Requests to accept it.", "info");
+          return { incomingPending:true };
+        }
+        if (existing.senderId === currentUser.uid && existing.receiverId === recipientId) {
+          showToast("Request already sent", "info");
+          return { pending:true, requestId:conversationId };
+        }
+      }
+      if (status === "accepted") {
+        showToast("You're already connected", "info");
+        return { alreadyExists:true, conversationId };
+      }
+      if (status === "declined" && existing.senderId === currentUser.uid) {
+        await updateDoc(requestRef, { status:"pending", updatedAt:serverTimestamp() });
+        showToast("Message request sent again", "success");
+        return { true:true, requestId:conversationId };
+      }
+    }
+
     const payload = {
       senderId: currentUser.uid,
       receiverId: recipientId,
@@ -47,36 +107,39 @@ export async function sendMessageRequest(currentUser, recipientId, recipientData
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
-    try {
-      await setDoc(requestRef, payload, { merge: false });
-      showToast("Message request sent", "success");
-      return true;
-    } catch (writeError) {
-      let snap;
-      try { snap = await getDoc(requestRef); } catch { throw writeError; }
-      if (!snap.exists()) throw writeError;
-      const existingRequest = snap.data() || {};
-      const status = existingRequest.status;
-      if (status === "pending") {
-        if (existingRequest.senderId === recipientId && existingRequest.receiverId === currentUser.uid) {
-          showToast("This person already sent you a request. Open Message Requests to accept it.", "info");
-          return { incomingPending:true };
-        }
-        showToast("Request already sent", "info");
-        return { pending:true };
-      }
-      if (status === "accepted") { showToast("You're already connected", "info"); return { alreadyExists:true, conversationId }; }
-      if (status === "declined") {
-        await updateDoc(requestRef, { status:"pending", updatedAt:serverTimestamp() });
-        showToast("Message request sent again", "success"); return true;
-      }
-      throw writeError;
-    }
+
+    await setDoc(requestRef, payload, { merge:false });
+    showToast("Message request sent", "success");
+    return true;
   } catch (error) {
     console.error("Error sending request:", error);
-    if (error?.code === "permission-denied") showToast("Request couldn't be sent. The user may have blocked this account.", "error");
-    else if (error?.code === "failed-precondition") showToast("Firebase needs an index. Check the browser console for the index link.", "error");
-    else showToast("Failed to send request. Check your connection and try again.", "error");
+    const code = error?.code || "unknown";
+    if (code === "permission-denied") {
+      showToast("Firebase rejected this request. Check that neither account is blocked and the latest firestore.rules are deployed.", "error");
+    } else if (code === "failed-precondition") {
+      showToast("Firebase needs an index. Check the browser console for the index link.", "error");
+    } else if (code === "unavailable" || code === "network-request-failed") {
+      showToast("Could not reach Firebase. Check your internet connection and try again.", "error");
+    } else {
+      showToast("Failed to send request. Please try again.", "error");
+    }
+    return false;
+  }
+}
+
+export async function cancelMessageRequest(requestId) {
+  try {
+    if (!requestId) return false;
+    await deleteDoc(doc(db, "messageRequests", requestId));
+    showToast("Request cancelled", "info");
+    return true;
+  } catch (error) {
+    console.error("Error cancelling request:", error);
+    if (error?.code === "permission-denied") {
+      showToast("Firebase rejected the cancellation. Deploy the latest firestore.rules and try again.", "error");
+    } else {
+      showToast("Could not cancel the request. Please try again.", "error");
+    }
     return false;
   }
 }
@@ -137,5 +200,5 @@ export async function declineMessageRequest(requestId) {
   try { await updateDoc(doc(db,"messageRequests",requestId),{status:"declined",updatedAt:serverTimestamp()}); showToast("Request declined","info"); return true; }
   catch (error) { console.error(error); showToast("Failed to decline request","error"); return false; }
 }
-export function stopListeningRequests(){requestsListener?.();requestsListener=null;pendingRequests=[];}
+export function stopListeningRequests(){requestsListener?.();outgoingRequestsListener?.();requestsListener=null;outgoingRequestsListener=null;pendingRequests=[];pendingOutgoingRequests=[];}
 export function getPendingRequestsCount(){return pendingRequests.length;}

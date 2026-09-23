@@ -259,3 +259,6 @@ html[data-theme="dark"] .chat-header-actions .icon-btn:not(:disabled){
   .composer-popover{left:auto;right:0}
   .details-grid{grid-template-columns:1fr}
 }
+/* Pending outgoing request action */
+.new-chat-action.danger-item{font-weight:800}
+.new-chat-action:disabled{cursor:not-allowed}

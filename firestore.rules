@@ -6,10 +6,12 @@ service cloud.firestore {
     function requestIdFor(a, b) { return a < b ? a + "_" + b : b + "_" + a; }
     function userPath(uid) { return /databases/$(database)/documents/users/$(uid); }
     function userExists(uid) { return exists(userPath(uid)); }
+    function publicProfilePath(uid) { return /databases/$(database)/documents/publicProfiles/$(uid); }
+    function accountExists(uid) { return userExists(uid) || exists(publicProfilePath(uid)); }
     function blockPath(blockerUid, otherUid) { return /databases/$(database)/documents/users/$(blockerUid)/blockedUsers/$(otherUid); }
     function blockedBy(blockerUid, otherUid) { return exists(blockPath(blockerUid, otherUid)); }
     function canContact(otherUid) {
-      return signedIn() && userExists(request.auth.uid) && userExists(otherUid)
+      return signedIn() && accountExists(request.auth.uid) && accountExists(otherUid)
         && !blockedBy(request.auth.uid, otherUid) && !blockedBy(otherUid, request.auth.uid);
     }
     function acceptedRequest(otherUid) {
@@ -83,7 +85,12 @@ service cloud.firestore {
             && request.resource.data.status == "pending"
             && canContact(resource.data.receiverId))
         );
-      allow delete: if false;
+      // Sender may cancel a still-pending request. This removes the request
+      // entirely so the receiver's pending-request listener updates immediately
+      // and the sender can send a fresh request later.
+      allow delete: if signedIn()
+        && request.auth.uid == resource.data.senderId
+        && resource.data.status == "pending";
     }
 
     match /conversations/{conversationId} {

@@ -37,3 +37,12 @@
 ## Validation
 - `node --check` passes for all JS files.
 - `index.html` currently has no duplicate element IDs.
+
+## Request Flow Follow-up
+
+- [x] Outgoing pending-request listener
+- [x] Cancel pending request from New Chat search
+- [x] Prevent accidental full overwrite of existing request records
+- [x] Firestore sender-only pending delete rule
+- [x] More actionable permission/network error handling
+- [x] Legacy/public-profile account compatibility in `canContact`

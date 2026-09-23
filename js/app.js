@@ -11,7 +11,7 @@ import { showToast } from "./toast.js";
 import { formatTime, formatWhen, formatLastSeen, escapeHtml, debounce } from "./ui.js";
 import { buildConversationId, previewText } from "./chat.js";
 import { normalizeSearch, isSearchValid } from "./users.js";
-import { listenMessageRequests, sendMessageRequest, acceptMessageRequest, declineMessageRequest } from "./requests.js";
+import { listenMessageRequests, sendMessageRequest, acceptMessageRequest, declineMessageRequest, cancelMessageRequest, getOutgoingPendingRequest } from "./requests.js";
 import { playClick, playSend, playReceive, playSave, playDelete, isSoundEnabled, toggleSound } from "./sound.js";
 import { loadRetentionMode, getRetentionMode, shouldExpireMessage, cleanupExpiredMessages, startPeriodicCleanup, isSavedByUser, isDeletedForUser, setUserSetting } from "./retention.js";
 
@@ -223,7 +223,7 @@ onAuthStateChanged(auth, async (user) => {
     hydrateCurrentUserUI();
     bindStaticControls();
     startPresence();
-    listenMessageRequests(currentUser, (requests) => { updateRequestsBadge(requests.length); renderMessageRequests(requests); });
+    listenMessageRequests(currentUser, (requests) => { updateRequestsBadge(requests.length); renderMessageRequests(requests); }, () => { refreshNewChatRequestButtons(); });
     listenConversations();
     const newChatUsername = new URLSearchParams(location.search).get("newChat");
     if (newChatUsername) setTimeout(() => openNewChatWithQuery(newChatUsername), 120);
@@ -434,10 +434,62 @@ async function loadNewChatSearch(value){
   box.innerHTML='<div class="empty-state">Searching email…</div>';
   try{const term=raw.toLowerCase();const snap=await getDocs(query(collection(db,"users"),orderBy("emailLower"),startAt(term),endAt(`${term}\uf8ff`),limit(20)));renderNewChatResults(snap.docs.map(d=>({uid:d.id,...d.data()})).filter(u=>u.uid!==currentUser.uid),box);}catch(e){console.error(e);box.innerHTML=`<div class="empty-state">Search unavailable.<br><span>${escapeHtml(e?.code||"Try again")}</span></div>`;}
 }
+function requestActionState(user){
+  const connected=conversations.some(c=>c.members?.includes(user.uid));
+  const blocked=currentBlockedUsers.has(user.uid);
+  const outgoing=getOutgoingPendingRequest(user.uid);
+  if(blocked) return {label:"Blocked",disabled:true,kind:"blocked",requestId:""};
+  if(connected) return {label:"Open chat",disabled:false,kind:"connected",requestId:""};
+  if(outgoing) return {label:"Cancel request",disabled:false,kind:"cancel",requestId:outgoing.id};
+  return {label:"Send request",disabled:false,kind:"send",requestId:""};
+}
+function refreshNewChatRequestButtons(){
+  document.querySelectorAll(".new-person-row").forEach(row=>{
+    const btn=row.querySelector(".new-chat-action");
+    if(!btn || btn.dataset.busy==="true") return;
+    const state=requestActionState({uid:row.dataset.uid});
+    btn.disabled=state.disabled;
+    btn.textContent=state.label;
+    btn.dataset.action=state.kind;
+    btn.dataset.requestId=state.requestId;
+    btn.classList.toggle("btn-primary", state.kind !== "blocked" && state.kind !== "cancel");
+    btn.classList.toggle("btn-soft", state.kind === "blocked" || state.kind === "cancel");
+    btn.classList.toggle("danger-item", state.kind === "cancel");
+  });
+}
 function renderNewChatResults(matches,box){
   if(!matches.length){box.innerHTML='<div class="empty-state">No CUNNACT account found.</div>';return;}
-  box.innerHTML=matches.map(user=>{const connected=conversations.some(c=>c.members?.includes(user.uid));const blocked=currentBlockedUsers.has(user.uid);let label=blocked?"Blocked":connected?"Open chat":"Send request";return `<div class="new-person-row" data-uid="${escapeHtml(user.uid)}">${avatarHtml(user,{dot:false})}<div class="meta"><strong>${escapeHtml(user.name||user.displayName||"User")}</strong><span>@${escapeHtml(user.username||"")}</span></div><button class="btn ${blocked?"btn-soft":"btn-primary"} btn-sm new-chat-action" ${blocked?"disabled":""}>${label}</button></div>`;}).join("");
-  box.querySelectorAll(".new-person-row").forEach((row,index)=>{const user=matches[index];paintAvatar(row.querySelector(".avatar"),user);row.querySelector(".new-chat-action")?.addEventListener("click",async()=>{const btn=row.querySelector(".new-chat-action");if(btn.disabled)return;if(conversations.some(c=>c.members?.includes(user.uid))){const c=conversations.find(c=>c.members?.includes(user.uid));closeModal("newChatModal");return openChatById(c.id,user.uid);}btn.disabled=true;btn.textContent="Sending…";const senderProfile={uid:currentUser.uid,email:currentUser.email,displayName:currentUserData.name||currentUser.displayName,photoURL:currentUserData.photoURL||currentUser.photoURL||"",username:currentUserData.username||""};const result=await sendMessageRequest(senderProfile,user.uid,user);if(result?.alreadyExists){closeModal("newChatModal");await openChatById(result.conversationId);}else if(result?.pending){btn.disabled=true;btn.textContent="Request sent ✓";}else if(result?.incomingPending){btn.disabled=false;btn.textContent="Check requests";}else if(result){btn.disabled=true;btn.textContent="Request sent ✓";setTimeout(()=>closeModal("newChatModal"),550);}else{btn.disabled=false;btn.textContent="Send request";}});});
+  box.innerHTML=matches.map(user=>{const state=requestActionState(user);return `<div class="new-person-row" data-uid="${escapeHtml(user.uid)}">${avatarHtml(user,{dot:false})}<div class="meta"><strong>${escapeHtml(user.name||user.displayName||"User")}</strong><span>@${escapeHtml(user.username||"")}</span></div><button class="btn ${state.kind==="send"||state.kind==="connected"?"btn-primary":"btn-soft"}${state.kind==="cancel"?" danger-item":""} btn-sm new-chat-action" data-action="${state.kind}" data-request-id="${escapeHtml(state.requestId||"")}" ${state.disabled?"disabled":""}>${state.label}</button></div>`;}).join("");
+  box.querySelectorAll(".new-person-row").forEach((row,index)=>{
+    const user=matches[index];
+    paintAvatar(row.querySelector(".avatar"),user);
+    row.querySelector(".new-chat-action")?.addEventListener("click",async()=>{
+      const btn=row.querySelector(".new-chat-action");
+      if(!btn || btn.disabled || btn.dataset.busy==="true") return;
+      const state=requestActionState(user);
+      if(state.kind==="blocked") return;
+      if(state.kind==="connected") {
+        const c=conversations.find(c=>c.members?.includes(user.uid));
+        if(c){closeModal("newChatModal");await openChatById(c.id,user.uid);}return;
+      }
+      if(state.kind==="cancel") {
+        btn.dataset.busy="true";btn.disabled=true;btn.textContent="Cancelling…";
+        const ok=await cancelMessageRequest(state.requestId);
+        btn.dataset.busy="false";
+        if(ok){refreshNewChatRequestButtons();}else{btn.disabled=false;btn.textContent="Cancel request";}
+        return;
+      }
+      btn.dataset.busy="true";btn.disabled=true;btn.textContent="Sending…";
+      const senderProfile={uid:currentUser.uid,email:currentUser.email,displayName:currentUserData.name||currentUser.displayName,photoURL:currentUserData.photoURL||currentUser.photoURL||"",username:currentUserData.username||""};
+      const result=await sendMessageRequest(senderProfile,user.uid,user);
+      btn.dataset.busy="false";
+      if(result?.alreadyExists){closeModal("newChatModal");await openChatById(result.conversationId,user.uid);}
+      else if(result?.pending){btn.disabled=false;refreshNewChatRequestButtons();}
+      else if(result?.incomingPending){btn.disabled=false;btn.textContent="Check requests";}
+      else if(result){refreshNewChatRequestButtons();setTimeout(()=>closeModal("newChatModal"),550);}
+      else{refreshNewChatRequestButtons();}
+    });
+  });
 }
 function openNewChatWithQuery(value){openModal("newChatModal");const input=$id("newChatSearch");if(input){input.value=value.startsWith("@")?value:`@${value}`;loadNewChatSearch(input.value);setTimeout(()=>input.focus(),20);}history.replaceState({},"",location.pathname);}
 
