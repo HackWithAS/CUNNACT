@@ -101,11 +101,24 @@
         <div class="section-heading-row">
           <span>Conversations</span>
           <div class="heading-actions">
-            <button id="newChatBtn" class="new-chat-btn" type="button" aria-label="Start a new chat">
+            <button id="newChatBtn" class="new-chat-btn" type="button" aria-label="Start a new chat" aria-haspopup="true" aria-expanded="false">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
               <span>New chat</span>
             </button>
-            <button id="newGroupBtn" class="new-chat-btn" type="button" aria-label="Start a new group">
+            <!-- Desktop (>820px): a small dropdown folds "Create group" into this
+                 New chat button, wired in app.js. Mobile keeps the original
+                 separate "New group" button below, unchanged. -->
+            <div id="newChatMenu" class="dropdown-menu new-chat-menu" hidden>
+              <button class="dropdown-item" id="newChatMenuMessage" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 5v14M5 12h14"/></svg>
+                <span>Message someone</span>
+              </button>
+              <button class="dropdown-item" id="newChatMenuGroup" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="8.5" r="2.6"/><path d="M15.5 13.2a6.2 6.2 0 0 1 5.5 6.3"/></svg>
+                <span>Create group</span>
+              </button>
+            </div>
+            <button id="newGroupBtn" class="new-chat-btn mobile-group-btn" type="button" aria-label="Start a new group">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="8.5" r="2.6"/><path d="M15.5 13.2a6.2 6.2 0 0 1 5.5 6.3"/></svg>
               <span>New group</span>
             </button>

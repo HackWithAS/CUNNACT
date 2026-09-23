@@ -291,7 +291,31 @@ function bindStaticControls() {
   $id("chatAvatar")?.addEventListener("click", () => activeUser?.username ? location.href = `/u/${encodeURIComponent(activeUser.username)}` : openProfileDrawer());
   $id("chatMoreBtn")?.addEventListener("click", (e) => { e.stopPropagation(); if (!activeUser) return; playClick(); renderChatMoreMenu(); toggleDropdown("chatMoreMenu", "chatMoreBtn"); });
   const newChat = () => { playClick(); openModal("newChatModal"); $id("newChatSearch").value=""; $id("newChatResults").innerHTML='<div class="empty-state">Search by @CUNNACT ID or email.</div>'; requestAnimationFrame(()=> $id("newChatSearch")?.focus()); };
-  $id("newChatBtn")?.addEventListener("click", newChat);
+  // Desktop (>820px): "New chat" opens a 2-item menu (Message someone / Create
+  // group) instead of jumping straight into the new-chat modal. Mobile is
+  // untouched -- below 821px this menu is hidden by CSS and newChatBtn falls
+  // through to the original newChat() call, exactly like before.
+  const isDesktopWidth = () => window.matchMedia("(min-width: 821px)").matches;
+  const closeNewChatMenu = () => { const m=$id("newChatMenu"); if(m){m.hidden=true;} $id("newChatBtn")?.setAttribute("aria-expanded","false"); };
+  $id("newChatBtn")?.addEventListener("click", (e) => {
+    if (!isDesktopWidth()) { newChat(); return; }
+    e.stopPropagation();
+    const menu = $id("newChatMenu");
+    if (!menu) { newChat(); return; }
+    const btn = $id("newChatBtn");
+    const opening = menu.hidden;
+    document.querySelectorAll(".dropdown-menu").forEach(m => { if (m !== menu) m.hidden = true; });
+    menu.hidden = !opening;
+    btn?.setAttribute("aria-expanded", String(opening));
+    if (opening) {
+      const r = btn.getBoundingClientRect();
+      menu.style.top = `${r.bottom + 6}px`;
+      menu.style.left = `${r.left}px`;
+    }
+  });
+  document.addEventListener("click", (e) => { if (!e.target.closest("#newChatMenu, #newChatBtn")) closeNewChatMenu(); });
+  $id("newChatMenuMessage")?.addEventListener("click", () => { closeNewChatMenu(); newChat(); });
+  $id("newChatMenuGroup")?.addEventListener("click", () => { closeNewChatMenu(); playClick(); openNewGroupModal(); });
   $id("navNewChatBtn")?.addEventListener("click", newChat);
   $id("newGroupBtn")?.addEventListener("click", () => { playClick(); openNewGroupModal(); });
   $id("createGroupBtn")?.addEventListener("click", createGroup);
