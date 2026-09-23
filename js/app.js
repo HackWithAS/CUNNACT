@@ -46,6 +46,7 @@ let editTarget = null;
 let selectionMode = false;
 let selectedMessageIds = new Set();
 let voiceRecorder = null;
+let newChatRenderToken = 0;
 let voiceChunks = [];
 let readObserver = null;
 let queuedReadIds = new Set();
@@ -316,7 +317,13 @@ function bindStaticControls() {
   $id("backBtn")?.addEventListener("click", () => { playClick(); $id("app")?.classList.remove("chat-open"); closeProfileDrawer(); });
   $id("chatAvatar")?.addEventListener("click", () => { if (activeUser?.uid === currentUser?.uid) return; activeUser?.username ? location.href = `/u/${encodeURIComponent(activeUser.username)}` : openProfileDrawer(); });
   $id("chatMoreBtn")?.addEventListener("click", (e) => { e.stopPropagation(); if (!activeUser) return; playClick(); renderChatMoreMenu(); toggleDropdown("chatMoreMenu", "chatMoreBtn"); });
-  const newChat = () => { playClick(); openModal("newChatModal"); $id("newChatSearch").value=""; $id("newChatResults").innerHTML='<div class="empty-state">Search by @CUNNACT ID or email.</div>'; requestAnimationFrame(()=> $id("newChatSearch")?.focus()); };
+  const newChat = async () => {
+    playClick();
+    openModal("newChatModal");
+    $id("newChatSearch").value="";
+    renderConnectedContacts();
+    requestAnimationFrame(()=> $id("newChatSearch")?.focus());
+  };
   // Desktop (>820px): "New chat" opens a 2-item menu (Message someone / Create
   // group) instead of jumping straight into the new-chat modal. Mobile is
   // untouched -- below 821px this menu is hidden by CSS and newChatBtn falls
@@ -420,22 +427,74 @@ function renderMessageRequests(requests) {
 }
 
 /* Search */
-function matchesChat(user, term){if(!term)return true;const n=String(user?.name||"").toLowerCase(),e=String(user?.email||"").toLowerCase(),u=String(user?.username||"").toLowerCase();return n.includes(term)||e.includes(term)||u.includes(term);}
+function matchesChat(user, term){
+  if(!term)return true;
+  const n=String(user?.name||"").toLowerCase(),e=String(user?.email||"").toLowerCase(),u=String(user?.username||"").toLowerCase();
+  return n.includes(term)||e.includes(term)||u.includes(term);
+}
+function directConversations(){
+  const byUid=new Map();
+  conversations.forEach(c=>{
+    if(c?.type === "group") return;
+    const uid=otherUid(c);
+    if(!uid || byUid.has(uid)) return;
+    byUid.set(uid,c);
+  });
+  return [...byUid.values()];
+}
+async function renderConnectedContacts(){
+  const renderToken=++newChatRenderToken;
+  const box=$id("newChatResults"); if(!box)return;
+  const direct=directConversations();
+  if(!direct.length){
+    box.innerHTML='<div class="new-chat-section"><div class="new-chat-section-title">Your contacts</div><div class="empty-state">No connections yet.<br><span>Search by @CUNNACT ID or email to send a request.</span></div></div>';
+    return;
+  }
+  box.innerHTML='<div class="new-chat-section"><div class="new-chat-section-title">Your contacts</div><div class="new-chat-contact-list" id="connectedContactsList"><div class="empty-state">Loading contacts…</div></div><div class="new-chat-hint">Search above to find someone new.</div></div>';
+  const list=$id("connectedContactsList");
+  const contacts=[];
+  for(const c of direct){
+    const uid=otherUid(c);
+    if(!uid)continue;
+    let user=userListeners.get(uid)?.data;
+    if(!user){
+      try{const snap=await getDoc(doc(db,"users",uid));user=snap.exists()?{uid,...snap.data()}:{uid,name:"User"};}
+      catch{user={uid,name:"User"};}
+    }
+    contacts.push({user,conversation:c});
+  }
+  contacts.sort((a,b)=>{
+    const ap=a.conversation?.pinned?.[currentUser.uid]?1:0, bp=b.conversation?.pinned?.[currentUser.uid]?1:0;
+    if(ap!==bp)return bp-ap;
+    const at=a.conversation?.lastMessageTime?.toMillis?.()??a.conversation?.createdAt?.toMillis?.()??0;
+    const bt=b.conversation?.lastMessageTime?.toMillis?.()??b.conversation?.createdAt?.toMillis?.()??0;
+    if(at!==bt)return bt-at;
+    return String(a.user?.name||a.user?.username||"").localeCompare(String(b.user?.name||b.user?.username||""));
+  });
+  if(!list || renderToken!==newChatRenderToken || String($id("newChatSearch")?.value||"").trim())return;
+  list.innerHTML=contacts.map(({user})=>`<div class="new-person-row connected-contact-row" data-uid="${escapeHtml(user.uid)}">${avatarHtml(user,{dot:true})}<div class="meta"><strong>${escapeHtml(user.name||user.displayName||"User")}</strong><span>@${escapeHtml(user.username||"")}</span></div><button class="btn btn-primary btn-sm connected-open-btn" type="button">Open chat</button></div>`).join("");
+  contacts.forEach(({user,conversation},index)=>{
+    const row=list.querySelectorAll('.connected-contact-row')[index];
+    paintAvatar(row?.querySelector('.avatar'),user);
+    row?.querySelector('.connected-open-btn')?.addEventListener('click',async()=>{closeModal('newChatModal');await openChatById(conversation.id,user.uid);});
+  });
+}
 async function loadNewChatSearch(value){
+  const renderToken=++newChatRenderToken;
   const box=$id("newChatResults"); if(!box)return;
   const raw=String(value||"").trim();
-  if(!raw){box.innerHTML='<div class="empty-state">Search by @CUNNACT ID or email.</div>';return;}
+  if(!raw){renderConnectedContacts();return;}
   const username=raw.replace(/^@/i,"").toLowerCase();
   if((raw.startsWith("@") || (!raw.includes("@") && USERNAME_PATTERN.test(username))) && username.length>=3){
     box.innerHTML='<div class="empty-state">Searching CUNNACT ID…</div>';
-    try{const map=await getDoc(doc(db,"usernames",username));if(!map.exists()){box.innerHTML='<div class="empty-state">No CUNNACT account found.</div>';return;}const uid=map.data()?.uid;if(!uid||uid===currentUser.uid){box.innerHTML='<div class="empty-state">No other account found.</div>';return;}const snap=await getDoc(doc(db,"publicProfiles",uid));if(!snap.exists()){box.innerHTML='<div class="empty-state">Public profile is unavailable.</div>';return;}const profile=snap.data();renderNewChatResults([{uid,...profile,email:""}],box);}catch(e){console.error(e);box.innerHTML='<div class="empty-state">Could not search right now.</div>';}return;
+    try{const map=await getDoc(doc(db,"usernames",username));if(!map.exists()){box.innerHTML='<div class="empty-state">No CUNNACT account found.</div>';return;}const uid=map.data()?.uid;if(!uid||uid===currentUser.uid){box.innerHTML='<div class="empty-state">No other account found.</div>';return;}const snap=await getDoc(doc(db,"publicProfiles",uid));if(!snap.exists()){box.innerHTML='<div class="empty-state">Public profile is unavailable.</div>';return;}const profile=snap.data();if(renderToken!==newChatRenderToken)return;renderNewChatResults([{uid,...profile,email:""}],box);}catch(e){console.error(e);if(renderToken===newChatRenderToken)box.innerHTML='<div class="empty-state">Could not search right now.</div>';}return;
   }
   if(!isSearchValid(raw)){box.innerHTML='<div class="empty-state">Enter at least 6 characters of an email address, or use @username.</div>';return;}
   box.innerHTML='<div class="empty-state">Searching email…</div>';
-  try{const term=raw.toLowerCase();const snap=await getDocs(query(collection(db,"users"),orderBy("emailLower"),startAt(term),endAt(`${term}\uf8ff`),limit(20)));renderNewChatResults(snap.docs.map(d=>({uid:d.id,...d.data()})).filter(u=>u.uid!==currentUser.uid),box);}catch(e){console.error(e);box.innerHTML=`<div class="empty-state">Search unavailable.<br><span>${escapeHtml(e?.code||"Try again")}</span></div>`;}
+  try{const term=raw.toLowerCase();const snap=await getDocs(query(collection(db,"users"),orderBy("emailLower"),startAt(term),endAt(`${term}\uf8ff`),limit(20)));if(renderToken!==newChatRenderToken)return;renderNewChatResults(snap.docs.map(d=>({uid:d.id,...d.data()})).filter(u=>u.uid!==currentUser.uid),box);}catch(e){console.error(e);if(renderToken===newChatRenderToken)box.innerHTML=`<div class="empty-state">Search unavailable.<br><span>${escapeHtml(e?.code||"Try again")}</span></div>`;}
 }
 function requestActionState(user){
-  const connected=conversations.some(c=>c.members?.includes(user.uid));
+  const connected=conversations.some(c=>c.type!="group" && c.members?.includes(user.uid));
   const blocked=currentBlockedUsers.has(user.uid);
   const outgoing=getOutgoingPendingRequest(user.uid);
   if(blocked) return {label:"Blocked",disabled:true,kind:"blocked",requestId:""};
@@ -459,7 +518,7 @@ function refreshNewChatRequestButtons(){
 }
 function renderNewChatResults(matches,box){
   if(!matches.length){box.innerHTML='<div class="empty-state">No CUNNACT account found.</div>';return;}
-  box.innerHTML=matches.map(user=>{const state=requestActionState(user);return `<div class="new-person-row" data-uid="${escapeHtml(user.uid)}">${avatarHtml(user,{dot:false})}<div class="meta"><strong>${escapeHtml(user.name||user.displayName||"User")}</strong><span>@${escapeHtml(user.username||"")}</span></div><button class="btn ${state.kind==="send"||state.kind==="connected"?"btn-primary":"btn-soft"}${state.kind==="cancel"?" danger-item":""} btn-sm new-chat-action" data-action="${state.kind}" data-request-id="${escapeHtml(state.requestId||"")}" ${state.disabled?"disabled":""}>${state.label}</button></div>`;}).join("");
+  box.innerHTML=`<div class="new-chat-section"><div class="new-chat-section-title">Search results</div>${matches.map(user=>{const state=requestActionState(user);return `<div class="new-person-row" data-uid="${escapeHtml(user.uid)}">${avatarHtml(user,{dot:false})}<div class="meta"><strong>${escapeHtml(user.name||user.displayName||"User")}</strong><span>@${escapeHtml(user.username||"")}</span></div><button class="btn ${state.kind==="send"||state.kind==="connected"?"btn-primary":"btn-soft"}${state.kind==="cancel"?" danger-item":""} btn-sm new-chat-action" data-action="${state.kind}" data-request-id="${escapeHtml(state.requestId||"")}" ${state.disabled?"disabled":""}>${state.label}</button></div>`;}).join("")}<div class="new-chat-hint">Search by @CUNNACT ID or email to connect with someone new.</div></div>`;
   box.querySelectorAll(".new-person-row").forEach((row,index)=>{
     const user=matches[index];
     paintAvatar(row.querySelector(".avatar"),user);
@@ -469,7 +528,7 @@ function renderNewChatResults(matches,box){
       const state=requestActionState(user);
       if(state.kind==="blocked") return;
       if(state.kind==="connected") {
-        const c=conversations.find(c=>c.members?.includes(user.uid));
+        const c=conversations.find(c=>c.type!=="group" && c.members?.includes(user.uid));
         if(c){closeModal("newChatModal");await openChatById(c.id,user.uid);}return;
       }
       if(state.kind==="cancel") {

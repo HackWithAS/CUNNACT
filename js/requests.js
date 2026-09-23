@@ -153,32 +153,29 @@ export async function acceptMessageRequest(requestId, request, currentUser) {
     const requestRef = doc(db, "messageRequests", requestId);
     const conversationRef = doc(db, "conversations", conversationId);
 
-    // Mark the request accepted first. Conversation creation is then authorized by
-    // Firestore rules through the now-accepted request record. This avoids relying on
-    // getAfter() inside the conversation-create rule, which is unnecessarily fragile
-    // across clients/CLI rule deployments.
+    // Mark the request accepted first. Conversation creation is authorized by the
+    // Firestore rules through the now-accepted request record. Do NOT call getDoc()
+    // on a conversation that may not exist yet: its read rule requires membership,
+    // and a non-existent document has no members field.
     await updateDoc(requestRef, { status:"accepted", updatedAt:serverTimestamp() });
 
-    const existing = await getDoc(conversationRef);
-    if (!existing.exists()) {
-      const conversationData = {
-        members:[request.senderId, request.receiverId],
-        createdAt:serverTimestamp(),
-        unread:{ [request.senderId]:0, [request.receiverId]:0 },
-        lastMessage:"",
-        lastMessageType:"text",
-        lastMessageSenderId:"",
-        lastMessageId:"",
-        lastMessageTime:serverTimestamp()
-      };
-      try {
-        await setDoc(conversationRef, conversationData, { merge:false });
-      } catch (createError) {
-        // A short retry handles transient network failures after the request is accepted.
-        if (createError?.code === "permission-denied") throw createError;
-        await new Promise(r => setTimeout(r, 300));
-        await setDoc(conversationRef, conversationData, { merge:true });
-      }
+    const conversationData = {
+      members:[request.senderId, request.receiverId],
+      createdAt:serverTimestamp(),
+      unread:{ [request.senderId]:0, [request.receiverId]:0 },
+      lastMessage:"",
+      lastMessageType:"text",
+      lastMessageSenderId:"",
+      lastMessageId:"",
+      lastMessageTime:serverTimestamp()
+    };
+
+    try {
+      // Deterministic conversation IDs make create idempotent at the application level.
+      // If another client created it first, treat that as success and continue.
+      await setDoc(conversationRef, conversationData, { merge:false });
+    } catch (createError) {
+      if (createError?.code !== "already-exists") throw createError;
     }
 
     playSuccess();
