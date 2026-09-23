@@ -78,7 +78,14 @@
           </div>
         </div>
         <div class="preference-row-v6"><div><strong>Sound effects</strong><p>Play subtle interaction sounds.</p></div><label class="toggle"><input id="soundToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
-        <div class="preference-row-v6"><div><strong>Appearance</strong><p>Switch between light and dark mode.</p></div><button id="themeProfileBtn" class="btn btn-soft" type="button">Toggle theme</button></div>
+        <div class="preference-block"><div><strong>Appearance</strong><p>Choose light, dark, or match your device's setting.</p></div>
+          <div class="retention-options-v6 theme-options-v6">
+            <label class="retention-option-v6"><input type="radio" name="themeMode" value="light"><span><b>Light</b></span></label>
+            <label class="retention-option-v6"><input type="radio" name="themeMode" value="dark"><span><b>Dark</b></span></label>
+            <label class="retention-option-v6"><input type="radio" name="themeMode" value="system"><span><b>Default</b><small>Match device</small></span></label>
+          </div>
+        </div>
+        <div class="preference-row-v6"><div><strong>Last seen</strong><p>Turn this off and you also won't see other people's last seen.</p></div><label class="toggle"><input id="lastSeenToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
       </section>
 
       <section class="settings-card-v6">

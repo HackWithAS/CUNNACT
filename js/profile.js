@@ -49,7 +49,8 @@ async function claimUsername(nextValue,oldValue,name,bio,photoURL){
   });
 }
 async function savePublicProfile(name,bio,username){await setDoc(doc(db,"publicProfiles",currentUser.uid),{uid:currentUser.uid,username,usernameLower:username,displayName:name,photoURL:currentPhotoURL||"",bio,updatedAt:serverTimestamp()},{merge:true});}
-function applyLocalTheme(theme){const t=theme==="dark"?"dark":"light";pendingTheme=t;document.documentElement.dataset.theme=t;localStorage.setItem("cunnact_theme",t);}
+function resolveThemeLocal(pref){if(pref==="dark")return "dark";if(pref==="system")return (window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";return "light";}
+function applyLocalTheme(theme){const t=(theme==="dark"||theme==="system")?theme:"light";pendingTheme=t;document.documentElement.dataset.theme=resolveThemeLocal(t);localStorage.setItem("cunnact_theme",t);document.querySelectorAll('input[name="themeMode"]').forEach(r=>{r.checked=(r.value===t);});}
 
 onAuthStateChanged(auth,async(user)=>{
   if(!user){location.replace("login.html");return;}
@@ -63,7 +64,9 @@ onAuthStateChanged(auth,async(user)=>{
     $("profileName").value=name;$("profileEmail").value=user.email||data.email||"";$("profileUsername").value=username;$("profileBio").value=bio;if(!username)$("profileUsername").placeholder=suggestedUsername(name,user.email);
     updateBioCount();updatePreview();paintAvatar($("profileAvatar"),{photoURL:currentPhotoURL,name,email:user.email});
     const retention=await loadRetentionMode(user.uid);const retentionRadio=document.querySelector(`input[name="retention"][value="${retention}"]`); if(retentionRadio) retentionRadio.checked=true;
-    $("soundToggle").checked=settings.soundEnabled!==false;setStatus("");
+    $("soundToggle").checked=settings.soundEnabled!==false;
+    if($("lastSeenToggle"))$("lastSeenToggle").checked=!data.hideLastSeen;
+    setStatus("");
   }catch(e){console.error("Profile load error",e);setStatus("Could not load your profile. Please refresh.","error");}
 });
 
@@ -83,7 +86,8 @@ $("photoInput")?.addEventListener("change",async()=>{
 
 document.querySelectorAll('input[name="retention"]').forEach(r=>r.addEventListener("change",async(e)=>{try{await setRetentionMode(e.target.value,currentUser.uid);showToast(e.target.value==="seen"?"Messages will remove after they're seen":"Messages will remove after 24 hours","success");}catch(err){console.error(err);showToast("Could not save retention setting","error");}}));
 $("soundToggle")?.addEventListener("change",async(e)=>{const enabled=!!e.target.checked;setSoundEnabled(enabled);try{await setUserSetting(currentUser.uid,{soundEnabled:enabled});}catch(err){console.error(err);}if(enabled)playClick();});
-$("themeProfileBtn")?.addEventListener("click",async()=>{pendingTheme=pendingTheme==="dark"?"light":"dark";applyLocalTheme(pendingTheme);try{await setUserSetting(currentUser.uid,{theme:pendingTheme});}catch(e){console.warn(e);}playClick();});
+document.querySelectorAll('input[name="themeMode"]').forEach(r=>r.addEventListener("change",async(e)=>{applyLocalTheme(e.target.value);try{await setUserSetting(currentUser.uid,{theme:pendingTheme});}catch(err){console.warn(err);}playClick();}));
+$("lastSeenToggle")?.addEventListener("change",async(e)=>{const showLastSeen=!!e.target.checked;try{await updateDoc(doc(db,"users",currentUser.uid),{hideLastSeen:!showLastSeen});showToast(showLastSeen?"Others can see your last seen again":"Your last seen is now hidden — you also won't see others'","success");}catch(err){console.error(err);e.target.checked=!showLastSeen;showToast("Could not update last seen setting","error");}playClick();});
 $("shareProfileBtn")?.addEventListener("click",async()=>{const username=normalizeUsername($("profileUsername").value);if(!username){showToast("Set a CUNNACT ID before sharing your profile.","info");$("profileUsername").focus();return;}const url=`${location.origin}/u/${encodeURIComponent(username)}`,text=`Connect with me on CUNNACT:\n@${username}`;try{if(navigator.share)await navigator.share({title:"CUNNACT profile",text,url});else{await navigator.clipboard.writeText(url);showToast("Profile link copied ✓","success");}}catch(e){if(e.name!=="AbortError")showToast("Could not share profile link","error");}});
 $("backToChat")?.addEventListener("click",()=>location.href="index.html");$("cancelProfileBtn")?.addEventListener("click",()=>location.href="index.html");
 

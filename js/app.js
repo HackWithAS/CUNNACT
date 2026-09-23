@@ -136,12 +136,26 @@ function finishConfirmDialog(result) {
   const resolve = confirmDialogResolver; confirmDialogResolver = null;
   closeModal("confirmModal"); resolve?.(!!result);
 }
+let systemThemeMedia = null;
+function resolveTheme(pref) {
+  if (pref === "dark") return "dark";
+  if (pref === "system") return (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+  return "light";
+}
+function watchSystemTheme(enable) {
+  if (!window.matchMedia) return;
+  if (!systemThemeMedia) systemThemeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+  systemThemeMedia.onchange = enable ? () => applyTheme("system", false) : null;
+}
 function applyTheme(theme, persist = true) {
-  const resolved = theme === "dark" ? "dark" : "light";
+  const pref = (theme === "dark" || theme === "system") ? theme : "light";
+  const resolved = resolveTheme(pref);
   document.documentElement.dataset.theme = resolved;
-  localStorage.setItem("cunnact_theme", resolved);
+  localStorage.setItem("cunnact_theme", pref);
   $id("themeToggleLabel") && ($id("themeToggleLabel").textContent = resolved === "dark" ? "Light mode" : "Dark mode");
-  if (persist && currentUser) setUserSetting(currentUser.uid, { theme: resolved }).catch(() => {});
+  document.querySelectorAll('input[name="themeMode"]').forEach(r => { r.checked = (r.value === pref); });
+  watchSystemTheme(pref === "system");
+  if (persist && currentUser) setUserSetting(currentUser.uid, { theme: pref }).catch(() => {});
 }
 function updateSoundToggle() {
   const btn = $id("soundToggle"); if (!btn) return;
@@ -288,7 +302,7 @@ function bindStaticControls() {
   $id("accountMenuBtn")?.addEventListener("click", (e) => { e.stopPropagation(); playClick(); toggleDropdown("accountMenu", "accountMenuBtn"); });
   $id("soundToggle")?.addEventListener("click", () => { const enabled = toggleSound(); updateSoundToggle(); if (currentUser) setUserSetting(currentUser.uid,{soundEnabled:enabled}).catch(()=>{}); if (enabled) playClick(); });
   $id("backBtn")?.addEventListener("click", () => { playClick(); $id("app")?.classList.remove("chat-open"); closeProfileDrawer(); });
-  $id("chatAvatar")?.addEventListener("click", () => activeUser?.username ? location.href = `/u/${encodeURIComponent(activeUser.username)}` : openProfileDrawer());
+  $id("chatAvatar")?.addEventListener("click", () => { if (activeUser?.uid === currentUser?.uid) return; activeUser?.username ? location.href = `/u/${encodeURIComponent(activeUser.username)}` : openProfileDrawer(); });
   $id("chatMoreBtn")?.addEventListener("click", (e) => { e.stopPropagation(); if (!activeUser) return; playClick(); renderChatMoreMenu(); toggleDropdown("chatMoreMenu", "chatMoreBtn"); });
   const newChat = () => { playClick(); openModal("newChatModal"); $id("newChatSearch").value=""; $id("newChatResults").innerHTML='<div class="empty-state">Search by @CUNNACT ID or email.</div>'; requestAnimationFrame(()=> $id("newChatSearch")?.focus()); };
   // Desktop (>820px): "New chat" opens a 2-item menu (Message someone / Create
@@ -337,7 +351,7 @@ function bindStaticControls() {
   $id("imagePreviewSend")?.addEventListener("click", sendPendingImage);
   $id("cancelReplyBtn")?.addEventListener("click", clearReply);
   $id("closeProfileDrawer")?.addEventListener("click", closeProfileDrawer);
-  $id("drawerViewProfile")?.addEventListener("click", () => { if (activeUser?.username) location.href=`/u/${encodeURIComponent(activeUser.username)}`; });
+  $id("drawerViewProfile")?.addEventListener("click", () => { if (activeUser?.uid === currentUser?.uid) return; if (activeUser?.username) location.href=`/u/${encodeURIComponent(activeUser.username)}`; });
   document.querySelectorAll(".close-modal").forEach((button) => button.addEventListener("click", () => { playClick(); closeModal(button.closest(".modal")?.id); }));
   document.querySelectorAll(".modal").forEach((modal) => modal.addEventListener("click", (e) => { if (e.target === modal) modal.id === "confirmModal" ? finishConfirmDialog(false) : closeModal(modal.id); }));
   $id("confirmActionBtn")?.addEventListener("click", () => { playClick(); finishConfirmDialog(true); });
@@ -482,7 +496,10 @@ function refreshChatHeader(){
     setComposerState();
     return;
   }
-  const live=userListeners.get(activeUser.uid)?.data;if(live)activeUser={...activeUser,...live};const online=isUserOnline(activeUser),blocked=currentBlockedUsers.has(activeUser.uid);$id("chatName").textContent=activeUser.name||(activeUser.username?`@${activeUser.username}`:"User");const status=blocked?"Blocked by you":online?"Active now":`Offline · ${formatLastSeen(activeUser.lastSeen?.toDate?.()||null)}`;$id("chatStatus").textContent=status;$id("chatStatusPill").hidden=!online||blocked;if(!$id("chatStatusPill").hidden)$id("chatStatusPill").textContent="Online";setStatusDot($id("chatStatusDot"),online&&!blocked);paintAvatar($id("chatAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name,email:activeUser.email});setComposerState();}
+  const live=userListeners.get(activeUser.uid)?.data;if(live)activeUser={...activeUser,...live};const online=isUserOnline(activeUser),blocked=currentBlockedUsers.has(activeUser.uid);$id("chatName").textContent=activeUser.name||(activeUser.username?`@${activeUser.username}`:"User");
+  // Last seen is mutual: if either side has turned it off, neither can see the other's last-seen time.
+  const canSeeLastSeen=!currentUserData.hideLastSeen&&!activeUser.hideLastSeen;
+  const status=blocked?"Blocked by you":online?"Active now":(canSeeLastSeen?`Offline · ${formatLastSeen(activeUser.lastSeen?.toDate?.()||null)}`:"Offline");$id("chatStatus").textContent=status;$id("chatStatusPill").hidden=!online||blocked;if(!$id("chatStatusPill").hidden)$id("chatStatusPill").textContent="Online";setStatusDot($id("chatStatusDot"),online&&!blocked);paintAvatar($id("chatAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name,email:activeUser.email});setComposerState();}
 function isBlockedByEither(){return !!(activeUser&&currentBlockedUsers.has(activeUser.uid));}
 function setComposerState(){const blocked=isBlockedByEither(),enabled=!!activeUser&&!!activeConversationId&&!blocked&&!sendingMessage;$id("messageInput").disabled=!enabled;$id("attachBtn").disabled=!enabled;$id("messageForm").querySelector("button[type=submit]").disabled=!enabled;$id("messageInput").placeholder=blocked?"Messaging is blocked":"Write a message…";const notice=$id("blockedNotice");if(blocked){notice.hidden=false;notice.innerHTML=`<span>${ICONS.block}</span><span>You blocked this person. Unblock them to continue.</span>`;}else notice.hidden=true;}
 function renderChatMoreMenu(){
@@ -822,8 +839,13 @@ function buildMessageElement(message){
   if(message.type==="image"&&isTrustedImageUrl(message.imageURL)){el.classList.add("image-message");const img=document.createElement("img");img.src=imageUrl(message.imageURL,"chat");img.alt="Shared image";img.loading="lazy";img.addEventListener("click",()=>openLightbox(message.imageURL));bubble.appendChild(img);}else{const p=document.createElement("p");p.textContent=message.text||"Attachment unavailable";bubble.appendChild(p);}
   const meta=document.createElement("div");meta.className="message-meta";const time=document.createElement("small");time.textContent=message.createdAt?.toDate?formatTime(message.createdAt.toDate()):"";meta.appendChild(time);if(outgoing){const status=document.createElement("span");status.className="delivery-check";setDeliveryIcon(status,message);meta.appendChild(status);}bubble.appendChild(meta);
   renderReactionChips(el,message);if(isSavedByUser(message,currentUser.uid)){const mark=document.createElement("span");mark.className="bookmark-icon";mark.innerHTML=ICONS.bookmark;el.appendChild(mark);}
-  const action=document.createElement("button");action.type="button";action.className="message-more";action.setAttribute("aria-label","Message actions");action.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/></svg>';action.addEventListener("click",e=>{e.stopPropagation();showMessageActions(el,el._message,outgoing,action);});el.appendChild(action);
-  el.addEventListener("contextmenu",e=>{e.preventDefault();showMessageActions(el,el._message,outgoing,action);});
+  // No visible ••• button on the bubble — actions open via right-click (desktop) or long-press (touch), on the message itself.
+  el.addEventListener("contextmenu",e=>{e.preventDefault();showMessageActions(el,el._message,outgoing,el);});
+  let msgPressTimer=null,msgLongPressed=false;
+  el.addEventListener("touchstart",()=>{msgLongPressed=false;msgPressTimer=setTimeout(()=>{msgLongPressed=true;if(navigator.vibrate)navigator.vibrate(12);showMessageActions(el,el._message,outgoing,el);},420);},{passive:true});
+  el.addEventListener("touchend",()=>clearTimeout(msgPressTimer));
+  el.addEventListener("touchmove",()=>clearTimeout(msgPressTimer));
+  el.addEventListener("click",e=>{if(msgLongPressed){e.preventDefault();msgLongPressed=false;}});
   return el;
 }
 function updateMessageElement(el,message){el._message=message;const outgoing=message.senderId===currentUser.uid;const bubble=el.querySelector(".message-bubble");if(!bubble)return;const quote=bubble.querySelector(".reply-quote");if(message.replyTo&&!quote){const q=document.createElement("button");q.type="button";q.className="reply-quote";q.innerHTML=`<span>${escapeHtml(message.replyTo.senderName||"Message")}</span><p>${escapeHtml(message.replyTo.text||"Photo")}</p>`;q.addEventListener("click",()=>scrollToMessage(message.replyTo.messageId));bubble.prepend(q);}const meta=bubble.querySelector(".message-meta");if(meta&&outgoing){const status=meta.querySelector(".delivery-check")||document.createElement("span");status.className="delivery-check";setDeliveryIcon(status,message);if(!status.parentNode)meta.appendChild(status);}renderReactionChips(el,message);const saved=isSavedByUser(message,currentUser.uid);const oldMark=el.querySelector(".bookmark-icon");if(saved&&!oldMark){const mark=document.createElement("span");mark.className="bookmark-icon";mark.innerHTML=ICONS.bookmark;el.appendChild(mark);}if(!saved&&oldMark)oldMark.remove();}
@@ -899,7 +921,7 @@ function clearImagePreview(){if(pendingImageUrl)URL.revokeObjectURL(pendingImage
 function autoGrowComposer(){const input=$id("messageInput");if(!input)return;input.style.height="auto";input.style.height=`${Math.min(input.scrollHeight,140)}px`;}
 
 /* Profile drawer / shared media */
-function openProfileDrawer(){if(!activeUser)return;renderProfileDrawer();$id("profileDrawer").hidden=false;$id("app")?.classList.add("drawer-open");}
+function openProfileDrawer(){if(!activeUser||activeUser.uid===currentUser?.uid)return;renderProfileDrawer();$id("profileDrawer").hidden=false;$id("app")?.classList.add("drawer-open");}
 function closeProfileDrawer(){const d=$id("profileDrawer");if(!d)return;d.hidden=true;$id("app")?.classList.remove("drawer-open");}
 function renderProfileDrawer(){
   if(!activeUser)return;
