@@ -210,12 +210,4 @@ body,.profile-page,.public-profile-page{background:radial-gradient(circle at 10%
 :root[data-theme="dark"] .brand-wordmark-wrap .theme-logo-light{display:none!important}
 :root[data-theme="dark"] .brand-wordmark-wrap .theme-logo-dark{display:block!important}
 
-/* Non-blocking "please verify your email" reminder bar */
-.verify-banner{position:fixed;top:0;left:0;right:0;z-index:8500;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;padding:9px 16px;background:linear-gradient(90deg,#3B82F6,#06B6D4);color:#fff;font-size:12px;font-weight:600;text-align:center}
-.verify-banner strong{font-weight:800}
-.verify-banner-actions{display:flex;align-items:center;gap:6px}
-.verify-banner .btn-sm{padding:0 10px;height:26px;font-size:11px;background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.3)}
-.verify-banner .btn-sm:hover{background:rgba(255,255,255,.28)}
-.verify-banner .icon-btn{width:24px;height:24px;background:transparent;border:none;color:#fff;opacity:.85}
-.verify-banner .icon-btn:hover{opacity:1;background:rgba(255,255,255,.18)}
-@media(max-width:640px){.verify-banner{font-size:11px;padding:8px 10px}}
+.verify-spam-note{color:var(--ink-faint);font-size:11px;line-height:1.5}

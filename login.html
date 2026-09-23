@@ -32,7 +32,21 @@
       <p id="authError" class="error" role="alert" aria-live="polite"></p>
     </form>
     <p class="switch"><a href="#" id="forgotPasswordLink">Forgot password?</a></p>
+    <div class="or-divider"><span>or</span></div>
+    <button type="button" id="emailLinkBtn" class="btn btn-soft" style="width:100%">Sign in with email link (no password)</button>
+    <p class="field-hint" style="text-align:center;margin-top:8px">We'll email you a one-time sign-in link — no separate verification step needed.</p>
     <p class="switch">New here? <a href="register.html">Create an account</a></p>
+    <div id="completeProfileBox" class="complete-profile-box" hidden>
+      <p><strong>Pick your CUNNACT ID</strong><br><span class="field-hint">You're signed in — just choose a username to finish setting up.</span></p>
+      <label>CUNNACT ID (username)
+        <input id="completeUsername" type="text" autocomplete="off" placeholder="e.g. rahul_23" maxlength="24">
+      </label>
+      <label>Name
+        <input id="completeName" type="text" autocomplete="name">
+      </label>
+      <button type="button" id="completeProfileBtn" class="btn btn-primary">Finish setup</button>
+      <p id="completeProfileError" class="error" role="alert" aria-live="polite"></p>
+    </div>
     <footer class="auth-footer">
       <span>CUNNACT by <a href="https://hackwithas.in" target="_blank" rel="noopener noreferrer">HackWithAS</a></span>
     </footer>

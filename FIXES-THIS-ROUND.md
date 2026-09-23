@@ -43,3 +43,21 @@
   `firestore.rules`, new message routing, group admin/membership UI. It's a real feature
   project on its own, not a menu-item edit. Tell me if you want this scoped next and I'll
   design it properly rather than bolt on a fake button.
+
+## Round 2 (per your feedback)
+- **Reverted to the hard email-verification gate** (blocks access until verified), now with an
+  explicit "check Spam/Promotions" note on the screen itself.
+- **Added "Sign in with email link" (passwordless / magic link)** on the login page. Since
+  Firebase only lets someone in this way by actually clicking a link sent to that address,
+  it auto-marks the email as verified — no separate verification step for people who use it.
+  This needs "Email link (passwordless sign-in)" enabled in Firebase Console → Authentication
+  → Sign-in method, which you said you've already turned on.
+- If someone uses the email-link button with an email that has no CUNNACT account yet,
+  Firebase will sign them in as a new user automatically (that's how passwordless auth works).
+  To stop that from creating a broken, username-less account, they now land on a small
+  "pick your CUNNACT ID" box right there on the login page before they can enter the app.
+- **APK**: still not built — see the note above about why a real compiled `.apk` needs an
+  Android SDK/Gradle environment this sandbox doesn't have. Say the word and I'll put together
+  the full Capacitor Android project next (source + build instructions), which you can build
+  from a Windows/Mac/Linux machine with Android Studio, or I can guide you through the exact
+  commands if you have one.

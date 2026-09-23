@@ -4,7 +4,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebas
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, signOut, updateProfile,
-  sendEmailVerification, reload, sendPasswordResetEmail
+  sendEmailVerification, reload, sendPasswordResetEmail,
+  sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import {
   getFirestore,
@@ -21,6 +22,7 @@ export const db = getFirestore(app);
 export {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signOut, updateProfile, sendEmailVerification, reload, sendPasswordResetEmail,
+  sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink,
   doc, getDoc, getDocs, setDoc, updateDoc, addDoc, deleteDoc,
   collection, query, where, orderBy, startAt, endAt, limit,
   onSnapshot, serverTimestamp, increment, writeBatch, runTransaction, arrayUnion, arrayRemove

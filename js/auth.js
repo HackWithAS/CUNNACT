@@ -2,11 +2,13 @@ import {
   auth, db, onAuthStateChanged, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, signOut, updateProfile,
   sendEmailVerification, sendPasswordResetEmail,
+  sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink,
   doc, getDoc, setDoc, serverTimestamp, runTransaction
 } from "./firebase.js";
 import { $ } from "./ui.js";
 
 const errorBox = $("authError");
+const EMAIL_LINK_STORAGE_KEY = "cunnact_email_for_link";
 const FRIENDLY_ERRORS = {
   "auth/invalid-credential":"Invalid email or password.",
   "auth/user-not-found":"Invalid email or password.",
@@ -15,7 +17,8 @@ const FRIENDLY_ERRORS = {
   "auth/weak-password":"Password should be at least 6 characters.",
   "auth/invalid-email":"Please enter a valid email.",
   "auth/too-many-requests":"Too many attempts. Please wait a moment and try again.",
-  "auth/network-request-failed":"Network error. Check your connection and try again."
+  "auth/network-request-failed":"Network error. Check your connection and try again.",
+  "auth/invalid-action-code":"That sign-in link is invalid or has expired. Please request a new one."
 };
 const RESERVED = new Set(["admin","administrator","support","help","cunnact","official","security","system","root","api","www","user","users","profile","login","register","settings"]);
 const sanitize = value => String(value||"").toLowerCase().replace(/[^a-z0-9_]/g, "");
@@ -41,30 +44,129 @@ async function claimChosenUsername(uid,candidate,name) {
 
 function setBusy(form,busy){const btn=form.querySelector('button[type="submit"]');btn.disabled=busy;btn.dataset.label ||= btn.textContent;btn.textContent=busy?"Please wait…":btn.dataset.label;}
 const friendlyError = e => FRIENDLY_ERRORS[e?.code] || "Something went wrong. Please try again.";
+function setAuthMessage(text, isError = true) {
+  if (!errorBox) return;
+  errorBox.textContent = text || "";
+  errorBox.style.color = isError ? "" : "var(--online, #16A34A)";
+}
 
-onAuthStateChanged(auth,user=>{if(user&&(location.pathname.endsWith("login.html")||location.pathname.endsWith("register.html")))location.href="index.html";});
+// --- Finishing an email-link sign-in (person tapped the link in their inbox) ---
+async function completeEmailLinkSignInIfNeeded() {
+  if (!isSignInWithEmailLink(auth, window.location.href)) return;
+  let email = localStorage.getItem(EMAIL_LINK_STORAGE_KEY);
+  if (!email) email = window.prompt("Confirm the email you used to request the link:");
+  if (!email) return;
+  try {
+    await signInWithEmailLink(auth, email, window.location.href);
+    localStorage.removeItem(EMAIL_LINK_STORAGE_KEY);
+    history.replaceState(null, "", location.pathname);
+    // onAuthStateChanged below picks this up and either sends the person
+    // straight in, or shows the "finish setup" box for a brand-new account.
+  } catch (err) {
+    console.error("Email link sign-in failed", err);
+    setAuthMessage(friendlyError(err));
+  }
+}
+completeEmailLinkSignInIfNeeded();
+
+// --- Deciding what to do with a signed-in user who's sitting on login/register ---
+function showCompleteProfile(user) {
+  const box = $("completeProfileBox");
+  if (!box) { location.href = "index.html"; return; }
+  $("loginForm")?.setAttribute("hidden", "");
+  document.querySelectorAll(".auth-card > .switch, .or-divider").forEach(el => el.setAttribute("hidden", ""));
+  $("emailLinkBtn")?.setAttribute("hidden", "");
+  box.hidden = false;
+  const nameField = $("completeName");
+  if (nameField && !nameField.value) nameField.value = user.displayName || "";
+}
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
+  if (!(location.pathname.endsWith("login.html") || location.pathname.endsWith("register.html"))) return;
+  try {
+    const snap = await getDoc(doc(db, "users", user.uid));
+    if (snap.exists() && snap.data()?.username) { location.href = "index.html"; return; }
+  } catch (e) { console.warn("Profile lookup failed, showing setup just in case.", e); }
+  showCompleteProfile(user);
+});
 
 $("loginForm")?.addEventListener("submit",async e=>{
-  e.preventDefault();errorBox.textContent="";const form=e.target;setBusy(form,true);
+  e.preventDefault();setAuthMessage("");const form=e.target;setBusy(form,true);
   try{ await signInWithEmailAndPassword(auth,$("email").value.trim(),$("password").value); location.href="index.html"; }
-  catch(err){ errorBox.textContent=friendlyError(err); setBusy(form,false); }
+  catch(err){ setAuthMessage(friendlyError(err)); setBusy(form,false); }
 });
 
 $("forgotPasswordLink")?.addEventListener("click", async (e) => {
   e.preventDefault();
-  errorBox.textContent = "";
+  setAuthMessage("");
   const email = $("email")?.value.trim();
-  if (!email) { errorBox.textContent = "Enter your email above first, then tap \u201cForgot password?\u201d."; return; }
+  if (!email) { setAuthMessage("Enter your email above first, then tap \u201cForgot password?\u201d."); return; }
   try {
     await sendPasswordResetEmail(auth, email);
-    errorBox.textContent = `Password reset link sent to ${email}. Check your inbox.`;
+    setAuthMessage(`Password reset link sent to ${email}. Check your inbox (and Spam/Promotions).`, false);
   } catch (err) {
-    errorBox.textContent = friendlyError(err);
+    setAuthMessage(friendlyError(err));
+  }
+});
+
+$("emailLinkBtn")?.addEventListener("click", async () => {
+  setAuthMessage("");
+  const email = $("email")?.value.trim();
+  if (!email) { setAuthMessage("Enter your email above first, then tap this button."); return; }
+  const btn = $("emailLinkBtn"); const label = btn.dataset.label ||= btn.textContent;
+  btn.disabled = true; btn.textContent = "Sending…";
+  try {
+    const actionCodeSettings = { url: `${location.origin}/login.html`, handleCodeInApp: true };
+    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+    localStorage.setItem(EMAIL_LINK_STORAGE_KEY, email);
+    setAuthMessage(`Sign-in link sent to ${email} — open it on this device. Check Spam/Promotions if it doesn't show up in a few minutes.`, false);
+  } catch (err) {
+    setAuthMessage(friendlyError(err));
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+});
+
+$("completeProfileBtn")?.addEventListener("click", async () => {
+  const errBox = $("completeProfileError");
+  errBox.textContent = "";
+  const usernameCheck = validateUsername($("completeUsername")?.value.trim() || "");
+  const name = $("completeName")?.value.trim() || "";
+  if (!usernameCheck.ok) { errBox.textContent = usernameCheck.msg; return; }
+  if (!name) { errBox.textContent = "Please enter your name."; return; }
+  const user = auth.currentUser;
+  if (!user) { errBox.textContent = "Session expired. Please sign in again."; return; }
+  const btn = $("completeProfileBtn"); btn.disabled = true; btn.textContent = "Please wait…";
+  try {
+    const existing = await getDoc(doc(db, "usernames", usernameCheck.candidate));
+    if (existing.exists() && existing.data()?.uid !== user.uid) {
+      errBox.textContent = "That CUNNACT ID is already taken. Try another.";
+      btn.disabled = false; btn.textContent = "Finish setup"; return;
+    }
+    await updateProfile(user, { displayName: name });
+    const email = (user.email || "").toLowerCase();
+    await setDoc(doc(db, "users", user.uid), {
+      uid: user.uid, name, email, emailLower: email, photoURL: "", bio: "",
+      createdAt: serverTimestamp(), lastSeen: serverTimestamp(), isOnline: true, lastHeartbeat: serverTimestamp()
+    }, { merge: true });
+    await setDoc(doc(db, "userSettings", user.uid), {
+      retentionMode: "24hours",
+      theme: localStorage.getItem("cunnact_theme") || "light",
+      soundEnabled: localStorage.getItem("cunnact_sound_enabled") !== "false",
+      createdAt: serverTimestamp()
+    }, { merge: true });
+    await claimChosenUsername(user.uid, usernameCheck.candidate, name);
+    location.href = "index.html";
+  } catch (e) {
+    console.error("Complete profile failed", e);
+    errBox.textContent = e?.message === "USERNAME_TAKEN" ? "That CUNNACT ID was just taken. Try another." : "Something went wrong. Please try again.";
+    btn.disabled = false; btn.textContent = "Finish setup";
   }
 });
 
 $("registerForm")?.addEventListener("submit",async e=>{
-  e.preventDefault();errorBox.textContent="";
+  e.preventDefault();setAuthMessage("");
   const form=e.target,
     usernameRaw=$("username")?.value.trim()||"",
     password=$("password").value,
@@ -73,16 +175,16 @@ $("registerForm")?.addEventListener("submit",async e=>{
     email=$("email").value.trim().toLowerCase();
 
   const usernameCheck = validateUsername(usernameRaw);
-  if (!usernameCheck.ok) { errorBox.textContent = usernameCheck.msg; return; }
-  if (!name) { errorBox.textContent = "Please enter your name."; return; }
-  if (password !== confirm) { errorBox.textContent = "Passwords do not match."; return; }
+  if (!usernameCheck.ok) { setAuthMessage(usernameCheck.msg); return; }
+  if (!name) { setAuthMessage("Please enter your name."); return; }
+  if (password !== confirm) { setAuthMessage("Passwords do not match."); return; }
 
   setBusy(form,true);
   try{
     // Reserve the CUNNACT ID before creating the account so people don't
     // end up with an account and no chance at the handle they typed.
     const existing = await getDoc(doc(db,"usernames",usernameCheck.candidate));
-    if (existing.exists()) { errorBox.textContent = "That CUNNACT ID is already taken. Try another."; setBusy(form,false); return; }
+    if (existing.exists()) { setAuthMessage("That CUNNACT ID is already taken. Try another."); setBusy(form,false); return; }
 
     const credential = await createUserWithEmailAndPassword(auth,email,password);
     await updateProfile(credential.user,{displayName:name});
@@ -93,7 +195,7 @@ $("registerForm")?.addEventListener("submit",async e=>{
       await claimChosenUsername(credential.user.uid, usernameCheck.candidate, name);
     } catch (claimErr) {
       // Someone else grabbed it in the split second between our check and
-      // the transaction. The account still exists \u2014 they can pick another
+      // the transaction. The account still exists — they can pick another
       // CUNNACT ID from Profile settings instead of losing the account.
       console.warn("Username claim race:", claimErr);
     }
@@ -103,7 +205,7 @@ $("registerForm")?.addEventListener("submit",async e=>{
     location.href="index.html";
   }catch(err){
     console.error("Registration failed",err);
-    errorBox.textContent=friendlyError(err);
+    setAuthMessage(friendlyError(err));
     setBusy(form,false);
   }
 });
