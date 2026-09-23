@@ -676,6 +676,7 @@ function listenMessages(){
   const box=$id("messages");
   if(!box)return;
   box.innerHTML='<div class="empty-state big">Loading messages…</div>';
+  const isNearBottom=()=>box.scrollHeight-box.scrollTop-box.clientHeight<120;
 
   readObserver?.disconnect();
   readObserver=new IntersectionObserver(entries=>{
