@@ -105,10 +105,16 @@
       <div class="sidebar-search-block">
         <div class="section-heading-row">
           <span>Conversations</span>
-          <button id="newChatBtn" class="new-chat-btn" type="button" aria-label="Start a new chat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-            <span>New chat</span>
-          </button>
+          <div class="heading-actions">
+            <button id="newChatBtn" class="new-chat-btn" type="button" aria-label="Start a new chat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              <span>New chat</span>
+            </button>
+            <button id="newGroupBtn" class="new-chat-btn" type="button" aria-label="Start a new group">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="8.5" r="2.6"/><path d="M15.5 13.2a6.2 6.2 0 0 1 5.5 6.3"/></svg>
+              <span>New group</span>
+            </button>
+          </div>
         </div>
         <div class="search-row compact-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -211,9 +217,34 @@
         <div class="avatar profile-drawer-avatar" id="drawerAvatar"><img alt="" hidden><span class="avatar-fallback" hidden></span></div>
         <h3 id="drawerName">Contact</h3><div id="drawerUsername" class="drawer-username"></div><p id="drawerBio"></p>
         <button id="drawerViewProfile" class="btn btn-primary" type="button">View public profile</button>
+        <div id="groupMembersSection" class="drawer-section" hidden>
+          <span class="eyebrow">MEMBERS</span>
+          <div id="groupMembersList" class="group-members-list"></div>
+          <div class="group-drawer-actions">
+            <button id="addGroupMembersBtn" class="btn btn-soft btn-sm" type="button" hidden>Add members</button>
+            <button id="leaveGroupBtn" class="btn btn-soft danger-item btn-sm" type="button" hidden>Leave group</button>
+          </div>
+        </div>
         <div class="drawer-section"><span class="eyebrow">SHARED</span><div id="sharedMediaGrid" class="shared-media-grid"><div class="empty-state">Shared images will appear here.</div></div></div>
       </div>
     </aside>
+
+    <!-- New group -->
+    <div id="newGroupModal" class="modal" hidden>
+      <div class="modal-content new-chat-modal">
+        <div class="modal-header">
+          <div><span class="eyebrow">START SOMETHING NEW</span><h2>New group</h2><p>Pick a few people you already chat with.</p></div>
+          <button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>
+        <div class="search-row compact-search">
+          <label for="newGroupName" class="sr-only">Group name</label>
+          <input id="newGroupName" type="text" placeholder="Group name" maxlength="60" autocomplete="off">
+        </div>
+        <div id="newGroupMemberPicker" class="new-chat-results group-member-picker"><div class="empty-state">Loading your contacts…</div></div>
+        <button id="createGroupBtn" class="btn btn-primary" type="button" style="width:100%;margin-top:14px">Create group</button>
+        <p id="newGroupError" class="error" role="alert" style="margin-top:8px"></p>
+      </div>
+    </div>
 
     <!-- New chat -->
     <div id="newChatModal" class="modal" hidden>

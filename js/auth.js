@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword, signOut, updateProfile,
   sendEmailVerification, sendPasswordResetEmail,
   sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink,
+  GoogleAuthProvider, signInWithPopup, EmailAuthProvider, linkWithCredential,
   doc, getDoc, setDoc, serverTimestamp, runTransaction
 } from "./firebase.js";
 import { $ } from "./ui.js";
@@ -18,7 +19,9 @@ const FRIENDLY_ERRORS = {
   "auth/invalid-email":"Please enter a valid email.",
   "auth/too-many-requests":"Too many attempts. Please wait a moment and try again.",
   "auth/network-request-failed":"Network error. Check your connection and try again.",
-  "auth/invalid-action-code":"That sign-in link is invalid or has expired. Please request a new one."
+  "auth/invalid-action-code":"That sign-in link is invalid or has expired. Please request a new one.",
+  "auth/popup-closed-by-user":"Sign-in window was closed before finishing.",
+  "auth/account-exists-with-different-credential":"That email is already registered a different way. Try logging in with email/password instead."
 };
 const RESERVED = new Set(["admin","administrator","support","help","cunnact","official","security","system","root","api","www","user","users","profile","login","register","settings"]);
 const sanitize = value => String(value||"").toLowerCase().replace(/[^a-z0-9_]/g, "");
@@ -76,9 +79,14 @@ function showCompleteProfile(user) {
   $("loginForm")?.setAttribute("hidden", "");
   document.querySelectorAll(".auth-card > .switch, .or-divider").forEach(el => el.setAttribute("hidden", ""));
   $("emailLinkBtn")?.setAttribute("hidden", "");
+  $("googleSignInBtn")?.setAttribute("hidden", "");
   box.hidden = false;
   const nameField = $("completeName");
   if (nameField && !nameField.value) nameField.value = user.displayName || "";
+  // Google / email-link accounts have no password yet — offer to set one.
+  const hasPassword = (user.providerData || []).some(p => p.providerId === "password");
+  const pwBox = $("completePasswordFields");
+  if (pwBox) pwBox.hidden = hasPassword;
 }
 
 onAuthStateChanged(auth, async (user) => {
@@ -107,6 +115,23 @@ $("forgotPasswordLink")?.addEventListener("click", async (e) => {
     setAuthMessage(`Password reset link sent to ${email}. Check your inbox (and Spam/Promotions).`, false);
   } catch (err) {
     setAuthMessage(friendlyError(err));
+  }
+});
+
+$("googleSignInBtn")?.addEventListener("click", async () => {
+  setAuthMessage("");
+  const btn = $("googleSignInBtn"); btn.disabled = true;
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+    // onAuthStateChanged above takes it from here — straight in if the
+    // CUNNACT ID already exists, or the "finish setup" box if it's new.
+    // Google accounts are inherently email-verified, so no extra step there.
+  } catch (err) {
+    if (err?.code !== "auth/popup-closed-by-user") console.error("Google sign-in failed", err);
+    setAuthMessage(friendlyError(err));
+  } finally {
+    btn.disabled = false;
   }
 });
 
@@ -157,6 +182,21 @@ $("completeProfileBtn")?.addEventListener("click", async () => {
       createdAt: serverTimestamp()
     }, { merge: true });
     await claimChosenUsername(user.uid, usernameCheck.candidate, name);
+
+    const newPassword = $("completePassword")?.value || "";
+    if (newPassword && user.email) {
+      if (newPassword.length < 6) {
+        errBox.textContent = "Password should be at least 6 characters — you can also skip it and set one later from Profile.";
+        btn.disabled = false; btn.textContent = "Finish setup"; return;
+      }
+      try {
+        await linkWithCredential(user, EmailAuthProvider.credential(user.email, newPassword));
+      } catch (linkErr) {
+        console.warn("Could not set password, continuing without it", linkErr);
+        // Not fatal — the account still works fine via Google / email link.
+      }
+    }
+
     location.href = "index.html";
   } catch (e) {
     console.error("Complete profile failed", e);

@@ -20,6 +20,8 @@ let currentUserData = {};
 let currentBlockedUsers = new Set();
 let activeUser = null;
 let activeConversationId = null;
+let activeConversation = null;
+let activeGroupMembers = new Map();
 let unsubscribeMessages = null;
 let unsubscribeTyping = null;
 let unsubscribeConversations = null;
@@ -291,6 +293,10 @@ function bindStaticControls() {
   const newChat = () => { playClick(); openModal("newChatModal"); $id("newChatSearch").value=""; $id("newChatResults").innerHTML='<div class="empty-state">Search by @CUNNACT ID or email.</div>'; requestAnimationFrame(()=> $id("newChatSearch")?.focus()); };
   $id("newChatBtn")?.addEventListener("click", newChat);
   $id("navNewChatBtn")?.addEventListener("click", newChat);
+  $id("newGroupBtn")?.addEventListener("click", () => { playClick(); openNewGroupModal(); });
+  $id("createGroupBtn")?.addEventListener("click", createGroup);
+  $id("addGroupMembersBtn")?.addEventListener("click", addGroupMembers);
+  $id("leaveGroupBtn")?.addEventListener("click", leaveGroupChat);
   $id("requestsBtn")?.addEventListener("click", () => { playClick(); openModal("requestsModal"); });
   $id("navRequestsBtn")?.addEventListener("click", () => { playClick(); openModal("requestsModal"); });
   $id("savedBtn")?.addEventListener("click", async () => { playClick(); openModal("savedModal"); await renderSavedMessages(); });
@@ -386,14 +392,18 @@ function listenConversations(){
 }
 function otherUid(c){return Array.isArray(c.members)?c.members.find(uid=>uid!==currentUser.uid):null;}
 function ensureUserListener(uid){if(!uid||userListeners.has(uid))return;const entry={data:null,unsub:null};entry.unsub=onSnapshot(doc(db,"users",uid),snap=>{entry.data=snap.exists()?{uid,...snap.data()}:{uid};renderChatList();if(activeUser?.uid===uid){activeUser={...activeUser,...entry.data};refreshChatHeader();renderProfileDrawer();}},e=>console.warn("User listener failed",uid,e));userListeners.set(uid,entry);}
+function conversationDisplay(c){
+  if(c.type==="group")return{uid:null,isGroup:true,name:c.groupName||"Group",photoURL:c.groupPhotoURL||"",memberCount:(c.members||[]).length};
+  const uid=otherUid(c);return userListeners.get(uid)?.data||{uid,name:"Conversation"};
+}
 function renderChatList(){
   const box=$id("chatList");if(!box||!currentUser)return;
   const visible=conversations.filter(c=>!c.hiddenFor?.[currentUser.uid]);
-  const filtered=visible.filter(c=>matchesChat(userListeners.get(otherUid(c))?.data||{},chatSearchTerm))
+  const filtered=visible.filter(c=>matchesChat(conversationDisplay(c),chatSearchTerm))
     .sort((a,b)=>{const pa=a.pinned?.[currentUser.uid]?1:0,pb=b.pinned?.[currentUser.uid]?1:0;if(pa!==pb)return pb-pa;return(b.lastMessageTime?.toMillis?.()??b.createdAt?.toMillis?.()??0)-(a.lastMessageTime?.toMillis?.()??a.createdAt?.toMillis?.()??0);});
   if(!filtered.length){box.innerHTML=chatSearchTerm?`<div class="empty-state">No conversations match “${escapeHtml(chatSearchTerm)}”.</div>`:'<div class="empty-state big">Your inbox is quiet.<br><span>Start a new chat to connect.</span></div>';return;}
-  box.innerHTML=filtered.map(c=>{const uid=otherUid(c),user=userListeners.get(uid)?.data||{uid,name:"Conversation"},unread=Number(c.unread?.[currentUser.uid]||0),when=c.lastMessageTime?.toDate?.()||c.createdAt?.toDate?.(),blocked=currentBlockedUsers.has(uid),pinned=!!c.pinned?.[currentUser.uid];let preview=c.lastMessage?previewText({type:c.lastMessageType,text:c.lastMessage},{isMine:c.lastMessageSenderId===currentUser.uid}):"No messages yet";if(localHiddenLatest.has(c.id))preview="Message hidden for you";return `<button class="chat-item ${activeConversationId===c.id?"active":""} ${pinned?"is-pinned":""}" data-conversation-id="${escapeHtml(c.id)}" type="button">${avatarHtml(user,{dot:true})}<span class="meta"><span class="top-line"><strong>${escapeHtml(user.name||"User")}</strong>${pinned?`<span class="pin-indicator" title="Pinned">${ICONS.bookmark}</span>`:""}<span class="time">${escapeHtml(when?formatWhen(when):"")}</span></span><span class="preview-line"><span class="text">${escapeHtml(blocked?"Blocked":preview)}</span>${unread>0&&!blocked?`<span class="unread-badge">${unread>99?"99+":unread}</span>`:""}</span></span></button>`;}).join("");
-  filtered.forEach(c=>{const uid=otherUid(c),row=box.querySelector(`[data-conversation-id="${CSS.escape(c.id)}"]`),user=userListeners.get(uid)?.data||{uid};paintAvatar(row?.querySelector(".avatar"),user);setStatusDot(row?.querySelector(".status-dot"),isUserOnline(user));});
+  box.innerHTML=filtered.map(c=>{const isGroup=c.type==="group";const uid=isGroup?null:otherUid(c);const user=conversationDisplay(c),unread=Number(c.unread?.[currentUser.uid]||0),when=c.lastMessageTime?.toDate?.()||c.createdAt?.toDate?.(),blocked=!isGroup&&currentBlockedUsers.has(uid),pinned=!!c.pinned?.[currentUser.uid];let preview=c.lastMessage?previewText({type:c.lastMessageType,text:c.lastMessage},{isMine:c.lastMessageSenderId===currentUser.uid}):"No messages yet";if(isGroup&&c.lastMessage&&c.lastMessageSenderId&&c.lastMessageSenderId!==currentUser.uid){const senderName=(userListeners.get(c.lastMessageSenderId)?.data?.name||"").split(" ")[0];if(senderName)preview=`${senderName}: ${preview}`;}if(localHiddenLatest.has(c.id))preview="Message hidden for you";return `<button class="chat-item ${activeConversationId===c.id?"active":""} ${pinned?"is-pinned":""}" data-conversation-id="${escapeHtml(c.id)}" type="button">${avatarHtml(user,{dot:!isGroup})}${isGroup?`<span class="group-badge">${ICONS.profile}</span>`:""}<span class="meta"><span class="top-line"><strong>${escapeHtml(user.name||"User")}</strong>${pinned?`<span class="pin-indicator" title="Pinned">${ICONS.bookmark}</span>`:""}<span class="time">${escapeHtml(when?formatWhen(when):"")}</span></span><span class="preview-line"><span class="text">${escapeHtml(blocked?"Blocked":preview)}</span>${unread>0&&!blocked?`<span class="unread-badge">${unread>99?"99+":unread}</span>`:""}</span></span></button>`;}).join("");
+  filtered.forEach(c=>{const isGroup=c.type==="group";const uid=isGroup?null:otherUid(c);const user=conversationDisplay(c),row=box.querySelector(`[data-conversation-id="${CSS.escape(c.id)}"]`);paintAvatar(row?.querySelector(".avatar"),user);if(!isGroup)setStatusDot(row?.querySelector(".status-dot"),isUserOnline(user));});
   box.querySelectorAll(".chat-item").forEach(row=>{
     let pressTimer=null,longPressed=false;
     row.addEventListener("click",()=>{if(longPressed){longPressed=false;return;}const c=conversations.find(x=>x.id===row.dataset.conversationId);if(!c)return;playClick();openChatById(c.id); });
@@ -409,19 +419,60 @@ async function openChatById(conversationId,hintedUid=null){
   if(!currentUser||!conversationId)return;
   try{
     const snap=await getDoc(doc(db,"conversations",conversationId));if(!snap.exists()){showToast("Conversation is not available yet.","info");return;}
-    const data=snap.data(),members=data.members||[];if(members.length!==2||!members.includes(currentUser.uid)){showToast("You don't have access to this conversation.","error");return;}
-    const other=members.find(uid=>uid!==currentUser.uid)||hintedUid;if(!other)return;
-    const user=userListeners.get(other)?.data||(await getDoc(doc(db,"users",other))).data();if(!user){showToast("User profile not found.","error");return;}
+    const data=snap.data(),members=data.members||[];if(!members.includes(currentUser.uid)){showToast("You don't have access to this conversation.","error");return;}
     closeMessageActionMenus();stopTyping();unsubscribeTyping?.();unsubscribeTyping=null;unsubscribeMessages?.();unsubscribeMessages=null;cleanupInterval?.();cleanupInterval=null;
-    activeConversationId=conversationId;activeUser={uid:other,...user};$id("app")?.classList.add("chat-open");clearImagePreview();clearReply();$id("chatMoreBtn").disabled=false;$id("chatMoreBtn")?.setAttribute("aria-hidden","false");ensureUserListener(other);refreshChatHeader();setComposerState();renderProfileDrawer();renderChatList();
+    activeConversationId=conversationId;activeConversation={id:conversationId,...data};
+
+    if(data.type==="group"){
+      const profiles=await Promise.all(members.map(async uid=>{
+        if(uid===currentUser.uid)return[uid,{uid,name:currentUserData.name||"You",photoURL:currentUserData.photoURL||""}];
+        const cached=userListeners.get(uid)?.data;
+        if(cached)return[uid,cached];
+        try{const s=await getDoc(doc(db,"users",uid));return[uid,s.exists()?{uid,...s.data()}:{uid,name:"Member"}];}catch{return[uid,{uid,name:"Member"}];}
+      }));
+      activeGroupMembers=new Map(profiles);
+      members.forEach(uid=>{if(uid!==currentUser.uid)ensureUserListener(uid);});
+      activeUser={uid:null,isGroup:true,name:data.groupName||"Group",photoURL:data.groupPhotoURL||"",memberCount:members.length,members,admins:data.groupAdmins||[]};
+    }else{
+      const other=members.find(uid=>uid!==currentUser.uid)||hintedUid;if(!other)return;
+      const user=userListeners.get(other)?.data||(await getDoc(doc(db,"users",other))).data();if(!user){showToast("User profile not found.","error");return;}
+      activeGroupMembers=new Map();
+      activeUser={uid:other,isGroup:false,...user};
+      ensureUserListener(other);
+    }
+
+    $id("app")?.classList.add("chat-open");clearImagePreview();clearReply();$id("chatMoreBtn").disabled=false;$id("chatMoreBtn")?.setAttribute("aria-hidden","false");refreshChatHeader();setComposerState();renderProfileDrawer();renderChatList();
     await updateDoc(doc(db,"conversations",conversationId),{[`unread.${currentUser.uid}`]:0}).catch(()=>{});
     listenMessages();listenTyping();
   }catch(e){console.error("Open chat failed",e);showToast(e?.code==="permission-denied"?"You don't have access to this chat.":"Could not open this chat.","error");}
 }
-function refreshChatHeader(){if(!activeUser)return;const live=userListeners.get(activeUser.uid)?.data;if(live)activeUser={...activeUser,...live};const online=isUserOnline(activeUser),blocked=currentBlockedUsers.has(activeUser.uid);$id("chatName").textContent=activeUser.name||(activeUser.username?`@${activeUser.username}`:"User");const status=blocked?"Blocked by you":online?"Active now":`Offline · ${formatLastSeen(activeUser.lastSeen?.toDate?.()||null)}`;$id("chatStatus").textContent=status;$id("chatStatusPill").hidden=!online||blocked;if(!$id("chatStatusPill").hidden)$id("chatStatusPill").textContent="Online";setStatusDot($id("chatStatusDot"),online&&!blocked);paintAvatar($id("chatAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name,email:activeUser.email});setComposerState();}
+function refreshChatHeader(){
+  if(!activeUser)return;
+  if(activeUser.isGroup){
+    $id("chatName").textContent=activeUser.name||"Group";
+    const typingCount=0; // set by listenTyping via #chatTyping directly
+    $id("chatStatus").textContent=`${activeUser.memberCount||activeUser.members?.length||0} members`;
+    $id("chatStatusPill").hidden=true;
+    setStatusDot($id("chatStatusDot"),false);
+    paintAvatar($id("chatAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name});
+    setComposerState();
+    return;
+  }
+  const live=userListeners.get(activeUser.uid)?.data;if(live)activeUser={...activeUser,...live};const online=isUserOnline(activeUser),blocked=currentBlockedUsers.has(activeUser.uid);$id("chatName").textContent=activeUser.name||(activeUser.username?`@${activeUser.username}`:"User");const status=blocked?"Blocked by you":online?"Active now":`Offline · ${formatLastSeen(activeUser.lastSeen?.toDate?.()||null)}`;$id("chatStatus").textContent=status;$id("chatStatusPill").hidden=!online||blocked;if(!$id("chatStatusPill").hidden)$id("chatStatusPill").textContent="Online";setStatusDot($id("chatStatusDot"),online&&!blocked);paintAvatar($id("chatAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name,email:activeUser.email});setComposerState();}
 function isBlockedByEither(){return !!(activeUser&&currentBlockedUsers.has(activeUser.uid));}
 function setComposerState(){const blocked=isBlockedByEither(),enabled=!!activeUser&&!!activeConversationId&&!blocked&&!sendingMessage;$id("messageInput").disabled=!enabled;$id("attachBtn").disabled=!enabled;$id("messageForm").querySelector("button[type=submit]").disabled=!enabled;$id("messageInput").placeholder=blocked?"Messaging is blocked":"Write a message…";const notice=$id("blockedNotice");if(blocked){notice.hidden=false;notice.innerHTML=`<span>${ICONS.block}</span><span>You blocked this person. Unblock them to continue.</span>`;}else notice.hidden=true;}
-function renderChatMoreMenu(){const menu=$id("chatMoreMenu");if(!menu||!activeUser)return;const blocked=currentBlockedUsers.has(activeUser.uid);menu.innerHTML=`<div class="dropdown-label">Conversation</div><button class="dropdown-item" id="viewProfileBtn">${ICONS.profile}<span>View profile</span></button><button class="dropdown-item" id="sharedMediaBtn">${ICONS.copy}<span>Shared media</span></button><button class="dropdown-item" id="callSoonBtn">${ICONS.reply}<span>Voice / video call</span></button><button class="dropdown-item" id="clearChatBtn">${ICONS.trash}<span>Clear chat</span></button><button class="dropdown-item ${blocked?"":"danger-item"}" id="blockToggleBtn">${blocked?ICONS.unlock:ICONS.block}<span>${blocked?"Unblock user":"Block user"}</span></button>`;menu.querySelector("#viewProfileBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();});menu.querySelector("#sharedMediaBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();document.querySelector("#sharedMediaGrid")?.scrollIntoView({block:"nearest"});});menu.querySelector("#callSoonBtn")?.addEventListener("click",()=>{menu.hidden=true;showToast("Voice and video calls are coming soon.","info");});menu.querySelector("#clearChatBtn")?.addEventListener("click",async()=>{menu.hidden=true;await clearChatForMe();});menu.querySelector("#blockToggleBtn")?.addEventListener("click",async()=>{menu.hidden=true;const shouldBlock=!blocked;if(shouldBlock){const ok=await showConfirmDialog({title:"Block this user?",message:"They won't be able to send you messages until you unblock them.",confirmText:"Block user",cancelText:"Cancel",danger:true});if(!ok)return;}await toggleBlockUser(activeUser.uid,shouldBlock);});}
+function renderChatMoreMenu(){
+  const menu=$id("chatMoreMenu");if(!menu||!activeUser)return;
+  if(activeUser.isGroup){
+    const isAdmin=(activeUser.admins||[]).includes(currentUser.uid);
+    menu.innerHTML=`<div class="dropdown-label">Group</div><button class="dropdown-item" id="viewProfileBtn">${ICONS.profile}<span>Group info</span></button><button class="dropdown-item" id="clearChatBtn">${ICONS.trash}<span>Clear chat</span></button>${isAdmin?`<button class="dropdown-item" id="renameGroupBtn">${ICONS.copy}<span>Rename group</span></button>`:""}<button class="dropdown-item danger-item" id="leaveGroupMenuBtn">${ICONS.block}<span>Leave group</span></button>`;
+    menu.querySelector("#viewProfileBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();});
+    menu.querySelector("#clearChatBtn")?.addEventListener("click",async()=>{menu.hidden=true;await clearChatForMe();});
+    menu.querySelector("#renameGroupBtn")?.addEventListener("click",()=>{menu.hidden=true;promptRenameGroup();});
+    menu.querySelector("#leaveGroupMenuBtn")?.addEventListener("click",async()=>{menu.hidden=true;await leaveGroupChat();});
+    return;
+  }
+  const blocked=currentBlockedUsers.has(activeUser.uid);menu.innerHTML=`<div class="dropdown-label">Conversation</div><button class="dropdown-item" id="viewProfileBtn">${ICONS.profile}<span>View profile</span></button><button class="dropdown-item" id="sharedMediaBtn">${ICONS.copy}<span>Shared media</span></button><button class="dropdown-item" id="callSoonBtn">${ICONS.reply}<span>Voice / video call</span></button><button class="dropdown-item" id="clearChatBtn">${ICONS.trash}<span>Clear chat</span></button><button class="dropdown-item ${blocked?"":"danger-item"}" id="blockToggleBtn">${blocked?ICONS.unlock:ICONS.block}<span>${blocked?"Unblock user":"Block user"}</span></button>`;menu.querySelector("#viewProfileBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();});menu.querySelector("#sharedMediaBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();document.querySelector("#sharedMediaGrid")?.scrollIntoView({block:"nearest"});});menu.querySelector("#callSoonBtn")?.addEventListener("click",()=>{menu.hidden=true;showToast("Voice and video calls are coming soon.","info");});menu.querySelector("#clearChatBtn")?.addEventListener("click",async()=>{menu.hidden=true;await clearChatForMe();});menu.querySelector("#blockToggleBtn")?.addEventListener("click",async()=>{menu.hidden=true;const shouldBlock=!blocked;if(shouldBlock){const ok=await showConfirmDialog({title:"Block this user?",message:"They won't be able to send you messages until you unblock them.",confirmText:"Block user",cancelText:"Cancel",danger:true});if(!ok)return;}await toggleBlockUser(activeUser.uid,shouldBlock);});}
 
 async function clearChatForMe(){
   if(!activeConversationId||!currentUser)return false;
@@ -481,6 +532,115 @@ async function togglePinConversation(conversationId){
 }
 
 function closeChatItemContextMenu(){document.querySelector(".chat-item-context-menu")?.remove();}
+
+// --- Group chat: create, rename, membership ---
+async function promptRenameGroup(){
+  if(!activeConversationId||!activeUser?.isGroup)return;
+  const name=window.prompt("Group name",activeUser.name||"")?.trim();
+  if(!name||name===activeUser.name)return;
+  try{
+    await updateDoc(doc(db,"conversations",activeConversationId),{groupName:name.slice(0,60)});
+    activeUser.name=name.slice(0,60);
+    refreshChatHeader();renderChatList();renderProfileDrawer();
+    showToast("Group renamed","success");
+  }catch(e){console.error("Rename group failed",e);showToast("Could not rename the group.","error");}
+}
+
+async function leaveGroupChat(){
+  if(!activeConversationId||!activeUser?.isGroup||!currentUser)return;
+  const ok=await showConfirmDialog({title:"Leave this group?",message:"You'll stop receiving messages from this group. You can be added back later by a member.",confirmText:"Leave group",cancelText:"Cancel",danger:true});
+  if(!ok)return;
+  try{
+    const c=conversations.find(x=>x.id===activeConversationId);
+    const remainingMembers=(c?.members||activeUser.members||[]).filter(uid=>uid!==currentUser.uid);
+    const remainingAdmins=(c?.groupAdmins||activeUser.admins||[]).filter(uid=>uid!==currentUser.uid);
+    await updateDoc(doc(db,"conversations",activeConversationId),{members:remainingMembers,groupAdmins:remainingAdmins});
+    activeConversationId=null;activeUser=null;activeConversation=null;$id("app")?.classList.remove("chat-open");
+    closeProfileDrawer();renderChatList();
+    showToast("You left the group","success");
+  }catch(e){console.error("Leave group failed",e);showToast(e?.code==="permission-denied"?"Could not leave the group.":"Something went wrong leaving the group.","error");}
+}
+
+function contactList(){
+  // People you already have a direct (1:1) conversation with — the pool group members are picked from.
+  return conversations.filter(c=>c.type!=="group").map(c=>{const uid=otherUid(c);const user=userListeners.get(uid)?.data;return user?{uid,...user}:null;}).filter(Boolean);
+}
+
+function openNewGroupModal(){
+  openModal("newGroupModal");
+  const nameInput=$id("newGroupName");if(nameInput)nameInput.value="";
+  $id("newGroupError").textContent="";
+  renderGroupMemberPicker();
+}
+
+function renderGroupMemberPicker(){
+  const box=$id("newGroupMemberPicker");if(!box)return;
+  const contacts=contactList();
+  if(!contacts.length){box.innerHTML='<div class="empty-state">Start a few 1:1 chats first — groups are built from people you already talk to.</div>';return;}
+  box.innerHTML=contacts.map(u=>`<label class="contact-pick-row"><input type="checkbox" value="${escapeHtml(u.uid)}">${avatarHtml(u,{dot:false})}<span class="meta"><strong>${escapeHtml(u.name||"User")}</strong>${u.username?`<span>@${escapeHtml(u.username)}</span>`:""}</span></label>`).join("");
+  contacts.forEach(u=>paintAvatar(box.querySelector(`.contact-pick-row input[value="${CSS.escape(u.uid)}"]`)?.closest(".contact-pick-row")?.querySelector(".avatar"),u));
+}
+
+async function createGroup(){
+  const errBox=$id("newGroupError");errBox.textContent="";
+  const name=$id("newGroupName")?.value.trim()||"";
+  const checked=[...document.querySelectorAll("#newGroupMemberPicker input[type=checkbox]:checked")].map(i=>i.value);
+  if(!name){errBox.textContent="Give your group a name.";return;}
+  if(checked.length<2){errBox.textContent="Pick at least 2 people to start a group.";return;}
+  const btn=$id("createGroupBtn");btn.disabled=true;btn.textContent="Creating…";
+  try{
+    const members=[currentUser.uid,...checked];
+    const ref=doc(collection(db,"conversations"));
+    const unread={};members.forEach(uid=>{unread[uid]=0;});
+    await setDoc(ref,{
+      type:"group",members,groupName:name.slice(0,60),groupPhotoURL:"",
+      groupAdmins:[currentUser.uid],createdBy:currentUser.uid,createdAt:serverTimestamp(),
+      lastMessage:"",lastMessageType:"text",lastMessageSenderId:"",lastMessageId:"",lastMessageTime:serverTimestamp(),
+      unread,pinned:{},hiddenFor:{}
+    });
+    closeModal("newGroupModal");
+    showToast("Group created 🎉","success");
+    await openChatById(ref.id);
+  }catch(e){
+    console.error("Create group failed",e);
+    errBox.textContent=e?.code==="permission-denied"?"Could not create the group (permission denied).":"Something went wrong creating the group.";
+  }finally{
+    btn.disabled=false;btn.textContent="Create group";
+  }
+}
+
+async function addGroupMembers(){
+  if(!activeConversationId||!activeUser?.isGroup)return;
+  const existing=new Set(activeUser.members||[]);
+  const candidates=contactList().filter(u=>!existing.has(u.uid));
+  if(!candidates.length){showToast("Everyone you chat with is already in this group.","info");return;}
+  const picked=window.prompt(`Add by CUNNACT ID (comma-separated). Available: ${candidates.map(u=>u.username?`@${u.username}`:u.name).join(", ")}`);
+  if(!picked)return;
+  const wanted=picked.split(",").map(s=>s.trim().replace(/^@/,"").toLowerCase()).filter(Boolean);
+  const toAdd=candidates.filter(u=>wanted.includes((u.username||"").toLowerCase())).map(u=>u.uid);
+  if(!toAdd.length){showToast("Couldn't match those CUNNACT IDs to your contacts.","error");return;}
+  try{
+    const newMembers=[...existing,...toAdd];
+    const unreadPatch={};toAdd.forEach(uid=>{unreadPatch[`unread.${uid}`]=0;});
+    await updateDoc(doc(db,"conversations",activeConversationId),{members:newMembers,groupAdmins:activeUser.admins||[],...unreadPatch});
+    showToast("Members added","success");
+    await openChatById(activeConversationId);
+  }catch(e){console.error("Add members failed",e);showToast("Could not add members.","error");}
+}
+
+async function removeGroupMember(uid){
+  if(!activeConversationId||!activeUser?.isGroup)return;
+  const ok=await showConfirmDialog({title:"Remove this member?",message:"They'll lose access to this group's messages.",confirmText:"Remove",cancelText:"Cancel",danger:true});
+  if(!ok)return;
+  try{
+    const newMembers=(activeUser.members||[]).filter(m=>m!==uid);
+    const newAdmins=(activeUser.admins||[]).filter(m=>m!==uid);
+    await updateDoc(doc(db,"conversations",activeConversationId),{members:newMembers,groupAdmins:newAdmins});
+    showToast("Member removed","success");
+    await openChatById(activeConversationId);
+  }catch(e){console.error("Remove member failed",e);showToast(e?.code==="permission-denied"?"Only group admins can remove members.":"Could not remove that member.","error");}
+}
+
 function showChatItemContextMenu(conversationId,anchorEl,clientX,clientY){
   closeChatItemContextMenu();
   const c=conversations.find(x=>x.id===conversationId);
@@ -502,7 +662,7 @@ async function loadBlockedUsers(){currentBlockedUsers=new Set();if(!currentUser)
 async function toggleBlockUser(uid,shouldBlock){try{const ref=doc(db,"users",currentUser.uid,"blockedUsers",uid);if(shouldBlock)await setDoc(ref,{uid,createdAt:serverTimestamp()});else await deleteDoc(ref);shouldBlock?currentBlockedUsers.add(uid):currentBlockedUsers.delete(uid);renderChatList();refreshChatHeader();setComposerState();showToast(shouldBlock?"User blocked":"User unblocked","success");}catch(e){console.error(e);showToast("Could not update block setting.","error");}}
 
 /* Typing */
-function listenTyping(){unsubscribeTyping?.();if(!activeConversationId)return;unsubscribeTyping=onSnapshot(collection(db,"conversations",activeConversationId,"typing"),snap=>{const other=activeUser?.uid;const state=snap.docs.some(d=>d.id===other&&d.data()?.typing===true);const el=$id("chatTyping");if(el)el.hidden=!state;},()=>{const el=$id("chatTyping");if(el)el.hidden=true;});}
+function listenTyping(){unsubscribeTyping?.();if(!activeConversationId)return;const dots='<i></i><i></i><i></i> ';unsubscribeTyping=onSnapshot(collection(db,"conversations",activeConversationId,"typing"),snap=>{const el=$id("chatTyping");if(!el)return;if(activeUser?.isGroup){const typers=snap.docs.filter(d=>d.id!==currentUser.uid&&d.data()?.typing===true).map(d=>(activeGroupMembers.get(d.id)?.name||"Someone").split(" ")[0]);el.hidden=!typers.length;if(typers.length)el.innerHTML=dots+escapeHtml(`${typers.slice(0,2).join(", ")}${typers.length>1?" are":" is"} typing…`);return;}const other=activeUser?.uid;const state=snap.docs.some(d=>d.id===other&&d.data()?.typing===true);el.hidden=!state;el.innerHTML=dots+"typing…";},()=>{const el=$id("chatTyping");if(el)el.hidden=true;});}
 const sendTypingState=debounce(async(typing)=>{if(!activeConversationId||!currentUser)return;const ref=doc(db,"conversations",activeConversationId,"typing",currentUser.uid);try{if(typing)await setDoc(ref,{uid:currentUser.uid,typing:true,updatedAt:serverTimestamp()},{merge:true});else await deleteDoc(ref);}catch(e){}},450);
 function handleTypingInput(){const typing=!!$id("messageInput")?.value.trim();clearTimeout(window.__cunnactTypingTimer);if(typing){sendTypingState(true);window.__cunnactTypingTimer=setTimeout(()=>sendTypingState(false),2500);}else sendTypingState(false);}
 function stopTyping(){clearTimeout(window.__cunnactTypingTimer);sendTypingState(false);}
@@ -623,6 +783,7 @@ function syncMessageGrouping(visible){visible.forEach((m,i)=>{const el=$id("mess
 function buildMessageElement(message){
   const outgoing=message.senderId===currentUser.uid;const el=document.createElement("article");el.className=`message ${outgoing?"outgoing":"incoming"}`;el.dataset.messageId=message.id;el._message=message;
   const bubble=document.createElement("div");bubble.className="message-bubble";el.appendChild(bubble);
+  if(!outgoing&&activeUser?.isGroup){const senderName=(activeGroupMembers.get(message.senderId)?.name||userListeners.get(message.senderId)?.data?.name||"Member");const label=document.createElement("div");label.className="sender-name";label.textContent=senderName;bubble.appendChild(label);}
   if(message.replyTo){const quote=document.createElement("button");quote.type="button";quote.className="reply-quote";quote.innerHTML=`<span>${escapeHtml(message.replyTo.senderName||"Message")}</span><p>${escapeHtml(message.replyTo.text||"Photo")}</p>`;quote.addEventListener("click",()=>scrollToMessage(message.replyTo.messageId));bubble.appendChild(quote);}
   if(message.type==="image"&&isTrustedImageUrl(message.imageURL)){el.classList.add("image-message");const img=document.createElement("img");img.src=imageUrl(message.imageURL,"chat");img.alt="Shared image";img.loading="lazy";img.addEventListener("click",()=>openLightbox(message.imageURL));bubble.appendChild(img);}else{const p=document.createElement("p");p.textContent=message.text||"Attachment unavailable";bubble.appendChild(p);}
   const meta=document.createElement("div");meta.className="message-meta";const time=document.createElement("small");time.textContent=message.createdAt?.toDate?formatTime(message.createdAt.toDate()):"";meta.appendChild(time);if(outgoing){const status=document.createElement("span");status.className="delivery-check";setDeliveryIcon(status,message);meta.appendChild(status);}bubble.appendChild(meta);
@@ -680,7 +841,7 @@ function scrollToMessage(id){const el=$id("messages")?.querySelector(`.message[d
 function startReply(message){replyTarget={messageId:message.id,senderId:message.senderId,senderName:message.senderId===currentUser.uid?"You":(activeUser?.name||"User"),text:message.type==="image"?"📷 Photo":String(message.text||"")};$id("replyBar").hidden=false;$id("replyAuthor").textContent=replyTarget.senderName;$id("replyPreview").textContent=replyTarget.text;$id("messageInput")?.focus();}
 function clearReply(){replyTarget=null;const bar=$id("replyBar");if(bar)bar.hidden=true;}
 async function handleMessageSubmit(e){e.preventDefault();if(sendingMessage||!activeUser||!activeConversationId||isBlockedByEither())return;const input=$id("messageInput"),text=input.value.trim();if(!text)return;sendingMessage=true;const sendBtn=$id("messageForm").querySelector('button[type="submit"]');input.value="";autoGrowComposer();stopTyping();const savedReply=replyTarget;clearReply();try{await sendMessage({type:"text",text,replyTo:savedReply});playSend();input.focus();}catch(err){console.error("Send message failed",err);input.value=text;if(savedReply)startReply(savedReply);autoGrowComposer();showToast(err?.code==="permission-denied"?"Message blocked by chat permissions.":"Message could not be sent. Please try again.","error");}finally{sendingMessage=false;setComposerState();}}
-async function sendMessage({type,text,imageURL,replyTo}){if(!currentUser||!activeUser||!activeConversationId)throw new Error("NO_ACTIVE_CHAT");if(isBlockedByEither())throw new Error("BLOCKED");const ref=doc(db,"conversations",activeConversationId,"messages",crypto.randomUUID?crypto.randomUUID():`${Date.now()}_${Math.random().toString(36).slice(2)}`);const batch=writeBatch(db);batch.set(ref,{senderId:currentUser.uid,receiverId:activeUser.uid,type,...(type==="image"?{imageURL}:{text:String(text||"").slice(0,5000)}),...(replyTo?{replyTo}:{}) ,createdAt:serverTimestamp(),savedBy:[],deletedFor:[],readBy:{},deliveredBy:{},reactions:{}});batch.update(doc(db,"conversations",activeConversationId),{lastMessage:type==="image"?"":String(text||"").slice(0,500),lastMessageType:type,lastMessageSenderId:currentUser.uid,lastMessageId:ref.id,lastMessageTime:serverTimestamp(),[`unread.${activeUser.uid}`]:increment(1)});await batch.commit();}
+async function sendMessage({type,text,imageURL,replyTo}){if(!currentUser||!activeUser||!activeConversationId)throw new Error("NO_ACTIVE_CHAT");if(isBlockedByEither())throw new Error("BLOCKED");const isGroup=!!activeUser.isGroup;const ref=doc(db,"conversations",activeConversationId,"messages",crypto.randomUUID?crypto.randomUUID():`${Date.now()}_${Math.random().toString(36).slice(2)}`);const batch=writeBatch(db);batch.set(ref,{senderId:currentUser.uid,...(isGroup?{}:{receiverId:activeUser.uid}),type,...(type==="image"?{imageURL}:{text:String(text||"").slice(0,5000)}),...(replyTo?{replyTo}:{}) ,createdAt:serverTimestamp(),savedBy:[],deletedFor:[],readBy:{},deliveredBy:{},reactions:{}});const unreadPatch={};if(isGroup)(activeUser.members||[]).forEach(uid=>{if(uid!==currentUser.uid)unreadPatch[`unread.${uid}`]=increment(1);});else unreadPatch[`unread.${activeUser.uid}`]=increment(1);batch.update(doc(db,"conversations",activeConversationId),{lastMessage:type==="image"?"":String(text||"").slice(0,500),lastMessageType:type,lastMessageSenderId:currentUser.uid,lastMessageId:ref.id,lastMessageTime:serverTimestamp(),...unreadPatch});await batch.commit();}
 
 /* Image */
 async function handleImageSelection(){const file=$id("fileInput").files?.[0];$id("fileInput").value="";if(!file||!activeUser||!activeConversationId||isBlockedByEither())return;try{await validateImageFile(file);}catch(e){showToast(e instanceof UploadError?e.userMessage:UPLOAD_MESSAGES.invalid,"error");return;}pendingImageFile=file;pendingImageUrl=URL.createObjectURL(file);$id("imagePreviewThumb").src=pendingImageUrl;$id("imagePreviewStatus").textContent="Your image is ready.";$id("imagePreviewProgress").style.width="0%";$id("imagePreviewBar").hidden=false;}
@@ -706,7 +867,38 @@ function autoGrowComposer(){const input=$id("messageInput");if(!input)return;inp
 /* Profile drawer / shared media */
 function openProfileDrawer(){if(!activeUser)return;renderProfileDrawer();$id("profileDrawer").hidden=false;$id("app")?.classList.add("drawer-open");}
 function closeProfileDrawer(){const d=$id("profileDrawer");if(!d)return;d.hidden=true;$id("app")?.classList.remove("drawer-open");}
-function renderProfileDrawer(){if(!activeUser)return;const live=userListeners.get(activeUser.uid)?.data;if(live)activeUser={...activeUser,...live};paintAvatar($id("drawerAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name,email:activeUser.email});$id("drawerName").textContent=activeUser.name||(activeUser.username?`@${activeUser.username}`:"Contact");$id("drawerUsername").textContent=activeUser.username?`@${activeUser.username}`:"";$id("drawerBio").textContent=activeUser.bio||"";const grid=$id("sharedMediaGrid");if(!grid)return;const images=currentMessages.filter(m=>m.type==="image"&&isTrustedImageUrl(m.imageURL)).slice(-12).reverse();if(!images.length){grid.innerHTML='<div class="empty-state">No shared images yet.</div>';return;}grid.innerHTML=images.map(m=>`<button type="button" class="shared-media-item" data-image="${escapeHtml(m.imageURL)}"><img src="${escapeHtml(imageUrl(m.imageURL,"chat"))}" alt="Shared image" loading="lazy"></button>`).join("");grid.querySelectorAll(".shared-media-item").forEach(b=>b.addEventListener("click",()=>openLightbox(b.dataset.image)));}
+function renderProfileDrawer(){
+  if(!activeUser)return;
+  if(activeUser.isGroup){
+    paintAvatar($id("drawerAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name});
+    $id("drawerName").textContent=activeUser.name||"Group";
+    $id("drawerUsername").textContent=`${activeUser.memberCount||activeUser.members?.length||0} members`;
+    $id("drawerBio").textContent="";
+    $id("drawerViewProfile").hidden=true;
+    const isAdmin=(activeUser.admins||[]).includes(currentUser.uid);
+    const section=$id("groupMembersSection");
+    if(section){
+      section.hidden=false;
+      const list=$id("groupMembersList");
+      list.innerHTML=(activeUser.members||[]).map(uid=>{
+        const u=uid===currentUser.uid?{name:"You",photoURL:currentUserData.photoURL}:(activeGroupMembers.get(uid)||userListeners.get(uid)?.data||{name:"Member"});
+        const isMemberAdmin=(activeUser.admins||[]).includes(uid);
+        return `<div class="group-member-row" data-uid="${escapeHtml(uid)}">${avatarHtml(u,{dot:false})}<span class="meta"><strong>${escapeHtml(u.name||"Member")}</strong>${isMemberAdmin?'<span class="admin-tag">Admin</span>':""}</span>${isAdmin&&uid!==currentUser.uid?`<button class="remove-member" type="button" aria-label="Remove member">${ICONS.trash}</button>`:""}</div>`;
+      }).join("");
+      (activeUser.members||[]).forEach(uid=>{const u=uid===currentUser.uid?{name:"You",photoURL:currentUserData.photoURL}:(activeGroupMembers.get(uid)||userListeners.get(uid)?.data||{name:"Member"});paintAvatar(list.querySelector(`[data-uid="${CSS.escape(uid)}"] .avatar`),u);});
+      list.querySelectorAll(".remove-member").forEach(btn=>btn.addEventListener("click",()=>removeGroupMember(btn.closest(".group-member-row").dataset.uid)));
+      $id("addGroupMembersBtn").hidden=!isAdmin;
+      $id("leaveGroupBtn").hidden=false;
+    }
+    const grid=$id("sharedMediaGrid");if(!grid)return;
+    const images=currentMessages.filter(m=>m.type==="image"&&isTrustedImageUrl(m.imageURL)).slice(-12).reverse();
+    grid.innerHTML=images.length?images.map(m=>`<button type="button" class="shared-media-item" data-image="${escapeHtml(m.imageURL)}"><img src="${escapeHtml(imageUrl(m.imageURL,"chat"))}" alt="Shared image" loading="lazy"></button>`).join(""):'<div class="empty-state">No shared images yet.</div>';
+    grid.querySelectorAll(".shared-media-item").forEach(b=>b.addEventListener("click",()=>openLightbox(b.dataset.image)));
+    return;
+  }
+  $id("groupMembersSection")?.setAttribute("hidden","");
+  $id("drawerViewProfile").hidden=false;
+  const live=userListeners.get(activeUser.uid)?.data;if(live)activeUser={...activeUser,...live};paintAvatar($id("drawerAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name,email:activeUser.email});$id("drawerName").textContent=activeUser.name||(activeUser.username?`@${activeUser.username}`:"Contact");$id("drawerUsername").textContent=activeUser.username?`@${activeUser.username}`:"";$id("drawerBio").textContent=activeUser.bio||"";const grid=$id("sharedMediaGrid");if(!grid)return;const images=currentMessages.filter(m=>m.type==="image"&&isTrustedImageUrl(m.imageURL)).slice(-12).reverse();if(!images.length){grid.innerHTML='<div class="empty-state">No shared images yet.</div>';return;}grid.innerHTML=images.map(m=>`<button type="button" class="shared-media-item" data-image="${escapeHtml(m.imageURL)}"><img src="${escapeHtml(imageUrl(m.imageURL,"chat"))}" alt="Shared image" loading="lazy"></button>`).join("");grid.querySelectorAll(".shared-media-item").forEach(b=>b.addEventListener("click",()=>openLightbox(b.dataset.image)));}
 
 /* Saved messages */
 async function renderSavedMessages(){const box=$id("savedList");if(!box||!currentUser)return;box.innerHTML='<div class="empty-state">Loading saved messages…</div>';try{const indexSnap=await getDocs(query(collection(db,"users",currentUser.uid,"savedMessages"),orderBy("savedAt","desc"),limit(100)));let entries=indexSnap.docs.map(d=>({id:d.id,...d.data()}));if(!entries.length){entries=await migrateLegacySavedMessages();}if(!entries.length){box.innerHTML='<div class="empty-state big">No saved messages yet.<br><span>Use ••• on a message to save it.</span></div>';return;}const resolved=[];for(const entry of entries){try{const s=await getDoc(doc(db,"conversations",entry.conversationId,"messages",entry.messageId));if(!s.exists())continue;const m={id:s.id,...s.data()};if(isDeletedForUser(m,currentUser.uid))continue;const partner=userListeners.get(entry.partnerUid)?.data||{uid:entry.partnerUid,name:"Conversation"};resolved.push({entry,m,partner});}catch{}}box.innerHTML=resolved.map(({entry,m,partner})=>`<button class="saved-item" type="button" data-conversation-id="${escapeHtml(entry.conversationId)}" data-message-id="${escapeHtml(entry.messageId)}">${avatarHtml(partner)}<span class="meta"><span class="top-line"><strong>${escapeHtml(partner.name||"Conversation")}</strong><span class="time">${escapeHtml(m.createdAt?.toDate?formatWhen(m.createdAt.toDate()):"")}</span></span><span class="preview-line"><span class="text">${escapeHtml(m.type==="image"?"📷 Photo":m.text||"")}</span></span></span><span class="saved-bookmark">${ICONS.bookmark}</span></button>`).join("");resolved.forEach((x,i)=>{const row=box.querySelectorAll(".saved-item")[i];paintAvatar(row?.querySelector(".avatar"),x.partner);row?.addEventListener("click",async()=>{closeModal("savedModal");await openChatById(x.entry.conversationId);setTimeout(()=>scrollToMessage(x.entry.messageId),250);});});}catch(e){console.error(e);box.innerHTML='<div class="empty-state">Saved messages could not be loaded.</div>';}}

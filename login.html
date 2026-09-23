@@ -33,7 +33,11 @@
     </form>
     <p class="switch"><a href="#" id="forgotPasswordLink">Forgot password?</a></p>
     <div class="or-divider"><span>or</span></div>
-    <button type="button" id="emailLinkBtn" class="btn btn-soft" style="width:100%">Sign in with email link (no password)</button>
+    <button type="button" id="googleSignInBtn" class="btn btn-soft" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">
+      <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.2-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3c-7.4 0-13.8 4.1-17.1 10.1z"/><path fill="#4CAF50" d="M24 45c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 36.3 26.7 37 24 37c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.9 40.6 16.4 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.2 5.2C40.5 36.4 45 30.7 45 24c0-1.2-.1-2.4-.4-3.5z"/></svg>
+      Continue with Google
+    </button>
+    <button type="button" id="emailLinkBtn" class="btn btn-soft" style="width:100%;margin-top:8px">Sign in with email link (no password)</button>
     <p class="field-hint" style="text-align:center;margin-top:8px">We'll email you a one-time sign-in link — no separate verification step needed.</p>
     <p class="switch">New here? <a href="register.html">Create an account</a></p>
     <div id="completeProfileBox" class="complete-profile-box" hidden>
@@ -44,6 +48,12 @@
       <label>Name
         <input id="completeName" type="text" autocomplete="name">
       </label>
+      <div id="completePasswordFields" hidden>
+        <p class="field-hint" style="margin:4px 0 10px">Optional — set a password so you can also log in without Google next time.</p>
+        <label>Password (optional)
+          <input id="completePassword" type="password" autocomplete="new-password" minlength="6">
+        </label>
+      </div>
       <button type="button" id="completeProfileBtn" class="btn btn-primary">Finish setup</button>
       <p id="completeProfileError" class="error" role="alert" aria-live="polite"></p>
     </div>

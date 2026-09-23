@@ -61,3 +61,53 @@
   the full Capacitor Android project next (source + build instructions), which you can build
   from a Windows/Mac/Linux machine with Android Studio, or I can guide you through the exact
   commands if you have one.
+
+## Round 3 — Group chat + Google Sign-In + bug fixes
+
+### Group chat (new feature)
+- **New group** button next to New chat in the sidebar. Groups are built from people you
+  already have a 1:1 chat with (keeps the "no arbitrary full user search" rule from the
+  original spec).
+- Group chat header shows the group name + member count instead of online status.
+- Messages from other members show a small sender-name label (like WhatsApp groups).
+- Group info panel (tap the group name/photo or 3-dot → Group info): member list, remove
+  member / add members (admins only), rename group (admins only), leave group (anyone).
+- Clear chat / Pin / Delete-from-my-list all already work on groups too, no changes needed.
+- **Known v1 simplification**: no per-member "seen by" read receipts in groups — group
+  messages just show a single sent tick, not delivered/read. Doing per-member receipts
+  properly is a bigger job I've deliberately deferred; shout if you want it next.
+- `firestore.rules` was significantly extended for this (group creation, admin-gated
+  membership changes, group messages). **This is security-critical code I can't test against
+  a live Firestore emulator from here** — please try it in the Firebase Console's Rules
+  Playground, or just test the group flows for real, before fully trusting it in production.
+
+### Google Sign-In
+- Added "Continue with Google" on the login page.
+- First-time Google sign-in still lands on the same "pick your CUNNACT ID" box as email-link
+  sign-in (Google accounts are inherently verified, so no separate email-verify step).
+- That box now also offers an **optional** "set a password" field, so a Google-only account
+  can later log in with email + password too (uses Firebase's account-linking).
+- **This needs "Google" enabled as a Sign-in provider in Firebase Console → Authentication →
+  Sign-in method**, and your domain(s) listed under Authorized domains there.
+
+### Bug fixes
+- **New Chat search icon position** — the search icon was sitting outside the input box
+  instead of inside it, because the modal's search wrapper had its own left padding that
+  wasn't accounted for in the icon's absolute positioning. Fixed in `css/chat.css`.
+
+### On the "Firebase connection breaking" / "chats not loading" reports
+I don't have access to your live Firebase console from here, so I can't see the actual error.
+Things worth checking, roughly in order of likelihood:
+1. **Did the updated `firestore.rules` from this project actually get published to your live
+   Firebase project?** (Firebase Console → Firestore Database → Rules tab → paste → Publish,// or `firebase deploy --only firestore:rules` if you use the CLI.) I've changed these rules
+   several times this session — if the live project is still running an older version, several
+   features here will throw `permission-denied`, which can look like "the connection broke."
+2. Open the browser DevTools Console on the live site while it's stuck, and check for the
+   exact error — `permission-denied`, `unavailable`, `quota-exceeded` etc. all mean different
+   things and I can fix precisely once I know which one it is.
+3. Firebase Console → Authentication → Settings → Authorized domains — make sure your actual
+   domain (e.g. `cunnact.vercel.app`) is listed, not just `localhost`.
+4. **Cloudinary is not related to this** — it only stores uploaded images (profile photos,
+   shared pictures). Chat messages, usernames, requests etc. all live in Firestore, not
+   Cloudinary, so anything you see in `console.cloudinary.com` is separate from chat
+   loading/connection issues.

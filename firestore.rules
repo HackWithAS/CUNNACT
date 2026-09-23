@@ -87,29 +87,85 @@ service cloud.firestore {
     }
 
     match /conversations/{conversationId} {
-      allow create: if signedIn()
-        && request.resource.data.members is list
-        && request.resource.data.members.size() == 2
-        && request.resource.data.members[0] != request.resource.data.members[1]
-        && request.auth.uid in request.resource.data.members
-        && (
-          request.resource.data.members[0] == request.auth.uid
-            ? acceptedRequest(request.resource.data.members[1])
-            : acceptedRequest(request.resource.data.members[0])
+      allow create: if signedIn() && (
+        (
+          // Direct (1:1) chat — unchanged from before.
+          (!("type" in request.resource.data) || request.resource.data.type == "direct")
+          && request.resource.data.members is list
+          && request.resource.data.members.size() == 2
+          && request.resource.data.members[0] != request.resource.data.members[1]
+          && request.auth.uid in request.resource.data.members
+          && (
+            request.resource.data.members[0] == request.auth.uid
+              ? acceptedRequest(request.resource.data.members[1])
+              : acceptedRequest(request.resource.data.members[0])
+          )
+          && canContact(
+            request.resource.data.members[0] == request.auth.uid
+              ? request.resource.data.members[1]
+              : request.resource.data.members[0]
+          )
         )
-        && canContact(
-          request.resource.data.members[0] == request.auth.uid
-            ? request.resource.data.members[1]
-            : request.resource.data.members[0]
-        );
+        ||
+        (
+          // Group chat — creator must be a member and an admin from the start.
+          request.resource.data.type == "group"
+          && request.resource.data.members is list
+          && request.resource.data.members.size() >= 3
+          && request.resource.data.members.size() <= 50
+          && request.auth.uid in request.resource.data.members
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.groupAdmins is list
+          && request.auth.uid in request.resource.data.groupAdmins
+          && request.resource.data.groupName is string
+          && request.resource.data.groupName.size() > 0
+          && request.resource.data.groupName.size() <= 60
+        )
+      );
       allow read: if signedIn() && request.auth.uid in resource.data.members;
-      allow update: if signedIn()
-        && request.auth.uid in resource.data.members
-        && request.resource.data.members == resource.data.members
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "lastMessage","lastMessageType","lastMessageSenderId","lastMessageId","lastMessageTime","unread",
-          "pinned","hiddenFor"
-        ]);
+      allow update: if signedIn() && request.auth.uid in resource.data.members && (
+        (
+          // Preview / pin / hide bookkeeping — any member, any conversation type.
+          request.resource.data.members == resource.data.members
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "lastMessage","lastMessageType","lastMessageSenderId","lastMessageId","lastMessageTime","unread",
+            "pinned","hiddenFor"
+          ])
+        )
+        ||
+        (
+          // Group admin renames the group or changes its photo.
+          resource.data.type == "group"
+          && request.auth.uid in resource.data.groupAdmins
+          && request.resource.data.members == resource.data.members
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["groupName","groupPhotoURL"])
+          && request.resource.data.groupName is string
+          && request.resource.data.groupName.size() > 0
+          && request.resource.data.groupName.size() <= 60
+        )
+        ||
+        (
+          // Group admin adds and/or removes members (and keeps admins/unread in sync).
+          resource.data.type == "group"
+          && request.auth.uid in resource.data.groupAdmins
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["members","groupAdmins","unread"])
+          && request.resource.data.members is list
+          && request.resource.data.members.size() >= 2
+          && request.resource.data.members.size() <= 50
+          && request.resource.data.groupAdmins is list
+          && request.resource.data.groupAdmins.size() > 0
+          && request.resource.data.members.hasAll(request.resource.data.groupAdmins)
+        )
+        ||
+        (
+          // Any group member can leave on their own — removes only themselves.
+          resource.data.type == "group"
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["members","groupAdmins"])
+          && !(request.auth.uid in request.resource.data.members)
+          && resource.data.members.removeAll([request.auth.uid]) == request.resource.data.members
+          && resource.data.groupAdmins.removeAll([request.auth.uid]) == request.resource.data.groupAdmins
+        )
+      );
       allow delete: if false;
 
       match /typing/{uid} {
@@ -124,11 +180,23 @@ service cloud.firestore {
         allow read: if isMember(conversationId);
         allow create: if isMember(conversationId)
           && request.resource.data.senderId == request.auth.uid
-          && request.resource.data.receiverId != request.auth.uid
-          && request.resource.data.receiverId in get(/databases/$(database)/documents/conversations/$(conversationId)).data.members
           && request.resource.data.type in ["text","image"]
           && request.resource.data.createdAt != null
-          && canContact(request.resource.data.receiverId);
+          && (
+            (
+              // Direct message — unchanged single-receiver rule.
+              get(/databases/$(database)/documents/conversations/$(conversationId)).data.get("type","direct") == "direct"
+              && request.resource.data.receiverId != request.auth.uid
+              && request.resource.data.receiverId in get(/databases/$(database)/documents/conversations/$(conversationId)).data.members
+              && canContact(request.resource.data.receiverId)
+            )
+            ||
+            (
+              // Group message — no single receiver, just has to be a current member.
+              get(/databases/$(database)/documents/conversations/$(conversationId)).data.type == "group"
+            )
+          );
+
 
         allow update: if isMember(conversationId) && (
           (
