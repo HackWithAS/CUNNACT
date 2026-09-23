@@ -17,7 +17,6 @@ import { playClick, playSend, playReceive, playSave, playDelete, isSoundEnabled,
 import { loadRetentionMode, getRetentionMode, shouldExpireMessage, cleanupExpiredMessages, startPeriodicCleanup, isSavedByUser, isDeletedForUser, setUserSetting } from "./retention.js";
 import { initSocialFeatures } from "./social.js";
 import { initGlobalSearch } from "./search.js";
-import { initAIFeatures } from "./ai.js";
 import { registerDeviceSession, listenCurrentDevice, touchCurrentDevice, writeSecurityEvent, getUserSettings, isAppLockEnabled, verifyPin, createPinHash } from "./security.js";
 import { initNotificationForeground } from "./notifications.js";
 
@@ -81,7 +80,6 @@ let securitySessionUnsub = null;
 let deviceTouchTimer = null;
 let swRegistration = null;
 let globalSearch = null;
-let aiFeatures = null;
 let appLockUnlocked = true;
 async function loadSecuritySettings(){ try{ currentUserSettings=await getUserSettings(currentUser?.uid); }catch{ currentUserSettings={}; } return currentUserSettings; }
 function showAppLock(){
@@ -304,14 +302,6 @@ onAuthStateChanged(auth, async (user) => {
       onOpenProfile:(u)=>{ if(u?.uid===currentUser.uid) location.href="profile.html"; else if(u?.username) location.href=`/u/${encodeURIComponent(u.username)}`; },
       onOpenSocial:(kind,data)=>{ if(kind==="community") socialFeatures?.openCommunity?.(data?.id); else if(kind==="channel") socialFeatures?.openChannel?.(data?.id); else socialFeatures?.refresh?.(); }
     });
-    aiFeatures = initAIFeatures({
-      getCurrentUser:()=>currentUser,
-      getCurrentUserSettings:()=>currentUserSettings,
-      getCurrentMessages:()=>currentMessages,
-      getActiveUser:()=>activeUser,
-      setComposerText:(text)=>{insertComposerText(text);},
-      useGeneratedPoll:(poll)=>{ if(!activeUser?.isGroup){showToast("Open a group to use an AI poll.","info");return;} $id("pollQuestion").value=String(poll?.question||""); $id("pollOptions").value=(Array.isArray(poll?.options)?poll.options:[]).join("\n"); openModal("groupPollModal"); setTimeout(()=> $id("pollQuestion")?.focus(),20); }
-    });
     if(isAppLockEnabled(currentUserSettings)){appLockUnlocked=false;showAppLock();}
     startPresence();
     listenMessageRequests(currentUser, (requests) => { updateRequestsBadge(requests.length); renderMessageRequests(requests); }, () => { refreshNewChatRequestButtons(); });
@@ -415,7 +405,6 @@ function bindStaticControls() {
   $id("themeToggleBtn")?.addEventListener("click", () => { playClick(); applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"); });
   $id("navThemeBtn")?.addEventListener("click", () => { playClick(); applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"); });
   $id("profileBtn")?.addEventListener("click", () => { playClick(); location.href = "profile.html"; });
-  $id("accountAIBtn")?.addEventListener("click", () => { playClick(); $id("accountMenu")?.setAttribute("hidden",""); aiFeatures?.open("assistant"); });
   $id("accountMenuBtn")?.addEventListener("click", (e) => { e.stopPropagation(); playClick(); toggleDropdown("accountMenu", "accountMenuBtn"); });
   $id("soundToggle")?.addEventListener("click", () => { const enabled = toggleSound(); updateSoundToggle(); if (currentUser) setUserSetting(currentUser.uid,{soundEnabled:enabled}).catch(()=>{}); if (enabled) playClick(); });
   $id("backBtn")?.addEventListener("click", () => { playClick(); $id("app")?.classList.remove("chat-open"); closeProfileDrawer(); });
@@ -809,8 +798,6 @@ function renderChatMoreMenu(){
       ${isAdmin?`<button class="dropdown-item" id="groupJoinRequestsMenuBtn">✅<span>Join requests</span></button><button class="dropdown-item" id="groupSettingsMenuBtn">⚙️<span>Group settings</span></button>`:""}
       ${isModerator?`<button class="dropdown-item" id="groupPollMenuBtn">📊<span>Create poll</span></button><button class="dropdown-item" id="groupEventMenuBtn">📅<span>Create event</span></button>`:""}
       <button class="dropdown-item" id="groupCallHistoryMenuBtn">📞<span>Call history</span></button>
-      <button class="dropdown-item" id="chatAIAskBtn">✦<span>Ask CUNNACT AI</span></button>
-      <button class="dropdown-item" id="chatAISummaryBtn">📝<span>Summarize chat</span></button>
       <button class="dropdown-item" id="clearChatBtn">${ICONS.trash}<span>Clear chat</span></button>
       <button class="dropdown-item danger-item" id="leaveGroupMenuBtn">${ICONS.block}<span>Leave group</span></button>`;
     menu.querySelector("#viewProfileBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();});
@@ -825,15 +812,12 @@ function renderChatMoreMenu(){
     return;
   }
   const blocked=currentBlockedUsers.has(activeUser.uid);
-  menu.innerHTML=`<div class="dropdown-label">Conversation</div><button class="dropdown-item" id="viewProfileBtn">${ICONS.profile}<span>View profile</span></button><button class="dropdown-item" id="sharedMediaBtn">${ICONS.copy}<span>Shared media</span></button><button class="dropdown-item" id="callMenuVoiceBtn">📞<span>Voice call</span></button><button class="dropdown-item" id="callMenuVideoBtn">🎥<span>Video call</span></button><button class="dropdown-item" id="callHistoryMenuBtn">🕘<span>Call history</span></button><button class="dropdown-item" id="chatAIAskBtn">✦<span>Ask CUNNACT AI</span></button><button class="dropdown-item" id="chatAISummaryBtn">📝<span>Summarize chat</span></button><button class="dropdown-item" id="smartRepliesBtn">💬<span>Smart replies</span></button><button class="dropdown-item" id="lockChatBtn">🔒<span>${currentUserSettings?.lockedChats?.[activeConversationId]?"Unlock chat":"Lock chat"}</span></button><button class="dropdown-item" id="disappearingBtn">⏳<span>Disappearing messages</span></button><button class="dropdown-item" id="clearChatBtn">${ICONS.trash}<span>Clear chat</span></button><button class="dropdown-item ${blocked?"":"danger-item"}" id="blockToggleBtn">${blocked?ICONS.unlock:ICONS.block}<span>${blocked?"Unblock user":"Block user"}</span></button><button class="dropdown-item danger-item" id="reportUserBtn">⚑<span>Report user</span></button>`;
+  menu.innerHTML=`<div class="dropdown-label">Conversation</div><button class="dropdown-item" id="viewProfileBtn">${ICONS.profile}<span>View profile</span></button><button class="dropdown-item" id="sharedMediaBtn">${ICONS.copy}<span>Shared media</span></button><button class="dropdown-item" id="callMenuVoiceBtn">📞<span>Voice call</span></button><button class="dropdown-item" id="callMenuVideoBtn">🎥<span>Video call</span></button><button class="dropdown-item" id="callHistoryMenuBtn">🕘<span>Call history</span></button><button class="dropdown-item" id="lockChatBtn">🔒<span>${currentUserSettings?.lockedChats?.[activeConversationId]?"Unlock chat":"Lock chat"}</span></button><button class="dropdown-item" id="disappearingBtn">⏳<span>Disappearing messages</span></button><button class="dropdown-item" id="clearChatBtn">${ICONS.trash}<span>Clear chat</span></button><button class="dropdown-item ${blocked?"":"danger-item"}" id="blockToggleBtn">${blocked?ICONS.unlock:ICONS.block}<span>${blocked?"Unblock user":"Block user"}</span></button><button class="dropdown-item danger-item" id="reportUserBtn">⚑<span>Report user</span></button>`;
   menu.querySelector("#viewProfileBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();});
   menu.querySelector("#sharedMediaBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();document.querySelector("#sharedMediaGrid")?.scrollIntoView({block:"nearest"});});
   menu.querySelector("#callMenuVoiceBtn")?.addEventListener("click",()=>{menu.hidden=true;startActiveCall("voice");});
   menu.querySelector("#callMenuVideoBtn")?.addEventListener("click",()=>{menu.hidden=true;startActiveCall("video");});
   menu.querySelector("#callHistoryMenuBtn")?.addEventListener("click",()=>{menu.hidden=true;callController.showHistory(activeConversationId);});
-  menu.querySelector("#chatAIAskBtn")?.addEventListener("click",()=>{menu.hidden=true;aiFeatures?.open("assistant");});
-  menu.querySelector("#chatAISummaryBtn")?.addEventListener("click",()=>{menu.hidden=true;aiFeatures?.open("summary");});
-  menu.querySelector("#smartRepliesBtn")?.addEventListener("click",()=>{menu.hidden=true;aiFeatures?.open("smart-replies");});
   menu.querySelector("#clearChatBtn")?.addEventListener("click",async()=>{menu.hidden=true;await clearChatForMe();});
   menu.querySelector("#blockToggleBtn")?.addEventListener("click",async()=>{menu.hidden=true;const shouldBlock=!blocked;if(shouldBlock){const ok=await showConfirmDialog({title:"Block this user?",message:"They won't be able to send you messages until you unblock them.",confirmText:"Block user",cancelText:"Cancel",danger:true});if(!ok)return;}await toggleBlockUser(activeUser.uid,shouldBlock);});
   menu.querySelector("#lockChatBtn")?.addEventListener("click",async()=>{
@@ -1478,7 +1462,7 @@ async function sendMessage({type,text,imageURL,mediaURL,fileName,mimeType,fileSi
 }
 
 function extractFirstUrl(text){
-  const m=String(text||"").match(/https?:\\/\\/[^\\s<]+/i);
+  const m=String(text||"").match(/https?:\/\/[^\s<]+/i);
   if(!m)return null;
   const raw=m[0].replace(/[),.!?;:]$/g,"");
   try{const u=new URL(raw);if(u.protocol!=="http:"&&u.protocol!=="https:")return null;return u;}catch{return null;}

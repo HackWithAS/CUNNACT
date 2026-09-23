@@ -47,8 +47,7 @@
         <button class="nav-rail-btn" id="navSavedBtn" type="button" aria-label="Saved messages" title="Saved messages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>
         <button class="nav-rail-btn" id="navStoriesBtn" type="button" aria-label="Stories" title="Stories"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 12h7M12 8.5v7"/></svg></button>
         <button class="nav-rail-btn" id="navCommunitiesBtn" type="button" aria-label="Communities and channels" title="Communities & channels"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7.5A3.5 3.5 0 0 1 7.5 4h9A3.5 3.5 0 0 1 20 7.5v5A3.5 3.5 0 0 1 16.5 16H11l-4 4v-4.5A3.5 3.5 0 0 1 4 12z"/><path d="M8 9h8M8 12h5"/></svg></button>
-        <button class="nav-rail-btn" id="navAIBtn" type="button" aria-label="CUNNACT AI" title="CUNNACT AI"><span style="font-size:18px">✦</span></button>
-        <button class="nav-rail-btn" id="navNewChatBtn" type="button" aria-label="New chat" title="New chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
+<button class="nav-rail-btn" id="navNewChatBtn" type="button" aria-label="New chat" title="New chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
       </nav>
       <div class="nav-rail-bottom">
         <button class="nav-rail-btn" id="navThemeBtn" type="button" aria-label="Toggle theme" title="Toggle theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 14.6A8.7 8.7 0 0 1 9.4 3 8.7 8.7 0 1 0 21 14.6Z"/></svg></button>
@@ -76,11 +75,7 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
                 <span>Profile</span>
               </button>
-              <button id="accountAIBtn" class="dropdown-item" type="button">
-                <span style="font-size:18px">✦</span>
-                <span>CUNNACT AI</span>
-              </button>
-              <button id="themeToggleBtn" class="dropdown-item" type="button">
+<button id="themeToggleBtn" class="dropdown-item" type="button">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
                 <span id="themeToggleLabel">Dark mode</span>
               </button>
@@ -573,28 +568,7 @@
         <div id="globalSearchResults" class="global-search-results"><div class="empty-state">Search people, chats, messages, groups, communities or channels.</div></div>
       </div>
     </div>
-
-    <!-- CUNNACT AI -->
-    <div id="aiModal" class="modal" hidden aria-hidden="true">
-      <div class="modal-content ai-modal">
-        <div class="modal-header"><div><span class="eyebrow">CUNNACT AI</span><h2>AI assistant</h2><p>Use AI only when you request it. Chat content is not saved by the CUNNACT AI function.</p></div><button id="aiCloseBtn" class="icon-btn" type="button" aria-label="Close">×</button></div>
-        <label class="ai-consent"><input id="aiConsent" type="checkbox"><span><strong>Allow AI processing for actions I request</strong><small>Your selected chat text, or a file/image you choose for analysis, is sent to the AI provider only for that request.</small></span></label>
-        <div class="ai-toolbar">
-          <label>Action<select id="aiAction">
-            <option value="assistant">Ask AI</option><option value="summary">Summarize chat</option><option value="unread-summary">Summarize unread messages</option><option value="group-summary">Summarize group</option><option value="smart-replies">Suggest smart replies</option><option value="poll">Create poll</option><option value="translate">Translate</option><option value="rewrite">Rewrite</option><option value="grammar">Fix grammar</option><option value="file-summary">Summarize document</option><option value="image-understanding">Understand image</option><option value="transcribe">Voice to text</option>
-          </select></label>
-          <label id="aiLanguageWrap" hidden>Language<select id="aiLanguage"><option>English</option><option>Hindi</option><option>Hinglish</option><option>Spanish</option><option>French</option><option>German</option><option>Japanese</option></select></label>
-          <label id="aiToneWrap" hidden>Tone<select id="aiTone"><option value="natural">Natural</option><option value="friendly">Friendly</option><option value="professional">Professional</option><option value="concise">Concise</option><option value="casual">Casual</option></select></label>
-        </div>
-        <label class="ai-prompt-label"><span>Prompt</span><textarea id="aiPrompt" rows="5" maxlength="12000" placeholder="Ask CUNNACT AI anything…"></textarea></label>
-        <div id="aiMediaWrap" class="ai-media-wrap" hidden><div class="ai-file-row"><input id="aiFileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif,.pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx"><button id="aiVoiceBtn" type="button" class="btn btn-soft btn-sm">🎤 Voice to text</button></div><div class="ai-media-status"><span id="aiMediaName">No file selected</span><button id="aiClearMediaBtn" type="button" class="btn btn-ghost btn-sm">Clear</button></div></div>
-        <div class="ai-actions"><button id="aiRunBtn" type="button" class="btn btn-primary">Run AI</button><button id="aiInsertBtn" type="button" class="btn btn-soft">Insert into chat</button><button id="aiUsePollBtn" type="button" class="btn btn-soft" hidden>Use as group poll</button></div>
-        <div id="aiStatus" class="ai-status" role="status"></div>
-        <pre id="aiResult" class="ai-result" hidden></pre>
-        <div id="aiQuickReplies" class="ai-quick-replies" hidden></div>
-      </div>
-    </div>
-    <div id="appLockModal" class="modal" hidden aria-hidden="true">
+<div id="appLockModal" class="modal" hidden aria-hidden="true">
       <div class="modal-content compact-modal app-lock-modal">
         <div class="confirm-icon"><span style="font-size:24px">🔐</span></div>
         <div><span class="eyebrow">CUNNACT LOCKED</span><h2>Enter your PIN</h2><p>This device requires your app lock PIN to continue.</p></div>

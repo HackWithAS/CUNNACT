@@ -480,7 +480,7 @@ service cloud.firestore {
             && request.resource.data.text.size() > 0
             && request.resource.data.text.size() <= 5000
             && request.resource.data.editedAt != null
-            && (resource.data.get("createdAt", null) == null || request.time - resource.data.get("createdAt") < duration.value(15, "m"))
+            && (resource.data.get("createdAt") == null || request.time - resource.data.get("createdAt") < duration.value(15, "m"))
           )
           ||
           (
