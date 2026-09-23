@@ -110,3 +110,9 @@ Created by HackWithAS.
 - On large desktop layouts (>1100px), New Chat, Requests, and Saved Messages are available from the narrow navigation rail only; the wider conversation sidebar keeps the existing mobile/tablet controls.
 - On tablet/mobile layouts, the existing wider sidebar controls remain visible as before.
 - CUNNACT uses a single shared brand identity across app icon, favicon, authentication, landing, profile, public profile, and in-app welcome surfaces.
+
+## Current implementation status
+
+This deliverable includes a first implementation pass for the expanded messaging foundation: edit, forward, pin/unpin, message details, multi-select, conversation search, emoji/sticker controls, voice-note recording plumbing, richer media message rendering, and stronger legacy-message chat loading. Existing authentication, requests, groups, reactions, save/delete, presence and Cloudinary image flows are preserved.
+
+The larger roadmap remains intentionally phased: calling, stories, communities/channels, global discovery, privacy/security hardening, AI, multi-device/device management, backup and final full regression still require their own implementation and live-service testing.

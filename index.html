@@ -168,6 +168,9 @@
           </div>
         </div>
         <div class="chat-header-actions">
+          <button id="chatSearchBtn" class="icon-btn" aria-label="Search conversation" title="Search conversation" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+          </button>
           <button id="chatMoreBtn" class="icon-btn" aria-label="Conversation options" aria-expanded="false" title="Conversation options" disabled>
             <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
           </button>
@@ -202,11 +205,33 @@
       </div>
 
       <div id="replyBar" class="reply-bar" hidden><div><span class="reply-eyebrow">REPLYING TO</span><strong id="replyAuthor">Message</strong><p id="replyPreview"></p></div><button id="cancelReplyBtn" class="icon-btn" type="button" aria-label="Cancel reply"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div id="selectionToolbar" class="selection-toolbar" hidden>
+        <button id="selectionCancelBtn" type="button" class="icon-btn" aria-label="Cancel selection">✕</button>
+        <strong id="selectionCount">0 selected</strong>
+        <div class="selection-actions">
+          <button id="selectionForwardBtn" type="button" class="icon-btn" aria-label="Forward selected">↗</button>
+          <button id="selectionSaveBtn" type="button" class="icon-btn" aria-label="Save selected">🔖</button>
+          <button id="selectionDeleteBtn" type="button" class="icon-btn danger-icon" aria-label="Delete selected">🗑</button>
+        </div>
+      </div>
       <form id="messageForm" class="composer" autocomplete="off">
         <input id="fileInput" type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif">
         <button id="attachBtn" type="button" class="composer-icon" disabled aria-label="Send an image" title="Send image">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21.4 11.6 12 21a6 6 0 0 1-8.5-8.5l9.9-9.9a4 4 0 0 1 5.7 5.7L9.2 18.2a2 2 0 0 1-2.8-2.8l9.2-9.2"/></svg>
         </button>
+        <div class="composer-tool-wrap">
+          <button id="emojiBtn" type="button" class="composer-icon" disabled aria-label="Emoji" title="Emoji">😊</button>
+          <div id="emojiPanel" class="composer-popover emoji-panel" hidden>
+            <button type="button" data-emoji="😀">😀</button><button type="button" data-emoji="😂">😂</button><button type="button" data-emoji="😍">😍</button><button type="button" data-emoji="🥹">🥹</button><button type="button" data-emoji="😎">😎</button><button type="button" data-emoji="😭">😭</button><button type="button" data-emoji="😡">😡</button><button type="button" data-emoji="🔥">🔥</button><button type="button" data-emoji="❤️">❤️</button><button type="button" data-emoji="👍">👍</button><button type="button" data-emoji="🎉">🎉</button><button type="button" data-emoji="🙏">🙏</button>
+          </div>
+        </div>
+        <div class="composer-tool-wrap">
+          <button id="stickerBtn" type="button" class="composer-icon" disabled aria-label="Stickers" title="Stickers">✨</button>
+          <div id="stickerPanel" class="composer-popover sticker-panel" hidden>
+            <button type="button" data-sticker="😂">😂</button><button type="button" data-sticker="❤️">❤️</button><button type="button" data-sticker="🔥">🔥</button><button type="button" data-sticker="😭">😭</button><button type="button" data-sticker="😎">😎</button><button type="button" data-sticker="👏">👏</button><button type="button" data-sticker="👍">👍</button><button type="button" data-sticker="🎉">🎉</button>
+          </div>
+        </div>
+        <button id="voiceNoteBtn" type="button" class="composer-icon" disabled aria-label="Record voice note" title="Voice note">🎤</button>
         <label for="messageInput" class="sr-only">Type a message</label>
         <textarea id="messageInput" rows="1" autocomplete="off" placeholder="Write a message…" disabled></textarea>
         <span class="composer-hint">Enter to send</span>
@@ -289,6 +314,39 @@
           <button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
         <div id="savedList" class="saved-list"><div class="empty-state">Messages you save will appear here.</div></div>
+      </div>
+    </div>
+
+    <!-- Conversation search -->
+    <div id="conversationSearchModal" class="modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header"><div><span class="eyebrow">SEARCH</span><h2>Search conversation</h2><p>Search the currently loaded conversation history.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="search-row" style="padding:18px 24px 10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><label for="conversationSearchInput" class="sr-only">Search messages</label><input id="conversationSearchInput" type="search" placeholder="Search messages…" autocomplete="off"></div>
+        <div id="conversationSearchResults" class="conversation-search-results"><div class="empty-state">Type a word or phrase to search this conversation.</div></div>
+      </div>
+    </div>
+
+    <!-- Forward -->
+    <div id="forwardModal" class="modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header"><div><span class="eyebrow">SHARE</span><h2>Forward message</h2><p>Choose a conversation.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div id="forwardConversationList" class="forward-list"><div class="empty-state">Loading conversations…</div></div>
+      </div>
+    </div>
+
+    <!-- Edit message -->
+    <div id="editMessageModal" class="modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header"><div><span class="eyebrow">MESSAGE</span><h2>Edit message</h2><p>You can edit your text message for up to 15 minutes.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div style="padding:20px 24px 24px"><textarea id="editMessageInput" rows="5" maxlength="5000" style="width:100%;resize:vertical"></textarea><p id="editMessageError" class="error" role="alert" style="margin-top:8px"></p><div class="confirm-actions"><button id="editMessageCancelBtn" type="button" class="btn btn-soft">Cancel</button><button id="editMessageSaveBtn" type="button" class="btn btn-primary">Save changes</button></div></div>
+      </div>
+    </div>
+
+    <!-- Message details -->
+    <div id="messageDetailsModal" class="modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header"><div><span class="eyebrow">MESSAGE</span><h2 id="messageDetailsTitle">Message details</h2></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div id="messageDetailsBody" style="padding:22px 24px 26px"></div>
       </div>
     </div>
 

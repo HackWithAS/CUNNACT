@@ -8,6 +8,7 @@ export const CLOUDINARY = Object.freeze({
   cloudName: "qfw2dy0h",
   uploadPreset: "cunnact_uploads",
   uploadUrl: "https://api.cloudinary.com/v1_1/qfw2dy0h/image/upload",
+  autoUploadUrl: "https://api.cloudinary.com/v1_1/qfw2dy0h/auto/upload",
   maxBytes: 5 * 1024 * 1024,
   allowedTypes: Object.freeze(["image/jpeg", "image/png", "image/webp", "image/gif"]),
   timeoutMs: 60000
@@ -113,6 +114,40 @@ export async function uploadImageToCloudinary(file, { onProgress, signal } = {})
     signal?.addEventListener("abort", () => xhr.abort(), { once: true });
     xhr.send(form);
   });
+}
+
+export async function uploadFileToCloudinary(file, { onProgress, signal } = {}) {
+  if (!file) throw new UploadError("none", "Please select a file.");
+  if (!file.size) throw new UploadError("type", "The selected file is empty.");
+  if (file.size > 25 * 1024 * 1024) throw new UploadError("size", "File must be smaller than 25 MB.");
+  if (typeof navigator !== "undefined" && navigator.onLine === false) throw new UploadError("network", MESSAGES.offline);
+  if (signal?.aborted) throw new UploadError("aborted", "");
+  const form = new FormData();
+  form.append("file", file);
+  form.append("upload_preset", CLOUDINARY.uploadPreset);
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const fail = (kind, detail) => { if (detail) console.warn("[cloudinary]", kind, detail); reject(new UploadError(kind, kind === "size" ? "File is too large." : kind === "aborted" ? "" : "Couldn't upload the file. Please try again.")); };
+    xhr.open("POST", CLOUDINARY.autoUploadUrl);
+    xhr.timeout = CLOUDINARY.timeoutMs;
+    xhr.upload.onprogress = e => { if (e.lengthComputable) onProgress?.(e.loaded / e.total); };
+    xhr.onload = () => {
+      let body = null; try { body = JSON.parse(xhr.responseText); } catch {}
+      const ok = xhr.status >= 200 && xhr.status < 300;
+      const url = body?.secure_url;
+      if (ok && isTrustedCloudinaryUrl(url)) { onProgress?.(1); resolve(url); } else fail(ok ? "response" : "http", `HTTP ${xhr.status}`);
+    };
+    xhr.onerror = () => fail("network", "network error");
+    xhr.ontimeout = () => fail("timeout", "timeout");
+    xhr.onabort = () => fail("aborted");
+    signal?.addEventListener("abort", () => xhr.abort(), { once: true });
+    xhr.send(form);
+  });
+}
+
+export function isTrustedCloudinaryUrl(value) {
+  if (typeof value !== "string" || value.length > 2048) return false;
+  try { const u = new URL(value); return u.protocol === "https:" && u.hostname === "res.cloudinary.com" && u.pathname.startsWith(`/${CLOUDINARY.cloudName}/`); } catch { return false; }
 }
 
 /* ---------------- Delivery (smaller images instead of full-resolution originals) ---------------- */

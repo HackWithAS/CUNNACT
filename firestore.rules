@@ -180,7 +180,7 @@ service cloud.firestore {
         allow read: if isMember(conversationId);
         allow create: if isMember(conversationId)
           && request.resource.data.senderId == request.auth.uid
-          && request.resource.data.type in ["text","image"]
+          && request.resource.data.type in ["text","image","audio","video","document","sticker","gif","contact","location","poll","event"]
           && request.resource.data.createdAt != null
           && (
             (
@@ -246,6 +246,34 @@ service cloud.firestore {
             && request.auth.uid in request.resource.data.get("deletedFor", [])
             && request.resource.data.get("deletedFor", []).size() == resource.data.get("deletedFor", []).size() + 1
             && request.resource.data.get("deletedFor", []).hasAll(resource.data.get("deletedFor", []))
+          )
+          ||
+          (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(["pinnedBy"])
+            && request.resource.data.get("pinnedBy", []) is list
+            && resource.data.get("pinnedBy", []) is list
+            && (
+              (!(request.auth.uid in resource.data.get("pinnedBy", []))
+                && request.auth.uid in request.resource.data.get("pinnedBy", [])
+                && request.resource.data.get("pinnedBy", []).size() == resource.data.get("pinnedBy", []).size() + 1
+                && request.resource.data.get("pinnedBy", []).hasAll(resource.data.get("pinnedBy", [])))
+              ||
+              (request.auth.uid in resource.data.get("pinnedBy", [])
+                && !(request.auth.uid in request.resource.data.get("pinnedBy", []))
+                && resource.data.get("pinnedBy", []).size() == request.resource.data.get("pinnedBy", []).size() + 1
+                && resource.data.get("pinnedBy", []).hasAll(request.resource.data.get("pinnedBy", [])))
+            )
+          )
+          ||
+          (
+            request.auth.uid == resource.data.senderId
+            && resource.data.type == "text"
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["text","editedAt"])
+            && request.resource.data.text is string
+            && request.resource.data.text.size() > 0
+            && request.resource.data.text.size() <= 5000
+            && request.resource.data.editedAt != null
+            && (resource.data.get("createdAt", null) == null || request.time - resource.data.get("createdAt") < duration.value(15, "m"))
           )
           ||
           (
