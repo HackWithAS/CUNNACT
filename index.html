@@ -13,8 +13,10 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/chat.css">
 <link rel="stylesheet" href="css/animations.css">
-<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#2376FC"></head>
+<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#2376FC"><link rel="stylesheet" href="css/security.css">
+</head>
 <body>
+  <div id="offlineBar" class="offline-bar" role="status" aria-live="polite" hidden></div>
   <div id="authGate" class="auth-gate" aria-live="polite">
     <div class="auth-gate-card splash-card">
       <svg class="splash-mark" viewBox="0 0 512 512" role="img" aria-label="CUNNACT">
@@ -43,6 +45,9 @@
           <span id="navRequestsBadge" class="rail-badge" hidden>0</span>
         </button>
         <button class="nav-rail-btn" id="navSavedBtn" type="button" aria-label="Saved messages" title="Saved messages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>
+        <button class="nav-rail-btn" id="navStoriesBtn" type="button" aria-label="Stories" title="Stories"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 12h7M12 8.5v7"/></svg></button>
+        <button class="nav-rail-btn" id="navCommunitiesBtn" type="button" aria-label="Communities and channels" title="Communities & channels"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7.5A3.5 3.5 0 0 1 7.5 4h9A3.5 3.5 0 0 1 20 7.5v5A3.5 3.5 0 0 1 16.5 16H11l-4 4v-4.5A3.5 3.5 0 0 1 4 12z"/><path d="M8 9h8M8 12h5"/></svg></button>
+        <button class="nav-rail-btn" id="navAIBtn" type="button" aria-label="CUNNACT AI" title="CUNNACT AI"><span style="font-size:18px">✦</span></button>
         <button class="nav-rail-btn" id="navNewChatBtn" type="button" aria-label="New chat" title="New chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
       </nav>
       <div class="nav-rail-bottom">
@@ -70,6 +75,10 @@
               <button id="profileBtn" class="dropdown-item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
                 <span>Profile</span>
+              </button>
+              <button id="accountAIBtn" class="dropdown-item" type="button">
+                <span style="font-size:18px">✦</span>
+                <span>CUNNACT AI</span>
               </button>
               <button id="themeToggleBtn" class="dropdown-item" type="button">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
@@ -124,10 +133,11 @@
             </button>
           </div>
         </div>
-        <div class="search-row compact-search">
+        <div class="search-row compact-search sidebar-search-with-global">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
           <label for="userSearch" class="sr-only">Search your chats</label>
           <input id="userSearch" type="search" placeholder="Search your chats…" autocomplete="off">
+          <button id="globalSearchBtn" class="search-global-launch" type="button" aria-label="Search everything" title="Search everything">⌕</button>
         </div>
       </div>
 
@@ -148,7 +158,7 @@
         </button>
       </div>
 
-      <div class="sidebar-brand-note">CUNNACT by <a href="https://hackwithas.in" target="_blank" rel="noopener noreferrer">HackWithAS</a></div>
+      <div class="sidebar-brand-note"><span class="keyboard-hint">Ctrl/⌘ K Search · Ctrl/⌘ N New chat</span><br>CUNNACT by <a href="https://hackwithas.in" target="_blank" rel="noopener noreferrer">HackWithAS</a></div>
     </aside>
 
     <main class="chat-panel">
@@ -171,6 +181,10 @@
           <button id="chatSearchBtn" class="icon-btn" aria-label="Search conversation" title="Search conversation" disabled>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
           </button>
+          <button id="chatPopoutBtn" class="icon-btn desktop-only" aria-label="Open chat in a new window" title="Pop out chat" disabled>↗</button>
+          <button id="chatVoiceCallBtn" class="icon-btn" aria-label="Voice call" title="Voice call" hidden>📞</button>
+          <button id="chatVideoCallBtn" class="icon-btn" aria-label="Video call" title="Video call" hidden>🎥</button>
+          <button id="groupCallBtn" class="icon-btn" aria-label="Start group call" title="Start group call" hidden>👥</button>
           <button id="chatMoreBtn" class="icon-btn" aria-label="Conversation options" aria-expanded="false" title="Conversation options" disabled>
             <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
           </button>
@@ -190,17 +204,22 @@
       <div id="blockedNotice" class="blocked-notice" hidden></div>
 
       <div id="imagePreviewBar" class="image-preview-bar" hidden>
-        <img id="imagePreviewThumb" alt="Selected image preview">
+        <div id="mediaPreviewList" class="media-preview-list" aria-label="Selected media"></div>
         <div class="preview-info">
-          <strong>Ready to send</strong>
-          <span id="imagePreviewStatus" class="status-text">Your image is ready.</span>
+          <strong id="imagePreviewName">Ready to send</strong>
+          <span id="imagePreviewStatus" class="status-text">Your files are ready.</span>
+          <div class="media-preview-options">
+            <label>Quality
+              <select id="mediaQuality" aria-label="Media quality"><option value="optimized">Optimized</option><option value="hd">HD</option><option value="original">Original</option></select>
+            </label>
+          </div>
           <div class="progress"><div id="imagePreviewProgress" class="progress-fill"></div></div>
         </div>
         <div class="actions">
           <button id="imagePreviewCancel" type="button" class="icon-btn" aria-label="Cancel image">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6L6 18"/></svg>
           </button>
-          <button id="imagePreviewSend" type="button" class="btn btn-primary">Send image</button>
+          <button id="imagePreviewSend" type="button" class="btn btn-primary">Send files</button>
         </div>
       </div>
 
@@ -215,10 +234,13 @@
         </div>
       </div>
       <form id="messageForm" class="composer" autocomplete="off">
-        <input id="fileInput" type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif">
-        <button id="attachBtn" type="button" class="composer-icon" disabled aria-label="Send an image" title="Send image">
+        <input id="fileInput" type="file" hidden multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime,application/pdf,text/plain,.zip,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
+        <button id="attachBtn" type="button" class="composer-icon" disabled aria-label="Share media or file" title="Share media or file">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21.4 11.6 12 21a6 6 0 0 1-8.5-8.5l9.9-9.9a4 4 0 0 1 5.7 5.7L9.2 18.2a2 2 0 0 1-2.8-2.8l9.2-9.2"/></svg>
         </button>
+        <button id="gifBtn" type="button" class="composer-icon" disabled aria-label="Send a GIF" title="GIF">GIF</button>
+        <button id="contactBtn" type="button" class="composer-icon" disabled aria-label="Share a contact" title="Share contact">👤</button>
+        <button id="locationBtn" type="button" class="composer-icon" disabled aria-label="Share location" title="Share location">📍</button>
         <div class="composer-tool-wrap">
           <button id="emojiBtn" type="button" class="composer-icon" disabled aria-label="Emoji" title="Emoji">😊</button>
           <div id="emojiPanel" class="composer-popover emoji-panel" hidden>
@@ -255,6 +277,9 @@
           <div id="groupMembersList" class="group-members-list"></div>
           <div class="group-drawer-actions">
             <button id="addGroupMembersBtn" class="btn btn-soft btn-sm" type="button" hidden>Add members</button>
+            <button id="groupInviteBtn" class="btn btn-soft btn-sm" type="button" hidden>Invite link</button>
+            <button id="groupJoinRequestsBtn" class="btn btn-soft btn-sm" type="button" hidden>Join requests</button>
+            <button id="groupSettingsBtn" class="btn btn-soft btn-sm" type="button" hidden>Settings</button>
             <button id="leaveGroupBtn" class="btn btn-soft danger-item btn-sm" type="button" hidden>Leave group</button>
           </div>
         </div>
@@ -272,6 +297,10 @@
         <div class="search-row compact-search">
           <label for="newGroupName" class="sr-only">Group name</label>
           <input id="newGroupName" type="text" placeholder="Group name" maxlength="60" autocomplete="off">
+        </div>
+        <div class="group-form-extra">
+          <label><span>Description</span><textarea id="newGroupDescription" rows="2" maxlength="240" placeholder="What is this group about?"></textarea></label>
+          <label class="checkbox-line"><input id="newGroupJoinApproval" type="checkbox" checked><span>Require admin approval for invite-link joins</span></label>
         </div>
         <div id="newGroupMemberPicker" class="new-chat-results group-member-picker"><div class="empty-state">Loading your contacts…</div></div>
         <button id="createGroupBtn" class="btn btn-primary" type="button" style="width:100%;margin-top:14px">Create group</button>
@@ -347,6 +376,230 @@
       <div class="modal-content">
         <div class="modal-header"><div><span class="eyebrow">MESSAGE</span><h2 id="messageDetailsTitle">Message details</h2></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
         <div id="messageDetailsBody" style="padding:22px 24px 26px"></div>
+      </div>
+    </div>
+
+    <!-- GIF picker -->
+    <div id="gifModal" class="modal" hidden>
+      <div class="modal-content compact-modal">
+        <div class="modal-header"><div><span class="eyebrow">REACTION</span><h2>Send a GIF</h2><p>Paste a GIPHY or Tenor GIF URL.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="modal-form-row"><input id="gifUrlInput" type="url" placeholder="https://media.giphy.com/...gif" autocomplete="off"><button id="gifSendBtn" type="button" class="btn btn-primary">Send GIF</button></div>
+        <p id="gifError" class="error" role="alert"></p>
+      </div>
+    </div>
+
+    <!-- Contact picker -->
+    <div id="contactModal" class="modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header"><div><span class="eyebrow">SHARE</span><h2>Share contact</h2><p>Choose someone you already connect with.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div id="contactShareList" class="forward-list"><div class="empty-state">Loading contacts…</div></div>
+      </div>
+    </div>
+
+    <!-- Group settings -->
+    <div id="groupSettingsModal" class="modal" hidden>
+      <div class="modal-content compact-modal">
+        <div class="modal-header"><div><span class="eyebrow">GROUP</span><h2>Group settings</h2><p>Update the group's identity and join rules.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="group-settings-form">
+          <label>Group name<input id="groupSettingsName" maxlength="60"></label>
+          <label>Description<textarea id="groupSettingsDescription" maxlength="240" rows="3"></textarea></label>
+          <label class="checkbox-line"><input id="groupSettingsJoinApproval" type="checkbox"><span>Require admin approval for invite-link joins</span></label>
+          <label>Group photo<input id="groupPhotoInput" type="file" accept="image/jpeg,image/png,image/webp"></label>
+          <div class="confirm-actions"><button id="saveGroupSettingsBtn" type="button" class="btn btn-soft">Save settings</button><button id="saveGroupPhotoBtn" type="button" class="btn btn-primary">Upload photo</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Group invite -->
+    <div id="groupInviteModal" class="modal" hidden>
+      <div class="modal-content compact-modal">
+        <div class="modal-header"><div><span class="eyebrow">INVITE</span><h2>Invite to group</h2><p>Share this link with people you want to invite.</p></div><button id="closeGroupInviteBtn" class="icon-btn" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="invite-preview"><img id="groupInviteQr" alt="Group invite QR code" loading="lazy"><div class="invite-copy"><input id="groupInviteLink" type="text" readonly><button id="copyGroupInviteBtn" type="button" class="btn btn-primary">Copy link</button></div></div>
+      </div>
+    </div>
+
+    <!-- Group join requests -->
+    <div id="groupJoinRequestsModal" class="modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header"><div><span class="eyebrow">MEMBERSHIP</span><h2>Join requests</h2><p>Approve or reject people who used an invite.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div id="groupJoinRequestsList" class="join-requests-list"><div class="empty-state">No pending requests.</div></div>
+      </div>
+    </div>
+
+    <!-- Group poll -->
+    <div id="groupPollModal" class="modal" hidden>
+      <div class="modal-content compact-modal">
+        <div class="modal-header"><div><span class="eyebrow">GROUP TOOL</span><h2>Create poll</h2><p>Give the group something to vote on.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="group-settings-form"><label>Question<input id="pollQuestion" maxlength="300" placeholder="Where should we meet?"></label><label>Options<textarea id="pollOptions" rows="5" placeholder="One option per line"></textarea></label><div class="confirm-actions"><button type="button" class="btn btn-soft close-modal">Cancel</button><button id="sendGroupPollBtn" type="button" class="btn btn-primary">Send poll</button></div></div>
+      </div>
+    </div>
+
+    <!-- Group event -->
+    <div id="groupEventModal" class="modal" hidden>
+      <div class="modal-content compact-modal">
+        <div class="modal-header"><div><span class="eyebrow">GROUP TOOL</span><h2>Create event</h2><p>Share a date and details with the group.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="group-settings-form"><label>Title<input id="eventTitle" maxlength="180" placeholder="Project meetup"></label><label>Date & time<input id="eventWhen" type="datetime-local"></label><label>Description<textarea id="eventDescription" rows="4" maxlength="600"></textarea></label><div class="confirm-actions"><button type="button" class="btn btn-soft close-modal">Cancel</button><button id="sendGroupEventBtn" type="button" class="btn btn-primary">Share event</button></div></div>
+      </div>
+    </div>
+
+    <!-- Incoming call -->
+    <div id="incomingCallModal" class="modal" hidden>
+      <div class="modal-content compact-modal incoming-call-card">
+        <div class="call-orb">📞</div><span class="eyebrow">INCOMING CALL</span><h2 id="incomingCallTitle">Incoming call</h2><p id="incomingCallType">Incoming voice call</p>
+        <div class="confirm-actions"><button id="incomingCallDeclineBtn" type="button" class="btn btn-soft danger-item">Decline</button><button id="incomingCallAcceptBtn" type="button" class="btn btn-primary">Accept</button></div>
+      </div>
+    </div>
+
+    <!-- Active call -->
+    <div id="activeCallModal" class="modal" hidden>
+      <div class="modal-content call-modal-content">
+        <div class="call-header"><div><span class="eyebrow">CUNNACT CALL</span><h2 id="activeCallTitle">Call</h2><p id="activeCallStatus">Connecting…</p></div><button id="callShareLinkBtn" type="button" class="btn btn-soft btn-sm">Share link</button></div>
+        <div id="callStage" class="call-stage"><video id="localCallVideo" class="local-call-video" autoplay playsinline muted hidden></video><div id="remoteCallVideos" class="remote-call-videos"></div><span id="callReactionStatus" class="call-reaction-status" aria-live="polite"></span></div>
+        <div class="call-controls"><button id="callMuteBtn" type="button" class="call-control">Mute</button><button id="callVideoBtn" type="button" class="call-control">Camera</button><button id="callScreenShareBtn" type="button" class="call-control">Share screen</button><button id="callReactBtn" type="button" class="call-control">React</button><button id="callRaiseHandBtn" type="button" class="call-control">Raise hand</button><button id="callPipBtn" type="button" class="call-control">PiP</button><button id="callEndBtn" type="button" class="call-control end-call">Leave call</button></div>
+      </div>
+    </div>
+
+    <!-- Call history -->
+    <div id="callHistoryModal" class="modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header"><div><span class="eyebrow">CALLS</span><h2>Call history</h2><p>Recent calls in this conversation.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div id="callHistoryList" class="call-history-list"><div class="empty-state">No calls yet.</div></div>
+      </div>
+    </div>
+
+
+    <!-- Stories -->
+    <div id="socialHubModal" class="modal" hidden aria-hidden="true">
+      <div class="modal-content social-hub-modal">
+        <div class="modal-header">
+          <div><span class="eyebrow">CUNNACT SOCIAL</span><h2>Stories & discovery</h2><p>Share for 24 hours or explore communities and channels.</p></div>
+          <button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>
+        <div class="social-tabs" role="tablist">
+          <button class="social-tab active" type="button" data-social-tab="stories">Stories</button>
+          <button class="social-tab" type="button" data-social-tab="communities">Communities</button>
+          <button class="social-tab" type="button" data-social-tab="channels">Channels</button>
+        </div>
+        <section class="social-panel" data-social-panel="stories">
+          <div class="social-panel-head"><div><strong>24-hour stories</strong><span>Photos, videos, text, stickers, links and polls.</span></div><button id="createStoryBtn" type="button" class="btn btn-primary btn-sm">+ Create story</button></div>
+          <div id="storiesList" class="stories-grid"><div class="empty-state">Loading stories…</div></div>
+        </section>
+        <section class="social-panel" data-social-panel="communities" hidden>
+          <div class="social-panel-head"><div><strong>Communities</strong><span>Bring groups and channels together.</span></div><button id="createCommunityOpenBtn" type="button" class="btn btn-primary btn-sm">+ Create community</button></div>
+          <div class="search-row compact-search"><input id="communitySearchInput" type="search" placeholder="Search public communities…" autocomplete="off"></div>
+          <div id="communitiesList" class="social-list"><div class="empty-state">Loading communities…</div></div>
+        </section>
+        <section class="social-panel" data-social-panel="channels" hidden>
+          <div class="social-panel-head"><div><strong>Channels</strong><span>Follow updates, announcements and creator posts.</span></div><button id="createChannelBtnTop" type="button" class="btn btn-primary btn-sm">+ Create channel</button></div>
+          <div class="search-row compact-search"><input id="channelSearchInput" type="search" placeholder="Search public channels…" autocomplete="off"></div>
+          <div id="channelsList" class="social-list"><div class="empty-state">Loading channels…</div></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- Story composer -->
+    <div id="storyComposerModal" class="modal" hidden aria-hidden="true">
+      <div class="modal-content compact-modal social-compose-modal">
+        <div class="modal-header"><div><span class="eyebrow">STORY</span><h2>Create story</h2><p>Your story disappears after 24 hours.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="social-compose-grid">
+          <label>Text<textarea id="storyTextInput" rows="4" maxlength="2000" placeholder="Share something…"></textarea></label>
+          <label>Photo or video<input id="storyMediaInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"></label>
+          <div class="form-two"><label>Privacy<select id="storyPrivacy"><option value="public">Public</option><option value="closeFriends">Close friends</option><option value="custom">Selected people</option></select></label><label>Sticker<input id="storyStickerInput" maxlength="120" placeholder="✨ optional"></label></div>
+          <label>Link<input id="storyLinkInput" type="url" placeholder="https://example.com"></label>
+          <div id="storyAudiencePickerWrap" hidden><div class="eyebrow">AUDIENCE</div><div id="storyAudiencePicker" class="checkbox-list"><div class="empty-state">Choose selected people.</div></div></div>
+          <label>Poll question<input id="storyPollQuestion" maxlength="250" placeholder="Ask something (optional)"></label>
+          <label>Poll options<textarea id="storyPollOptions" rows="4" placeholder="One option per line"></textarea></label>
+        </div>
+        <button id="publishStoryBtn" type="button" class="btn btn-primary" style="width:100%;margin-top:14px">Publish story</button>
+      </div>
+    </div>
+
+    <!-- Story viewer -->
+    <div id="storyViewerModal" class="modal" hidden aria-hidden="true">
+      <div class="modal-content story-viewer-modal">
+        <div class="modal-header"><div><span class="eyebrow">STORY</span><h2 id="storyViewerTitle">Story</h2><p id="storyViewerMeta"></p></div><button id="storyViewerCloseBtn" class="icon-btn" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div id="storyViewerBody" class="story-viewer-body"></div>
+        <div class="story-viewer-nav"><button id="storyPrevBtn" type="button" class="btn btn-soft">← Previous</button><div class="story-viewer-reply"><select id="storyReactionEmoji"><option>❤️</option><option>😂</option><option>🔥</option><option>😍</option><option>👏</option></select><button id="storyReactBtn" type="button" class="btn btn-soft">React</button><input id="storyReplyInput" type="text" maxlength="500" placeholder="Reply to story…"><button id="storyReplySendBtn" type="button" class="btn btn-primary">Send</button></div><button id="storyNextBtn" type="button" class="btn btn-soft">Next →</button></div>
+      </div>
+    </div>
+
+    <!-- Community composer -->
+    <div id="communityComposerModal" class="modal" hidden aria-hidden="true">
+      <div class="modal-content compact-modal social-compose-modal">
+        <div class="modal-header"><div><span class="eyebrow">COMMUNITY</span><h2>Create community</h2><p>Build a space with groups and channels.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="social-compose-grid"><label>Name<input id="communityNameInput" maxlength="80" placeholder="CUNNACT Developers"></label><label>Description<textarea id="communityDescriptionInput" rows="3" maxlength="500" placeholder="What is this community about?"></textarea></label><label>Rules<textarea id="communityRulesInput" rows="4" maxlength="1200" placeholder="Community rules"></textarea></label><label>Privacy<select id="communityPrivacy"><option value="public">Public</option><option value="private">Private</option></select></label></div>
+        <button id="createCommunityBtn" type="button" class="btn btn-primary" style="width:100%;margin-top:14px">Create community</button>
+      </div>
+    </div>
+
+    <!-- Community detail -->
+    <div id="communityDetailModal" class="modal" hidden aria-hidden="true">
+      <div class="modal-content social-detail-modal">
+        <div class="modal-header"><div><span class="eyebrow">COMMUNITY</span><h2 id="communityDetailTitle">Community</h2><p id="communityDetailMeta"></p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <p id="communityDetailDescription" class="social-detail-description"></p><div id="communityDetailRules" class="social-detail-rules" hidden></div>
+        <div class="social-detail-actions"><button id="communitySubgroupBtn" type="button" class="btn btn-soft btn-sm">+ Sub-group</button><button id="communityChannelBtn" type="button" class="btn btn-soft btn-sm">+ Channel</button><button id="communityJoinRequestsBtn" type="button" class="btn btn-soft btn-sm" hidden>Join requests</button></div>
+        <div class="social-detail-columns"><section><div class="eyebrow">SUB-GROUPS</div><div id="communityGroupsList" class="social-sublist"></div></section><section><div class="eyebrow">CHANNELS</div><div id="communityChannelsList" class="social-sublist"></div></section></div>
+      </div>
+    </div>
+
+    <!-- Sub-group composer -->
+    <div id="subgroupComposerModal" class="modal" hidden aria-hidden="true">
+      <div class="modal-content compact-modal social-compose-modal"><div class="modal-header"><div><span class="eyebrow">COMMUNITY GROUP</span><h2>Create sub-group</h2><p id="subgroupComposerHint">Choose connected people.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div class="social-compose-grid"><label>Name<input id="subgroupNameInput" maxlength="60" placeholder="Study group"></label><label>Description<textarea id="subgroupDescriptionInput" maxlength="240" rows="3"></textarea></label><div><div class="eyebrow">MEMBERS</div><div id="subgroupMemberPicker" class="checkbox-list"><div class="empty-state">Loading contacts…</div></div></div></div><button id="createSubgroupBtn" type="button" class="btn btn-primary" style="width:100%;margin-top:14px">Create sub-group</button></div>
+    </div>
+
+
+    <!-- Community join requests -->
+    <div id="communityJoinRequestsModal" class="modal" hidden aria-hidden="true">
+      <div class="modal-content">
+        <div class="modal-header"><div><span class="eyebrow">COMMUNITY</span><h2>Join requests</h2><p>Approve or reject private-community members.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div id="communityJoinRequestsList" class="join-requests-list"><div class="empty-state">No pending requests.</div></div>
+      </div>
+    </div>
+
+    <!-- Channel composer -->
+    <div id="channelComposerModal" class="modal" hidden aria-hidden="true">
+      <div class="modal-content compact-modal social-compose-modal"><div class="modal-header"><div><span class="eyebrow">CHANNEL</span><h2>Create channel</h2><p id="channelCommunityLabel">Broadcast updates to followers.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div class="social-compose-grid"><label>Name<input id="channelNameInput" maxlength="80" placeholder="CUNNACT News"></label><label>Description<textarea id="channelDescriptionInput" maxlength="500" rows="3" placeholder="Channel description"></textarea></label><label>Privacy<select id="channelPrivacy"><option value="public">Public</option><option value="private">Private</option></select></label></div><button id="createChannelBtn" type="button" class="btn btn-primary" style="width:100%;margin-top:14px">Create channel</button></div>
+    </div>
+
+    <!-- Channel detail -->
+    <div id="channelDetailModal" class="modal" hidden aria-hidden="true">
+      <div class="modal-content social-detail-modal"><div class="modal-header"><div><span class="eyebrow">CHANNEL</span><h2 id="channelDetailTitle"># Channel</h2><p id="channelDetailMeta"></p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><p id="channelDetailDescription" class="social-detail-description"></p><div id="channelAdminComposer" class="channel-admin-composer"><textarea id="channelPostText" rows="3" maxlength="5000" placeholder="Write a post…"></textarea><div class="form-two"><input id="channelPostMedia" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"><input id="channelPostPollQuestion" maxlength="250" placeholder="Poll question (optional)"></div><textarea id="channelPostPollOptions" rows="3" placeholder="Poll options, one per line"></textarea><button id="channelPostSendBtn" type="button" class="btn btn-primary btn-sm">Publish post</button></div><div id="channelPostsList" class="channel-posts-list"><div class="empty-state">Loading posts…</div></div></div>
+    </div>
+
+    <div id="globalSearchModal" class="modal" hidden aria-hidden="true">
+      <div class="modal-content global-search-modal">
+        <div class="modal-header"><div><span class="eyebrow">DISCOVER</span><h2>Search CUNNACT</h2><p>People, chats, messages, groups, communities and channels.</p></div><button id="globalSearchCloseBtn" class="icon-btn" type="button" aria-label="Close">×</button></div>
+        <div class="search-row"><span aria-hidden="true">⌕</span><input id="globalSearchInput" type="search" placeholder="Search CUNNACT…" autocomplete="off"></div>
+        <div id="globalSearchResults" class="global-search-results"><div class="empty-state">Search people, chats, messages, groups, communities or channels.</div></div>
+      </div>
+    </div>
+
+    <!-- CUNNACT AI -->
+    <div id="aiModal" class="modal" hidden aria-hidden="true">
+      <div class="modal-content ai-modal">
+        <div class="modal-header"><div><span class="eyebrow">CUNNACT AI</span><h2>AI assistant</h2><p>Use AI only when you request it. Chat content is not saved by the CUNNACT AI function.</p></div><button id="aiCloseBtn" class="icon-btn" type="button" aria-label="Close">×</button></div>
+        <label class="ai-consent"><input id="aiConsent" type="checkbox"><span><strong>Allow AI processing for actions I request</strong><small>Your selected chat text, or a file/image you choose for analysis, is sent to the AI provider only for that request.</small></span></label>
+        <div class="ai-toolbar">
+          <label>Action<select id="aiAction">
+            <option value="assistant">Ask AI</option><option value="summary">Summarize chat</option><option value="unread-summary">Summarize unread messages</option><option value="group-summary">Summarize group</option><option value="smart-replies">Suggest smart replies</option><option value="poll">Create poll</option><option value="translate">Translate</option><option value="rewrite">Rewrite</option><option value="grammar">Fix grammar</option><option value="file-summary">Summarize document</option><option value="image-understanding">Understand image</option><option value="transcribe">Voice to text</option>
+          </select></label>
+          <label id="aiLanguageWrap" hidden>Language<select id="aiLanguage"><option>English</option><option>Hindi</option><option>Hinglish</option><option>Spanish</option><option>French</option><option>German</option><option>Japanese</option></select></label>
+          <label id="aiToneWrap" hidden>Tone<select id="aiTone"><option value="natural">Natural</option><option value="friendly">Friendly</option><option value="professional">Professional</option><option value="concise">Concise</option><option value="casual">Casual</option></select></label>
+        </div>
+        <label class="ai-prompt-label"><span>Prompt</span><textarea id="aiPrompt" rows="5" maxlength="12000" placeholder="Ask CUNNACT AI anything…"></textarea></label>
+        <div id="aiMediaWrap" class="ai-media-wrap" hidden><div class="ai-file-row"><input id="aiFileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif,.pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx"><button id="aiVoiceBtn" type="button" class="btn btn-soft btn-sm">🎤 Voice to text</button></div><div class="ai-media-status"><span id="aiMediaName">No file selected</span><button id="aiClearMediaBtn" type="button" class="btn btn-ghost btn-sm">Clear</button></div></div>
+        <div class="ai-actions"><button id="aiRunBtn" type="button" class="btn btn-primary">Run AI</button><button id="aiInsertBtn" type="button" class="btn btn-soft">Insert into chat</button><button id="aiUsePollBtn" type="button" class="btn btn-soft" hidden>Use as group poll</button></div>
+        <div id="aiStatus" class="ai-status" role="status"></div>
+        <pre id="aiResult" class="ai-result" hidden></pre>
+        <div id="aiQuickReplies" class="ai-quick-replies" hidden></div>
+      </div>
+    </div>
+    <div id="appLockModal" class="modal" hidden aria-hidden="true">
+      <div class="modal-content compact-modal app-lock-modal">
+        <div class="confirm-icon"><span style="font-size:24px">🔐</span></div>
+        <div><span class="eyebrow">CUNNACT LOCKED</span><h2>Enter your PIN</h2><p>This device requires your app lock PIN to continue.</p></div>
+        <label class="profile-field-v6" style="display:grid;gap:7px"><span>PIN</span><input id="appLockPinInput" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="••••"></label>
+        <p id="appLockError" class="error" role="alert"></p><button id="appLockUnlockBtn" type="button" class="btn btn-primary" style="width:100%;margin-top:10px">Unlock</button>
       </div>
     </div>
 

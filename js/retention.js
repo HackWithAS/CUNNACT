@@ -51,6 +51,8 @@ export function isDeletedForUser(message, uid) {
 }
 export function shouldExpireMessage(message, uid) {
   if (!message || isDeletedForUser(message, uid) || isSavedByUser(message, uid)) return false;
+  const explicitExpiry = message.expiresAt?.toDate?.() || (message.expiresAt instanceof Date ? message.expiresAt : null);
+  if (explicitExpiry && Date.now() >= explicitExpiry.getTime()) return true;
   if (getRetentionMode() === "24hours") {
     const created = message.createdAt?.toDate?.();
     return !!created && (Date.now() - created.getTime() >= 24 * 60 * 60 * 1000);

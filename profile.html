@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/profile.css">
 <link rel="stylesheet" href="css/animations.css">
+<link rel="stylesheet" href="css/security.css">
 </head>
 <body class="profile-page">
 <div class="profile-shell">
@@ -91,11 +92,39 @@
       <section class="settings-card-v6">
         <div class="section-heading-v6">
           <div class="section-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3 4 6v5c0 5 3.3 8.6 8 10 4.7-1.4 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg></div>
-          <div><h2>Privacy & account</h2><p>Manage the parts of your account that affect connections.</p></div>
+          <div><h2>Privacy & account</h2><p>Control discovery, read receipts, typing and profile visibility.</p></div>
         </div>
-        <div class="privacy-row-v6"><span>Public profile</span><span id="publicProfileState">@username</span></div>
+        <div class="preference-row-v6"><div><strong>Read receipts</strong><p>Let people know when you've read their messages.</p></div><label class="toggle"><input id="readReceiptsToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
+        <div class="preference-row-v6"><div><strong>Typing indicators</strong><p>Show when you're typing in a conversation.</p></div><label class="toggle"><input id="typingIndicatorsToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
+        <div class="profile-fields-v6">
+          <label class="profile-field-v6"><span>Profile visibility</span><select id="profileVisibility"><option value="public">Public</option><option value="private">Private</option></select></label>
+          <div class="preference-row-v6" style="border-bottom:0;padding-bottom:0"><div><strong>Appear in discovery</strong><p>Allow your public profile to appear in search.</p></div><label class="toggle"><input id="discoverableToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
+        </div>
         <div class="privacy-row-v6"><span>Blocked users</span><span>Managed from chat menus</span></div>
         <div class="privacy-row-v6"><span>Saved messages</span><span>Available from the chat sidebar</span></div>
+      </section>
+      <section class="settings-card-v6">
+        <div class="section-heading-v6"><div class="section-icon purple"><span style="font-size:18px">🔐</span></div><div><h2>Security</h2><p>Protect your CUNNACT account and current device.</p></div></div>
+        <div class="preference-row-v6"><div><strong>App lock</strong><p>Lock the CUNNACT interface after you leave it.</p></div><label class="toggle"><input id="appLockToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
+        <div class="preference-row-v6"><div><strong>2-step verification</strong><p id="mfaState">Checking…</p></div><button id="mfaPrimaryBtn" type="button" class="btn btn-soft btn-sm">Enable 2-step verification</button></div>
+        <div id="mfaRecaptcha" class="mfa-recaptcha"></div>
+        <div class="preference-row-v6"><div><strong>Push notifications</strong><p>Enable message notifications on this browser/device.</p></div><button id="pushNotificationsBtn" type="button" class="btn btn-soft btn-sm">Enable</button></div>
+        <div class="preference-row-v6"><div><strong>Active devices</strong><p>Sign out a session remotely if you no longer recognize it.</p></div><div class="settings-inline-actions"><button id="refreshSessionsBtn" type="button" class="btn btn-soft btn-sm">Refresh</button><button id="signOutOtherDevicesBtn" type="button" class="btn btn-soft btn-sm">Sign out others</button></div></div>
+        <div id="deviceSessionsList" class="device-sessions-list"><div class="empty-state">Loading devices…</div></div>
+        <div class="preference-row-v6"><div><strong>Security activity</strong><p>Recent sign-ins and security changes on your account.</p></div></div>
+        <div id="securityEventsList" class="device-sessions-list"><div class="empty-state">Loading activity…</div></div>
+      </section>
+
+
+      <section class="settings-card-v6 account-tools-card">
+        <div class="section-heading-v6"><div class="section-icon green"><span style="font-size:18px">☁️</span></div><div><h2>Backup & data</h2><p>Keep a portable copy of your CUNNACT data and restore your own content later.</p></div></div>
+        <div class="preference-row-v6"><div><strong>Backup</strong><p>Download a JSON backup containing your profile, settings, chats, media metadata and account data available to this account.</p></div><button id="exportBackupBtn" type="button" class="btn btn-soft btn-sm">Download backup</button></div>
+        <div class="preference-row-v6"><div><strong>Restore</strong><p>Restore settings and messages you originally sent. Backups are account-bound for safety.</p></div><button id="restoreBackupBtn" type="button" class="btn btn-soft btn-sm">Restore backup</button><input id="restoreBackupInput" type="file" hidden accept="application/json,.json"></div>
+        <div class="preference-row-v6"><div><strong>Account data</strong><p>Download the same portable export for your records.</p></div><button id="downloadAccountDataBtn" type="button" class="btn btn-soft btn-sm">Download account data</button></div>
+      </section>
+      <section class="settings-card-v6 danger-account-card">
+        <div class="section-heading-v6"><div class="section-icon orange"><span style="font-size:18px">⚠️</span></div><div><h2>Danger zone</h2><p>Deleting your account signs you out everywhere and removes your CUNNACT identity. Shared chats keep a “Deleted account” placeholder so other participants are not left with broken conversations.</p></div></div>
+        <button id="deleteAccountBtn" type="button" class="btn btn-danger-account">Delete my CUNNACT account</button>
       </section>
 
       <div class="profile-actions-v6">

@@ -12,7 +12,8 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/auth.css">
 <link rel="stylesheet" href="css/animations.css">
-<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#171F30"></head>
+<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#171F30"><link rel="stylesheet" href="css/security.css">
+</head>
 <body class="auth-page">
   <main class="auth-card">
     <div class="auth-brand">
@@ -54,6 +55,15 @@
       </div>
       <button type="button" id="completeProfileBtn" class="btn btn-primary">Finish setup</button>
       <p id="completeProfileError" class="error" role="alert" aria-live="polite"></p>
+    </div>
+
+    <div id="mfaLoginModal" class="modal" hidden aria-hidden="true">
+      <div class="modal-content compact-modal">
+        <div class="modal-header"><div><span class="eyebrow">SECURITY</span><h2>Two-step verification</h2><p id="mfaHint">Enter the code sent to your phone.</p></div></div>
+        <div id="loginMfaRecaptcha" class="mfa-recaptcha"></div>
+        <label class="profile-field-v6" style="display:grid;gap:7px"><span>6-digit code</span><input id="mfaCodeInput" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456"></label>
+        <button id="mfaVerifyBtn" type="button" class="btn btn-primary" style="width:100%;margin-top:14px">Verify code</button>
+      </div>
     </div>
     <footer class="auth-footer">
       <span>CUNNACT by <a href="https://hackwithas.in" target="_blank" rel="noopener noreferrer">HackWithAS</a></span>

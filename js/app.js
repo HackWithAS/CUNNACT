@@ -4,16 +4,22 @@ import {
   query, where, orderBy, startAt, endAt, limit, onSnapshot,
   serverTimestamp, increment, writeBatch, runTransaction, arrayUnion, arrayRemove
 } from "./firebase.js";
-import { uploadImageToCloudinary, validateImageFile, UploadError, MESSAGES as UPLOAD_MESSAGES, isTrustedImageUrl, imageUrl } from "./cloudinary.js";
+import { uploadImageToCloudinary, uploadFileToCloudinary, validateImageFile, validateMediaFile, mediaKind, UploadError, MESSAGES as UPLOAD_MESSAGES, isTrustedImageUrl, isTrustedCloudinaryUrl, imageUrl } from "./cloudinary.js";
 import { paintAvatar, avatarHtml } from "./avatar.js";
 import { openLightbox } from "./lightbox.js";
 import { showToast } from "./toast.js";
 import { formatTime, formatWhen, formatLastSeen, escapeHtml, debounce } from "./ui.js";
 import { buildConversationId, previewText } from "./chat.js";
+import { createCallController } from "./calls.js";
 import { normalizeSearch, isSearchValid } from "./users.js";
 import { listenMessageRequests, sendMessageRequest, acceptMessageRequest, declineMessageRequest, cancelMessageRequest, getOutgoingPendingRequest } from "./requests.js";
 import { playClick, playSend, playReceive, playSave, playDelete, isSoundEnabled, toggleSound } from "./sound.js";
 import { loadRetentionMode, getRetentionMode, shouldExpireMessage, cleanupExpiredMessages, startPeriodicCleanup, isSavedByUser, isDeletedForUser, setUserSetting } from "./retention.js";
+import { initSocialFeatures } from "./social.js";
+import { initGlobalSearch } from "./search.js";
+import { initAIFeatures } from "./ai.js";
+import { registerDeviceSession, listenCurrentDevice, touchCurrentDevice, writeSecurityEvent, getUserSettings, isAppLockEnabled, verifyPin, createPinHash } from "./security.js";
+import { initNotificationForeground } from "./notifications.js";
 
 let currentUser = null;
 let currentUserData = {};
@@ -36,6 +42,8 @@ let userListeners = new Map();
 let lastMessageCount = 0;
 let pendingImageFile = null;
 let pendingImageUrl = null;
+let pendingMediaItems = [];
+let mediaQuality = "optimized";
 let uploadController = null;
 let sendingMessage = false;
 let staticBound = false;
@@ -48,6 +56,7 @@ let selectedMessageIds = new Set();
 let voiceRecorder = null;
 let newChatRenderToken = 0;
 let voiceChunks = [];
+let callLinkConsumed = false;
 let readObserver = null;
 let queuedReadIds = new Set();
 let readFlushTimer = null;
@@ -57,6 +66,31 @@ let ownHeartbeatAt = 0;
 const localHiddenLatest = new Set();
 const ONLINE_WINDOW_MS = 90 * 1000;
 const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
+
+const callController = createCallController({
+  getCurrentUser: () => currentUser,
+  getConversations: () => conversations,
+  getActiveConversation: () => activeConversation,
+  getActiveUser: () => activeUser
+});
+
+const socialFeatures = initSocialFeatures({ getCurrentUser: () => currentUser });
+
+let currentUserSettings = {};
+let securitySessionUnsub = null;
+let deviceTouchTimer = null;
+let swRegistration = null;
+let globalSearch = null;
+let aiFeatures = null;
+let appLockUnlocked = true;
+async function loadSecuritySettings(){ try{ currentUserSettings=await getUserSettings(currentUser?.uid); }catch{ currentUserSettings={}; } return currentUserSettings; }
+function showAppLock(){
+  const modal=$id("appLockModal"); if(!modal)return;
+  modal.hidden=false; modal.setAttribute("aria-hidden","false"); document.body.classList.add("modal-open");
+  const input=$id("appLockPinInput"); if(input)input.value=""; if($id("appLockError"))$id("appLockError").textContent=""; setTimeout(()=>input?.focus(),30);
+}
+function closeAppLock(){ const modal=$id("appLockModal");if(!modal)return;modal.hidden=true;modal.setAttribute("aria-hidden","true");if(!document.querySelector(".modal:not([hidden])"))document.body.classList.remove("modal-open");appLockUnlocked=true; }
+async function requireAppUnlock(){ await loadSecuritySettings(); if(!isAppLockEnabled(currentUserSettings))return true; if(appLockUnlocked)return true; showAppLock(); return false; }
 
 const $id = (id) => document.getElementById(id);
 const ICONS = {
@@ -185,6 +219,34 @@ function toggleDropdown(id, buttonId) {
   menu.hidden = !nextOpen; button?.setAttribute("aria-expanded", String(nextOpen));
 }
 
+async function registerAppServiceWorker(){
+  if(!("serviceWorker" in navigator))return null;
+  try{ swRegistration=await navigator.serviceWorker.register("/sw.js",{scope:"/"}); return swRegistration; }catch(e){ console.warn("App service worker registration failed",e); return null; }
+}
+function updateOfflineUI(){ const bar=$id("offlineBar"); if(bar){ const offline=navigator.onLine===false; bar.hidden=!offline; bar.textContent=offline?"You’re offline. CUNNACT will retry when the connection returns.":""; } }
+function enableDesktopShortcuts(){
+  document.addEventListener("keydown",e=>{
+    const mod=e.ctrlKey||e.metaKey;
+    if(mod&&e.key.toLowerCase()==="k"){e.preventDefault();globalSearch?.open?.();}
+    if(mod&&e.key.toLowerCase()==="n"&&(!/input|textarea|select/i.test(e.target?.tagName||""))){e.preventDefault();$id("newChatBtn")?.click();}
+    if(mod&&e.key.toLowerCase()==="b"&&!/input|textarea|select/i.test(e.target?.tagName||"")){e.preventDefault();toggleDropdown("accountMenu","accountMenuBtn");}
+  },{passive:false});
+}
+function bindDesktopSharing(){
+  const messages=$id("messages"),input=$id("messageInput");
+  const acceptFiles=(files)=>{ if(!files?.length||!activeConversationId)return; try{const dt=new DataTransfer();[...files].slice(0,8).forEach(f=>dt.items.add(f));const el=$id("fileInput");if(el){el.files=dt.files;handleMediaSelection();}}catch(e){console.warn("Drop/paste media failed",e);} };
+  messages?.addEventListener("dragover",e=>{if(!activeConversationId)return;e.preventDefault();messages.classList.add("drop-target");});
+  messages?.addEventListener("dragleave",()=>messages.classList.remove("drop-target"));
+  messages?.addEventListener("drop",e=>{e.preventDefault();messages.classList.remove("drop-target");acceptFiles(e.dataTransfer?.files);});
+  input?.addEventListener("paste",e=>{const files=[...(e.clipboardData?.files||[])].filter(f=>/^image\//i.test(f.type));if(files.length){e.preventDefault();acceptFiles(files);}});
+}
+function maybeOpenConversationFromUrl(){
+  const id=new URLSearchParams(location.search).get("conversation"); if(!id)return;
+  setTimeout(async()=>{try{await openChatById(id); }catch(e){console.warn("Conversation deep link failed",e);}},250);
+}
+function setPopupMode(){
+  if(new URLSearchParams(location.search).get("popup")==="1")document.body.classList.add("popup-mode");
+}
 /* Auth bootstrap */
 applyTheme(localStorage.getItem("cunnact_theme") || "light", false);
 onAuthStateChanged(auth, async (user) => {
@@ -214,6 +276,11 @@ onAuthStateChanged(auth, async (user) => {
       usernameLower: currentUserData.usernameLower || "",
       retentionMode: currentUserData.retentionMode || "24hours",
       theme,
+      hideLastSeen: currentUserData.hideLastSeen === true,
+      showReadReceipts: currentUserData.showReadReceipts !== false,
+      showTypingIndicators: currentUserData.showTypingIndicators !== false,
+      profileVisibility: currentUserData.profileVisibility || "public",
+      discoverable: currentUserData.discoverable !== false,
       isOnline: true,
       lastHeartbeat: serverTimestamp()
     }, { merge: true });
@@ -221,14 +288,38 @@ onAuthStateChanged(auth, async (user) => {
     await ensurePublicProfile();
     await loadRetentionMode(user.uid);
     await loadBlockedUsers();
+    await loadSecuritySettings();
+    try {
+      const sid=await registerDeviceSession(currentUser,{label:location.hostname.includes("vercel.app")?"CUNNACT Web":"CUNNACT Web"});
+      securitySessionUnsub=listenCurrentDevice(currentUser,()=>{showToast("This CUNNACT session was signed out from another device.","info");signOut(auth);});
+      if(sid) await writeSecurityEvent(currentUser,{type:"session_started",deviceId:sid,details:"New CUNNACT session opened"});
+    } catch(e){ console.warn("Security session setup failed",e); }
     hydrateCurrentUserUI();
     bindStaticControls();
+    globalSearch = initGlobalSearch({
+      getCurrentUser:()=>currentUser,
+      getConversations:()=>conversations,
+      getUserById:(uid)=>userListeners.get(uid)?.data || null,
+      onOpenChat:async(id,uid,messageId)=>{if(id)await openChatById(id,uid);if(messageId)setTimeout(()=>scrollToMessage(messageId),350);},
+      onOpenProfile:(u)=>{ if(u?.uid===currentUser.uid) location.href="profile.html"; else if(u?.username) location.href=`/u/${encodeURIComponent(u.username)}`; },
+      onOpenSocial:(kind,data)=>{ if(kind==="community") socialFeatures?.openCommunity?.(data?.id); else if(kind==="channel") socialFeatures?.openChannel?.(data?.id); else socialFeatures?.refresh?.(); }
+    });
+    aiFeatures = initAIFeatures({
+      getCurrentUser:()=>currentUser,
+      getCurrentUserSettings:()=>currentUserSettings,
+      getCurrentMessages:()=>currentMessages,
+      getActiveUser:()=>activeUser,
+      setComposerText:(text)=>{insertComposerText(text);},
+      useGeneratedPoll:(poll)=>{ if(!activeUser?.isGroup){showToast("Open a group to use an AI poll.","info");return;} $id("pollQuestion").value=String(poll?.question||""); $id("pollOptions").value=(Array.isArray(poll?.options)?poll.options:[]).join("\n"); openModal("groupPollModal"); setTimeout(()=> $id("pollQuestion")?.focus(),20); }
+    });
+    if(isAppLockEnabled(currentUserSettings)){appLockUnlocked=false;showAppLock();}
     startPresence();
     listenMessageRequests(currentUser, (requests) => { updateRequestsBadge(requests.length); renderMessageRequests(requests); }, () => { refreshNewChatRequestButtons(); });
     listenConversations();
     const newChatUsername = new URLSearchParams(location.search).get("newChat");
     if (newChatUsername) setTimeout(() => openNewChatWithQuery(newChatUsername), 120);
     const gate = $id("authGate"); if (gate) gate.hidden = true;
+    maybeOpenConversationFromUrl();
   } catch (error) {
     console.error("CUNNACT startup failed:", error);
     const gate = $id("authGate");
@@ -275,6 +366,9 @@ async function ensurePublicProfile() {
   await setDoc(doc(db, "publicProfiles", currentUser.uid), {
     uid: currentUser.uid, username: data.username, usernameLower: data.usernameLower || data.username,
     displayName: data.name || currentUser.displayName || currentUser.email || "CUNNACT user",
+    displayNameLower: String(data.name || currentUser.displayName || currentUser.email || "CUNNACT user").toLowerCase(),
+    username: data.username, usernameLower: data.usernameLower || data.username,
+    profileVisibility: data.profileVisibility || "public", discoverable: data.discoverable !== false,
     photoURL: data.photoURL || currentUser.photoURL || "", bio: data.bio || "", updatedAt: serverTimestamp()
   }, { merge: true }).catch(() => {});
 }
@@ -290,6 +384,11 @@ function hydrateCurrentUserUI() {
 }
 
 /* Lifecycle */
+updateOfflineUI();
+window.addEventListener("online", updateOfflineUI);
+window.addEventListener("offline", updateOfflineUI);
+setPopupMode();
+
 document.addEventListener("visibilitychange", () => {
   if (!currentUser) return;
   setOwnPresence(document.visibilityState === "visible");
@@ -299,7 +398,7 @@ document.addEventListener("visibilitychange", () => {
     if (activeConversationId) cleanupExpiredMessages(db, activeConversationId, currentMessages, currentUser.uid, updateDoc).catch(() => {});
   }
 });
-window.addEventListener("pagehide", () => { clearInterval(presenceHeartbeat); clearInterval(presenceUiTimer); setOwnPresence(false); });
+window.addEventListener("pagehide", () => { securitySessionUnsub?.(); clearInterval(deviceTouchTimer); clearInterval(presenceHeartbeat); clearInterval(presenceUiTimer); setOwnPresence(false); });
 window.addEventListener("beforeunload", () => { if (currentUser) setOwnPresence(false); });
 window.addEventListener("online", () => { if (currentUser && document.visibilityState === "visible") setOwnPresence(true); });
 window.addEventListener("offline", () => { if (currentUser) { currentUserData = { ...currentUserData, isOnline:false }; refreshPresenceUI(); } });
@@ -307,11 +406,16 @@ window.addEventListener("offline", () => { if (currentUser) { currentUserData = 
 /* Static controls */
 function bindStaticControls() {
   if (staticBound) return; staticBound = true;
+  $id("appLockUnlockBtn")?.addEventListener("click",async()=>{const pin=$id("appLockPinInput")?.value||"";const ok=await verifyPin(pin,currentUserSettings.appLockSalt,currentUserSettings.appLockHash);if(ok){closeAppLock();}else{$id("appLockError").textContent="Incorrect PIN.";}});
+  $id("appLockPinInput")?.addEventListener("keydown",e=>{if(e.key==="Enter")$id("appLockUnlockBtn")?.click();});
+  $id("appLockLockBtn")?.addEventListener("click",()=>showAppLock());
+
   updateSoundToggle();
   $id("logoutBtn")?.addEventListener("click", logout);
   $id("themeToggleBtn")?.addEventListener("click", () => { playClick(); applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"); });
   $id("navThemeBtn")?.addEventListener("click", () => { playClick(); applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"); });
   $id("profileBtn")?.addEventListener("click", () => { playClick(); location.href = "profile.html"; });
+  $id("accountAIBtn")?.addEventListener("click", () => { playClick(); $id("accountMenu")?.setAttribute("hidden",""); aiFeatures?.open("assistant"); });
   $id("accountMenuBtn")?.addEventListener("click", (e) => { e.stopPropagation(); playClick(); toggleDropdown("accountMenu", "accountMenuBtn"); });
   $id("soundToggle")?.addEventListener("click", () => { const enabled = toggleSound(); updateSoundToggle(); if (currentUser) setUserSetting(currentUser.uid,{soundEnabled:enabled}).catch(()=>{}); if (enabled) playClick(); });
   $id("backBtn")?.addEventListener("click", () => { playClick(); $id("app")?.classList.remove("chat-open"); closeProfileDrawer(); });
@@ -352,6 +456,8 @@ function bindStaticControls() {
   $id("navNewChatBtn")?.addEventListener("click", newChat);
   $id("newGroupBtn")?.addEventListener("click", () => { playClick(); openNewGroupModal(); });
   $id("createGroupBtn")?.addEventListener("click", createGroup);
+  $id("sendGroupPollBtn")?.addEventListener("click", sendGroupPoll);
+  $id("sendGroupEventBtn")?.addEventListener("click", sendGroupEvent);
   $id("addGroupMembersBtn")?.addEventListener("click", addGroupMembers);
   $id("leaveGroupBtn")?.addEventListener("click", leaveGroupChat);
   $id("requestsBtn")?.addEventListener("click", () => { playClick(); openModal("requestsModal"); });
@@ -378,9 +484,27 @@ function bindStaticControls() {
   document.querySelectorAll("#emojiPanel button[data-emoji]").forEach(b=>b.addEventListener("click",()=>insertComposerText(b.dataset.emoji)));
   document.querySelectorAll("#stickerPanel button[data-sticker]").forEach(b=>b.addEventListener("click",()=>sendSticker(b.dataset.sticker)));
   $id("attachBtn")?.addEventListener("click", () => { playClick(); $id("fileInput")?.click(); });
-  $id("fileInput")?.addEventListener("change", handleImageSelection);
+  $id("fileInput")?.addEventListener("change", handleMediaSelection);
   $id("imagePreviewCancel")?.addEventListener("click", cancelImagePreview);
-  $id("imagePreviewSend")?.addEventListener("click", sendPendingImage);
+  $id("imagePreviewSend")?.addEventListener("click", sendPendingMedia);
+  $id("mediaQuality")?.addEventListener("change", e => { mediaQuality = e.target.value; renderMediaPreview(); });
+  $id("gifBtn")?.addEventListener("click", openGifModal);
+  $id("gifSendBtn")?.addEventListener("click", sendGifFromModal);
+  $id("contactBtn")?.addEventListener("click", openContactShareModal);
+  $id("locationBtn")?.addEventListener("click", shareCurrentLocation);
+  $id("pollBtn")?.addEventListener("click", openGroupPollModal);
+  $id("eventBtn")?.addEventListener("click", openGroupEventModal);
+  $id("chatVoiceCallBtn")?.addEventListener("click", () => startActiveCall("voice"));
+  $id("chatVideoCallBtn")?.addEventListener("click", () => startActiveCall("video"));
+  $id("groupCallBtn")?.addEventListener("click", () => startActiveCall("video"));
+  $id("callHistoryBtn")?.addEventListener("click", () => activeConversationId && callController.showHistory(activeConversationId));
+  $id("groupInviteBtn")?.addEventListener("click", openGroupInviteModal);
+  $id("groupJoinRequestsBtn")?.addEventListener("click", openGroupJoinRequestsModal);
+  $id("groupSettingsBtn")?.addEventListener("click", openGroupSettingsModal);
+  $id("saveGroupSettingsBtn")?.addEventListener("click", saveGroupSettings);
+  $id("saveGroupPhotoBtn")?.addEventListener("click", uploadGroupPhoto);
+  $id("copyGroupInviteBtn")?.addEventListener("click", copyGroupInvite);
+  $id("closeGroupInviteBtn")?.addEventListener("click", () => closeModal("groupInviteModal"));
   $id("cancelReplyBtn")?.addEventListener("click", clearReply);
   $id("closeProfileDrawer")?.addEventListener("click", closeProfileDrawer);
   $id("drawerViewProfile")?.addEventListener("click", () => { if (activeUser?.uid === currentUser?.uid) return; if (activeUser?.username) location.href=`/u/${encodeURIComponent(activeUser.username)}`; });
@@ -401,9 +525,12 @@ function bindStaticControls() {
     if (!e.target.closest(".message-action-menu") && !e.target.closest(".message-more")) closeMessageActionMenus();
   });
   $id("messages")?.addEventListener("scroll", () => { if ($id("messages").scrollTop < 80) $id("messages").classList.add("near-top"); else $id("messages").classList.remove("near-top"); });
+  $id("chatPopoutBtn")?.addEventListener("click",()=>{if(!activeConversationId)return;const url=`${location.origin}${location.pathname}?conversation=${encodeURIComponent(activeConversationId)}&popup=1`;window.open(url,"cunnact-chat","popup,width=980,height=760,resizable=yes,scrollbars=yes");});
+  enableDesktopShortcuts();
+  bindDesktopSharing();
 }
 async function logout() {
-  try { await setOwnPresence(false); await signOut(auth); } catch (e) { console.error(e); showToast("Could not log out.", "error"); }
+  try { await callController.leaveCall().catch(() => {}); await setOwnPresence(false); await signOut(auth); } catch (e) { console.error(e); showToast("Could not log out.", "error"); }
 }
 
 /* Requests */
@@ -550,6 +677,26 @@ function renderNewChatResults(matches,box){
     });
   });
 }
+
+async function consumeGroupInviteLink(){
+  const params=new URLSearchParams(location.search);const groupId=params.get("groupInvite"),token=params.get("invite");if(!groupId||!token||!currentUser)return;
+  try{
+    const inviteSnap=await getDoc(doc(db,"conversations",groupId,"invites",token));
+    if(!inviteSnap.exists()||inviteSnap.data()?.active!==true)throw new Error("INVITE_INVALID");
+    if(conversations.some(c=>c.id===groupId&&c.members?.includes(currentUser.uid))){await openChatById(groupId);return;}
+    const invite=inviteSnap.data()||{};
+    if(invite.joinApproval===false){
+      await updateDoc(doc(db,"conversations",groupId),{members:arrayUnion(currentUser.uid),joinInviteToken:token});
+      showToast("You joined the group 🎉","success");
+      await openChatById(groupId);
+    }else{
+      const reqRef=doc(db,"conversations",groupId,"joinRequests",currentUser.uid);
+      await setDoc(reqRef,{userId:currentUser.uid,userName:currentUserData.name||currentUser.displayName||"CUNNACT user",username:currentUserData.username||"",inviteToken:token,status:"pending",createdAt:serverTimestamp(),updatedAt:serverTimestamp()},{merge:true});
+      showToast("Join request sent — a group admin will approve it.","success");
+    }
+    const clean=new URL(location.href);clean.searchParams.delete("groupInvite");clean.searchParams.delete("invite");history.replaceState({},"",clean.toString());
+  }catch(e){console.error("Group invite failed",e);showToast("This group invite is invalid or unavailable.","error");}
+}
 function openNewChatWithQuery(value){openModal("newChatModal");const input=$id("newChatSearch");if(input){input.value=value.startsWith("@")?value:`@${value}`;loadNewChatSearch(input.value);setTimeout(()=>input.focus(),20);}history.replaceState({},"",location.pathname);}
 
 /* Conversations */
@@ -561,7 +708,9 @@ function listenConversations(){
     const activeUids=new Set(conversations.map(otherUid).filter(Boolean));
     for(const [uid,entry] of userListeners){ if(!activeUids.has(uid) && uid!==activeUser?.uid){ entry.unsub?.(); userListeners.delete(uid); } }
     conversations.forEach(c=>ensureUserListener(otherUid(c)));
+    callController.syncConversationListeners(conversations);
     renderChatList();
+    if (!callLinkConsumed) { callLinkConsumed = true; callController.consumeCallLink().catch(() => {}); consumeGroupInviteLink().catch(() => {}); }
   },e=>{console.error(e);$id("chatList").innerHTML='<div class="empty-state">Chats could not be loaded.<br><span>Check your Firebase connection and rules.</span></div>';});
 }
 function otherUid(c){return Array.isArray(c.members)?c.members.find(uid=>uid!==currentUser.uid):null;}
@@ -576,7 +725,7 @@ function renderChatList(){
   const filtered=visible.filter(c=>matchesChat(conversationDisplay(c),chatSearchTerm))
     .sort((a,b)=>{const pa=a.pinned?.[currentUser.uid]?1:0,pb=b.pinned?.[currentUser.uid]?1:0;if(pa!==pb)return pb-pa;return(b.lastMessageTime?.toMillis?.()??b.createdAt?.toMillis?.()??0)-(a.lastMessageTime?.toMillis?.()??a.createdAt?.toMillis?.()??0);});
   if(!filtered.length){box.innerHTML=chatSearchTerm?`<div class="empty-state">No conversations match “${escapeHtml(chatSearchTerm)}”.</div>`:'<div class="empty-state big">Your inbox is quiet.<br><span>Start a new chat to connect.</span></div>';return;}
-  box.innerHTML=filtered.map(c=>{const isGroup=c.type==="group";const uid=isGroup?null:otherUid(c);const user=conversationDisplay(c),unread=Number(c.unread?.[currentUser.uid]||0),when=c.lastMessageTime?.toDate?.()||c.createdAt?.toDate?.(),blocked=!isGroup&&currentBlockedUsers.has(uid),pinned=!!c.pinned?.[currentUser.uid];let preview=c.lastMessage?previewText({type:c.lastMessageType,text:c.lastMessage},{isMine:c.lastMessageSenderId===currentUser.uid}):"No messages yet";if(isGroup&&c.lastMessage&&c.lastMessageSenderId&&c.lastMessageSenderId!==currentUser.uid){const senderName=(userListeners.get(c.lastMessageSenderId)?.data?.name||"").split(" ")[0];if(senderName)preview=`${senderName}: ${preview}`;}if(localHiddenLatest.has(c.id))preview="Message hidden for you";return `<button class="chat-item ${activeConversationId===c.id?"active":""} ${pinned?"is-pinned":""}" data-conversation-id="${escapeHtml(c.id)}" type="button">${avatarHtml(user,{dot:!isGroup})}${isGroup?`<span class="group-badge">${ICONS.profile}</span>`:""}<span class="meta"><span class="top-line"><strong>${escapeHtml(user.name||"User")}</strong>${pinned?`<span class="pin-indicator" title="Pinned">${ICONS.bookmark}</span>`:""}<span class="time">${escapeHtml(when?formatWhen(when):"")}</span></span><span class="preview-line"><span class="text">${escapeHtml(blocked?"Blocked":preview)}</span>${unread>0&&!blocked?`<span class="unread-badge">${unread>99?"99+":unread}</span>`:""}</span></span></button>`;}).join("");
+  box.innerHTML=filtered.map(c=>{const isGroup=c.type==="group";const uid=isGroup?null:otherUid(c);const user=conversationDisplay(c),unread=Number(c.unread?.[currentUser.uid]||0),when=c.lastMessageTime?.toDate?.()||c.createdAt?.toDate?.(),blocked=!isGroup&&currentBlockedUsers.has(uid),pinned=!!c.pinned?.[currentUser.uid],locked=!!currentUserSettings?.lockedChats?.[c.id];let preview=locked?"🔒 Locked chat":(c.lastMessage?previewText({type:c.lastMessageType,text:c.lastMessage},{isMine:c.lastMessageSenderId===currentUser.uid}):"No messages yet");if(!locked&&isGroup&&c.lastMessage&&c.lastMessageSenderId&&c.lastMessageSenderId!==currentUser.uid){const senderName=(userListeners.get(c.lastMessageSenderId)?.data?.name||"").split(" ")[0];if(senderName)preview=`${senderName}: ${preview}`;}if(!locked&&localHiddenLatest.has(c.id))preview="Message hidden for you";return `<button class="chat-item ${activeConversationId===c.id?"active":""} ${pinned?"is-pinned":""}" data-conversation-id="${escapeHtml(c.id)}" type="button">${avatarHtml(user,{dot:!isGroup})}${isGroup?`<span class="group-badge">${ICONS.profile}</span>`:""}${locked?'<span class="chat-lock-indicator" title="Locked chat">🔒</span>':''}<span class="meta"><span class="top-line"><strong>${escapeHtml(user.name||"User")}</strong>${pinned?`<span class="pin-indicator" title="Pinned">${ICONS.bookmark}</span>`:""}<span class="time">${escapeHtml(when?formatWhen(when):"")}</span></span><span class="preview-line"><span class="text">${escapeHtml(blocked?"Blocked":preview)}</span>${unread>0&&!blocked&&!locked?`<span class="unread-badge">${unread>99?"99+":unread}</span>`:""}</span></span></button>`;}).join("");
   filtered.forEach(c=>{const isGroup=c.type==="group";const uid=isGroup?null:otherUid(c);const user=conversationDisplay(c),row=box.querySelector(`[data-conversation-id="${CSS.escape(c.id)}"]`);paintAvatar(row?.querySelector(".avatar"),user);if(!isGroup)setStatusDot(row?.querySelector(".status-dot"),isUserOnline(user));});
   box.querySelectorAll(".chat-item").forEach(row=>{
     let pressTimer=null,longPressed=false;
@@ -590,6 +739,7 @@ function renderChatList(){
 
 /* Active chat */
 async function openChatById(conversationId,hintedUid=null){
+  const convLocked=!!currentUserSettings?.lockedChats?.[conversationId]; if(convLocked && !(await requireAppUnlock())) return;
   if(!currentUser||!conversationId)return;
   try{
     const snap=await getDoc(doc(db,"conversations",conversationId));if(!snap.exists()){showToast("Conversation is not available yet.","info");return;}
@@ -606,7 +756,7 @@ async function openChatById(conversationId,hintedUid=null){
       }));
       activeGroupMembers=new Map(profiles);
       members.forEach(uid=>{if(uid!==currentUser.uid)ensureUserListener(uid);});
-      activeUser={uid:null,isGroup:true,name:data.groupName||"Group",photoURL:data.groupPhotoURL||"",memberCount:members.length,members,admins:data.groupAdmins||[]};
+      activeUser={uid:null,isGroup:true,name:data.groupName||"Group",photoURL:data.groupPhotoURL||"",memberCount:members.length,members,admins:data.groupAdmins||[],moderators:data.groupModerators||[],roles:data.groupRoles||{},joinApproval:data.joinApproval!==false,description:data.groupDescription||"",inviteVersion:data.inviteVersion||1};
     }else{
       const other=members.find(uid=>uid!==currentUser.uid)||hintedUid;if(!other)return;
       const user=userListeners.get(other)?.data||(await getDoc(doc(db,"users",other))).data();if(!user){showToast("User profile not found.","error");return;}
@@ -615,7 +765,7 @@ async function openChatById(conversationId,hintedUid=null){
       ensureUserListener(other);
     }
 
-    $id("app")?.classList.add("chat-open");clearImagePreview();clearReply();$id("chatMoreBtn").disabled=false;$id("chatMoreBtn")?.setAttribute("aria-hidden","false");refreshChatHeader();setComposerState();renderProfileDrawer();renderChatList();
+    $id("app")?.classList.add("chat-open");clearImagePreview();clearReply();$id("chatMoreBtn").disabled=false;$id("chatPopoutBtn")?.removeAttribute("disabled");$id("chatMoreBtn")?.setAttribute("aria-hidden","false");refreshChatHeader();setComposerState();renderProfileDrawer();renderChatList();
     await updateDoc(doc(db,"conversations",conversationId),{[`unread.${currentUser.uid}`]:0}).catch(()=>{});
     listenMessages();listenTyping();
   }catch(e){console.error("Open chat failed",e);showToast(e?.code==="permission-denied"?"You don't have access to this chat.":"Could not open this chat.","error");}
@@ -630,26 +780,97 @@ function refreshChatHeader(){
     setStatusDot($id("chatStatusDot"),false);
     paintAvatar($id("chatAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name});
     setComposerState();
+    $id("chatVoiceCallBtn")?.setAttribute("hidden","");
+    $id("chatVideoCallBtn")?.setAttribute("hidden","");
+    $id("groupCallBtn")?.removeAttribute("hidden");
+    $id("pollBtn")?.removeAttribute("hidden");
+    $id("eventBtn")?.removeAttribute("hidden");
     return;
   }
-  const live=userListeners.get(activeUser.uid)?.data;if(live)activeUser={...activeUser,...live};const online=isUserOnline(activeUser),blocked=currentBlockedUsers.has(activeUser.uid);$id("chatName").textContent=activeUser.name||(activeUser.username?`@${activeUser.username}`:"User");
+  const live=userListeners.get(activeUser.uid)?.data;if(live)activeUser={...activeUser,...live};$id("groupCallBtn")?.setAttribute("hidden","");
+  $id("pollBtn")?.setAttribute("hidden","");
+  $id("eventBtn")?.setAttribute("hidden","");
+  $id("chatVoiceCallBtn")?.removeAttribute("hidden");
+  $id("chatVideoCallBtn")?.removeAttribute("hidden");
+  const online=isUserOnline(activeUser),blocked=currentBlockedUsers.has(activeUser.uid);$id("chatName").textContent=activeUser.name||(activeUser.username?`@${activeUser.username}`:"User");
   // Last seen is mutual: if either side has turned it off, neither can see the other's last-seen time.
-  const canSeeLastSeen=!currentUserData.hideLastSeen&&!activeUser.hideLastSeen;
+  const canSeeLastSeen=currentUserData.hideLastSeen!==true&&activeUser.hideLastSeen!==true;
   const status=blocked?"Blocked by you":online?"Active now":(canSeeLastSeen?`Offline · ${formatLastSeen(activeUser.lastSeen?.toDate?.()||null)}`:"Offline");$id("chatStatus").textContent=status;$id("chatStatusPill").hidden=!online||blocked;if(!$id("chatStatusPill").hidden)$id("chatStatusPill").textContent="Online";setStatusDot($id("chatStatusDot"),online&&!blocked);paintAvatar($id("chatAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name,email:activeUser.email});setComposerState();}
 function isBlockedByEither(){return !!(activeUser&&currentBlockedUsers.has(activeUser.uid));}
-function setComposerState(){const blocked=isBlockedByEither(),enabled=!!activeUser&&!!activeConversationId&&!blocked&&!sendingMessage;$id("messageInput").disabled=!enabled;$id("attachBtn").disabled=!enabled;$id("emojiBtn").disabled=!enabled;$id("stickerBtn").disabled=!enabled;$id("voiceNoteBtn").disabled=!enabled;$id("messageForm").querySelector("button[type=submit]").disabled=!enabled;$id("messageInput").placeholder=blocked?"Messaging is blocked":"Write a message…";const notice=$id("blockedNotice");if(blocked){notice.hidden=false;notice.innerHTML=`<span>${ICONS.block}</span><span>You blocked this person. Unblock them to continue.</span>`;}else notice.hidden=true;}
+function setComposerState(){const blocked=isBlockedByEither(),enabled=!!activeUser&&!!activeConversationId&&!blocked&&!sendingMessage;$id("chatSearchBtn")?.toggleAttribute("disabled",!activeConversationId);$id("chatPopoutBtn")?.toggleAttribute("disabled",!activeConversationId);["messageInput","attachBtn","emojiBtn","stickerBtn","gifBtn","contactBtn","locationBtn","pollBtn","eventBtn","voiceNoteBtn"].forEach(id=>{const el=$id(id);if(el)el.disabled=!enabled;});$id("messageForm")?.querySelector("button[type=submit]")?.toggleAttribute("disabled",!enabled);const input=$id("messageInput");if(input)input.placeholder=blocked?"Messaging is blocked":"Write a message…";const notice=$id("blockedNotice");if(blocked){notice.hidden=false;notice.innerHTML=`<span>${ICONS.block}</span><span>You blocked this person. Unblock them to continue.</span>`;}else notice.hidden=true;}
 function renderChatMoreMenu(){
   const menu=$id("chatMoreMenu");if(!menu||!activeUser)return;
   if(activeUser.isGroup){
     const isAdmin=(activeUser.admins||[]).includes(currentUser.uid);
-    menu.innerHTML=`<div class="dropdown-label">Group</div><button class="dropdown-item" id="viewProfileBtn">${ICONS.profile}<span>Group info</span></button><button class="dropdown-item" id="clearChatBtn">${ICONS.trash}<span>Clear chat</span></button>${isAdmin?`<button class="dropdown-item" id="renameGroupBtn">${ICONS.copy}<span>Rename group</span></button>`:""}<button class="dropdown-item danger-item" id="leaveGroupMenuBtn">${ICONS.block}<span>Leave group</span></button>`;
+    const isModerator=isAdmin||(activeUser.moderators||[]).includes(currentUser.uid);
+    menu.innerHTML=`<div class="dropdown-label">Group</div>
+      <button class="dropdown-item" id="viewProfileBtn">${ICONS.profile}<span>Group info</span></button>
+      <button class="dropdown-item" id="groupInviteMenuBtn">🔗<span>Invite to group</span></button>
+      ${isAdmin?`<button class="dropdown-item" id="groupJoinRequestsMenuBtn">✅<span>Join requests</span></button><button class="dropdown-item" id="groupSettingsMenuBtn">⚙️<span>Group settings</span></button>`:""}
+      ${isModerator?`<button class="dropdown-item" id="groupPollMenuBtn">📊<span>Create poll</span></button><button class="dropdown-item" id="groupEventMenuBtn">📅<span>Create event</span></button>`:""}
+      <button class="dropdown-item" id="groupCallHistoryMenuBtn">📞<span>Call history</span></button>
+      <button class="dropdown-item" id="chatAIAskBtn">✦<span>Ask CUNNACT AI</span></button>
+      <button class="dropdown-item" id="chatAISummaryBtn">📝<span>Summarize chat</span></button>
+      <button class="dropdown-item" id="clearChatBtn">${ICONS.trash}<span>Clear chat</span></button>
+      <button class="dropdown-item danger-item" id="leaveGroupMenuBtn">${ICONS.block}<span>Leave group</span></button>`;
     menu.querySelector("#viewProfileBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();});
+    menu.querySelector("#groupInviteMenuBtn")?.addEventListener("click",()=>{menu.hidden=true;openGroupInviteModal();});
+    menu.querySelector("#groupJoinRequestsMenuBtn")?.addEventListener("click",()=>{menu.hidden=true;openGroupJoinRequestsModal();});
+    menu.querySelector("#groupSettingsMenuBtn")?.addEventListener("click",()=>{menu.hidden=true;openGroupSettingsModal();});
+    menu.querySelector("#groupPollMenuBtn")?.addEventListener("click",()=>{menu.hidden=true;openGroupPollModal();});
+    menu.querySelector("#groupEventMenuBtn")?.addEventListener("click",()=>{menu.hidden=true;openGroupEventModal();});
+    menu.querySelector("#groupCallHistoryMenuBtn")?.addEventListener("click",()=>{menu.hidden=true;callController.showHistory(activeConversationId);});
     menu.querySelector("#clearChatBtn")?.addEventListener("click",async()=>{menu.hidden=true;await clearChatForMe();});
-    menu.querySelector("#renameGroupBtn")?.addEventListener("click",()=>{menu.hidden=true;promptRenameGroup();});
     menu.querySelector("#leaveGroupMenuBtn")?.addEventListener("click",async()=>{menu.hidden=true;await leaveGroupChat();});
     return;
   }
-  const blocked=currentBlockedUsers.has(activeUser.uid);menu.innerHTML=`<div class="dropdown-label">Conversation</div><button class="dropdown-item" id="viewProfileBtn">${ICONS.profile}<span>View profile</span></button><button class="dropdown-item" id="sharedMediaBtn">${ICONS.copy}<span>Shared media</span></button><button class="dropdown-item" id="callSoonBtn">${ICONS.reply}<span>Voice / video call</span></button><button class="dropdown-item" id="clearChatBtn">${ICONS.trash}<span>Clear chat</span></button><button class="dropdown-item ${blocked?"":"danger-item"}" id="blockToggleBtn">${blocked?ICONS.unlock:ICONS.block}<span>${blocked?"Unblock user":"Block user"}</span></button>`;menu.querySelector("#viewProfileBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();});menu.querySelector("#sharedMediaBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();document.querySelector("#sharedMediaGrid")?.scrollIntoView({block:"nearest"});});menu.querySelector("#callSoonBtn")?.addEventListener("click",()=>{menu.hidden=true;showToast("Voice and video calls are coming soon.","info");});menu.querySelector("#clearChatBtn")?.addEventListener("click",async()=>{menu.hidden=true;await clearChatForMe();});menu.querySelector("#blockToggleBtn")?.addEventListener("click",async()=>{menu.hidden=true;const shouldBlock=!blocked;if(shouldBlock){const ok=await showConfirmDialog({title:"Block this user?",message:"They won't be able to send you messages until you unblock them.",confirmText:"Block user",cancelText:"Cancel",danger:true});if(!ok)return;}await toggleBlockUser(activeUser.uid,shouldBlock);});}
+  const blocked=currentBlockedUsers.has(activeUser.uid);
+  menu.innerHTML=`<div class="dropdown-label">Conversation</div><button class="dropdown-item" id="viewProfileBtn">${ICONS.profile}<span>View profile</span></button><button class="dropdown-item" id="sharedMediaBtn">${ICONS.copy}<span>Shared media</span></button><button class="dropdown-item" id="callMenuVoiceBtn">📞<span>Voice call</span></button><button class="dropdown-item" id="callMenuVideoBtn">🎥<span>Video call</span></button><button class="dropdown-item" id="callHistoryMenuBtn">🕘<span>Call history</span></button><button class="dropdown-item" id="chatAIAskBtn">✦<span>Ask CUNNACT AI</span></button><button class="dropdown-item" id="chatAISummaryBtn">📝<span>Summarize chat</span></button><button class="dropdown-item" id="smartRepliesBtn">💬<span>Smart replies</span></button><button class="dropdown-item" id="lockChatBtn">🔒<span>${currentUserSettings?.lockedChats?.[activeConversationId]?"Unlock chat":"Lock chat"}</span></button><button class="dropdown-item" id="disappearingBtn">⏳<span>Disappearing messages</span></button><button class="dropdown-item" id="clearChatBtn">${ICONS.trash}<span>Clear chat</span></button><button class="dropdown-item ${blocked?"":"danger-item"}" id="blockToggleBtn">${blocked?ICONS.unlock:ICONS.block}<span>${blocked?"Unblock user":"Block user"}</span></button><button class="dropdown-item danger-item" id="reportUserBtn">⚑<span>Report user</span></button>`;
+  menu.querySelector("#viewProfileBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();});
+  menu.querySelector("#sharedMediaBtn")?.addEventListener("click",()=>{menu.hidden=true;openProfileDrawer();document.querySelector("#sharedMediaGrid")?.scrollIntoView({block:"nearest"});});
+  menu.querySelector("#callMenuVoiceBtn")?.addEventListener("click",()=>{menu.hidden=true;startActiveCall("voice");});
+  menu.querySelector("#callMenuVideoBtn")?.addEventListener("click",()=>{menu.hidden=true;startActiveCall("video");});
+  menu.querySelector("#callHistoryMenuBtn")?.addEventListener("click",()=>{menu.hidden=true;callController.showHistory(activeConversationId);});
+  menu.querySelector("#chatAIAskBtn")?.addEventListener("click",()=>{menu.hidden=true;aiFeatures?.open("assistant");});
+  menu.querySelector("#chatAISummaryBtn")?.addEventListener("click",()=>{menu.hidden=true;aiFeatures?.open("summary");});
+  menu.querySelector("#smartRepliesBtn")?.addEventListener("click",()=>{menu.hidden=true;aiFeatures?.open("smart-replies");});
+  menu.querySelector("#clearChatBtn")?.addEventListener("click",async()=>{menu.hidden=true;await clearChatForMe();});
+  menu.querySelector("#blockToggleBtn")?.addEventListener("click",async()=>{menu.hidden=true;const shouldBlock=!blocked;if(shouldBlock){const ok=await showConfirmDialog({title:"Block this user?",message:"They won't be able to send you messages until you unblock them.",confirmText:"Block user",cancelText:"Cancel",danger:true});if(!ok)return;}await toggleBlockUser(activeUser.uid,shouldBlock);});
+  menu.querySelector("#lockChatBtn")?.addEventListener("click",async()=>{
+    menu.hidden=true;
+    const locked=!!currentUserSettings?.lockedChats?.[activeConversationId];
+    currentUserSettings.lockedChats={...(currentUserSettings.lockedChats||{})};
+    try{
+      if(locked){
+        delete currentUserSettings.lockedChats[activeConversationId];
+        await setUserSetting(currentUser.uid,{lockedChats:currentUserSettings.lockedChats});
+        showToast("Chat unlocked","success");
+      }else{
+        // Chat lock deliberately reuses the app-lock PIN so there is only one recovery secret.
+        if(!isAppLockEnabled(currentUserSettings)){
+          const pin=window.prompt("Create a 4–8 digit CUNNACT lock PIN");
+          if(!/^\d{4,8}$/.test(pin||"")){showToast("PIN must be 4–8 digits.","error");return;}
+          const {salt,hash}=await createPinHash(pin);
+          currentUserSettings.appLockEnabled=true; currentUserSettings.appLockSalt=salt; currentUserSettings.appLockHash=hash;
+          await setUserSetting(currentUser.uid,{appLockEnabled:true,appLockSalt:salt,appLockHash:hash});
+          showToast("App lock PIN created. It will protect this chat.","info");
+        }
+        currentUserSettings.lockedChats[activeConversationId]=true;
+        await setUserSetting(currentUser.uid,{lockedChats:currentUserSettings.lockedChats});
+        showToast("Chat locked","success");
+      }
+      renderChatList(); renderChatMoreMenu();
+    }catch(e){console.error(e);showToast("Could not update chat lock.","error");}
+  });
+  menu.querySelector("#reportUserBtn")?.addEventListener("click",async()=>{menu.hidden=true;const reason=window.prompt("Reason for reporting this user (optional)")||"General report";try{await setDoc(doc(collection(db,"reports")),{reporterId:currentUser.uid,reportedUserId:activeUser.uid,conversationId:activeConversationId,reason:String(reason).slice(0,300),createdAt:serverTimestamp(),status:"open"});showToast("Report submitted","success");}catch(e){showToast("Could not submit report","error");}});
+  menu.querySelector("#disappearingBtn")?.addEventListener("click",async()=>{menu.hidden=true;const value=window.prompt("Disappearing messages: 0=off, or seconds (60, 3600, 86400)",String(activeConversation?.disappearingSeconds||0));const seconds=Number(value);if(!Number.isInteger(seconds)||seconds<0||seconds>604800){showToast("Use 0 or a value up to 7 days.","error");return;}try{await updateDoc(doc(db,"conversations",activeConversationId),{disappearingSeconds:seconds});activeConversation={...activeConversation,disappearingSeconds:seconds};showToast(seconds?`Messages will disappear after ${seconds<3600?`${Math.round(seconds/60)} min`:seconds<86400?`${Math.round(seconds/3600)} hr`:`${Math.round(seconds/86400)} day`}`:"Disappearing messages off","success");}catch(e){showToast(e?.code==="permission-denied"?"Only a chat member can change this setting.":"Could not update disappearing messages","error");}});
+}
+
+async function startActiveCall(callType="voice"){
+  if(!activeConversationId||!activeUser||!currentUser)return;
+  const ids=activeUser.isGroup?(activeUser.members||[]).filter(uid=>uid!==currentUser.uid):[activeUser.uid];
+  await callController.startCall({conversationId:activeConversationId,participantIds:ids,callType,type:activeUser.isGroup?"group":"direct",title:activeUser.isGroup?(activeUser.name||"Group call"):(activeUser.name||"Call")});
+}
 
 async function clearChatForMe(){
   if(!activeConversationId||!currentUser)return false;
@@ -731,7 +952,9 @@ async function leaveGroupChat(){
     const c=conversations.find(x=>x.id===activeConversationId);
     const remainingMembers=(c?.members||activeUser.members||[]).filter(uid=>uid!==currentUser.uid);
     const remainingAdmins=(c?.groupAdmins||activeUser.admins||[]).filter(uid=>uid!==currentUser.uid);
-    await updateDoc(doc(db,"conversations",activeConversationId),{members:remainingMembers,groupAdmins:remainingAdmins});
+    const remainingModerators=(c?.groupModerators||activeUser.moderators||[]).filter(uid=>uid!==currentUser.uid);
+    const remainingRoles={...(c?.groupRoles||activeUser.roles||{})};delete remainingRoles[currentUser.uid];
+    await updateDoc(doc(db,"conversations",activeConversationId),{members:remainingMembers,groupAdmins:remainingAdmins,groupModerators:remainingModerators,groupRoles:remainingRoles});
     activeConversationId=null;activeUser=null;activeConversation=null;$id("app")?.classList.remove("chat-open");
     closeProfileDrawer();renderChatList();
     showToast("You left the group","success");
@@ -746,6 +969,8 @@ function contactList(){
 function openNewGroupModal(){
   openModal("newGroupModal");
   const nameInput=$id("newGroupName");if(nameInput)nameInput.value="";
+  const descInput=$id("newGroupDescription");if(descInput)descInput.value="";
+  if($id("newGroupJoinApproval"))$id("newGroupJoinApproval").checked=true;
   $id("newGroupError").textContent="";
   renderGroupMemberPicker();
 }
@@ -771,7 +996,9 @@ async function createGroup(){
     const unread={};members.forEach(uid=>{unread[uid]=0;});
     await setDoc(ref,{
       type:"group",members,groupName:name.slice(0,60),groupPhotoURL:"",
-      groupAdmins:[currentUser.uid],createdBy:currentUser.uid,createdAt:serverTimestamp(),
+      groupDescription:String($id("newGroupDescription")?.value||"").trim().slice(0,240),
+      groupAdmins:[currentUser.uid],groupModerators:[],groupRoles:{[currentUser.uid]:"admin"},joinApproval:$id("newGroupJoinApproval")?.checked!==false,
+      createdBy:currentUser.uid,createdAt:serverTimestamp(),
       lastMessage:"",lastMessageType:"text",lastMessageSenderId:"",lastMessageId:"",lastMessageTime:serverTimestamp(),
       unread,pinned:{},hiddenFor:{}
     });
@@ -799,7 +1026,7 @@ async function addGroupMembers(){
   try{
     const newMembers=[...existing,...toAdd];
     const unreadPatch={};toAdd.forEach(uid=>{unreadPatch[`unread.${uid}`]=0;});
-    await updateDoc(doc(db,"conversations",activeConversationId),{members:newMembers,groupAdmins:activeUser.admins||[],...unreadPatch});
+    await updateDoc(doc(db,"conversations",activeConversationId),{members:newMembers,groupAdmins:activeUser.admins||[],groupModerators:activeUser.moderators||[],groupRoles:activeUser.roles||{},...unreadPatch});
     showToast("Members added","success");
     await openChatById(activeConversationId);
   }catch(e){console.error("Add members failed",e);showToast("Could not add members.","error");}
@@ -812,11 +1039,78 @@ async function removeGroupMember(uid){
   try{
     const newMembers=(activeUser.members||[]).filter(m=>m!==uid);
     const newAdmins=(activeUser.admins||[]).filter(m=>m!==uid);
-    await updateDoc(doc(db,"conversations",activeConversationId),{members:newMembers,groupAdmins:newAdmins});
+    const newModerators=(activeUser.moderators||[]).filter(m=>m!==uid);
+    const newRoles={...(activeUser.roles||{})};delete newRoles[uid];
+    await updateDoc(doc(db,"conversations",activeConversationId),{members:newMembers,groupAdmins:newAdmins,groupModerators:newModerators,groupRoles:newRoles});
     showToast("Member removed","success");
     await openChatById(activeConversationId);
   }catch(e){console.error("Remove member failed",e);showToast(e?.code==="permission-denied"?"Only group admins can remove members.":"Could not remove that member.","error");}
 }
+
+
+async function openGroupInviteModal(){
+  if(!activeConversationId||!activeUser?.isGroup)return;
+  const box=$id("groupInviteLink");const qr=$id("groupInviteQr");
+  try{
+    const token=`${currentUser.uid}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,14)}`.replace(/[^a-zA-Z0-9_\-]/g,"");
+    const ref=doc(db,"conversations",activeConversationId,"invites",token);
+    await setDoc(ref,{token,conversationId:activeConversationId,createdBy:currentUser.uid,active:true,joinApproval:activeUser.joinApproval!==false,groupName:activeUser.name||"Group",createdAt:serverTimestamp()});
+    const url=new URL(location.href);url.search="";url.searchParams.set("groupInvite",activeConversationId);url.searchParams.set("invite",token);
+    window.__cunnactGroupInviteUrl=url.href;
+    if(box)box.value=url.href;
+    if(qr)qr.src=`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url.href)}`;
+    openModal("groupInviteModal");
+  }catch(e){console.error("Invite creation failed",e);showToast(e?.code==="permission-denied"?"Only group admins can create invite links.":"Could not create invite link.","error");}
+}
+async function copyGroupInvite(){const value=window.__cunnactGroupInviteUrl||$id("groupInviteLink")?.value;if(!value)return;try{await navigator.clipboard.writeText(value);showToast("Group invite link copied","success");}catch{showToast("Could not copy the invite link.","error");}}
+async function openGroupJoinRequestsModal(){
+  if(!activeConversationId||!activeUser?.isGroup)return;
+  const box=$id("groupJoinRequestsList");if(!box)return;
+  box.innerHTML='<div class="empty-state">Loading join requests…</div>';
+  try{
+    const snap=await getDocs(collection(db,"conversations",activeConversationId,"joinRequests"));
+    const rows=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="pending");
+    if(!rows.length){box.innerHTML='<div class="empty-state">No pending join requests.</div>';}
+    else{box.innerHTML=rows.map(r=>`<div class="join-request-row" data-uid="${escapeHtml(r.userId)}"><div class="meta"><strong>${escapeHtml(r.userName||"CUNNACT user")}</strong><small>@${escapeHtml(r.username||"")}</small></div><div class="join-request-actions"><button type="button" class="btn btn-primary btn-sm approve-join">Approve</button><button type="button" class="btn btn-soft btn-sm reject-join">Reject</button></div></div>`).join("");
+      box.querySelectorAll(".join-request-row").forEach(row=>{const uid=row.dataset.uid;row.querySelector(".approve-join")?.addEventListener("click",()=>resolveGroupJoinRequest(uid,true));row.querySelector(".reject-join")?.addEventListener("click",()=>resolveGroupJoinRequest(uid,false));});
+    }
+  }catch(e){console.error(e);box.innerHTML='<div class="empty-state">Join requests could not be loaded.</div>';}
+  openModal("groupJoinRequestsModal");
+}
+async function resolveGroupJoinRequest(uid,approve){
+  if(!activeConversationId||!activeUser?.isGroup||!(activeUser.admins||[]).includes(currentUser.uid)||!uid)return;
+  try{
+    const reqRef=doc(db,"conversations",activeConversationId,"joinRequests",uid);const reqSnap=await getDoc(reqRef);if(!reqSnap.exists())return;const req=reqSnap.data()||{};if(req.status!=="pending")return;
+    const updates={status:approve?"approved":"rejected",reviewedBy:currentUser.uid,reviewedAt:serverTimestamp()};
+    const batch=writeBatch(db);batch.update(reqRef,updates);
+    if(approve && !activeUser.members.includes(uid)){
+      const members=[...activeUser.members,uid];const unread={};unread[uid]=0;
+      const roles={...(activeUser.roles||{}),[uid]:"member"};
+      batch.update(doc(db,"conversations",activeConversationId),{members,unread,groupRoles:roles});
+    }
+    await batch.commit();showToast(approve?"Member approved":"Join request rejected","success");openGroupJoinRequestsModal();
+  }catch(e){console.error(e);showToast("Could not update that join request. Deploy the latest firestore.rules.","error");}
+}
+async function openGroupSettingsModal(){
+  if(!activeUser?.isGroup)return;
+  $id("groupSettingsName").value=activeUser.name||"";$id("groupSettingsDescription").value=activeUser.description||"";$id("groupSettingsJoinApproval").checked=activeUser.joinApproval!==false;
+  openModal("groupSettingsModal");
+}
+async function saveGroupSettings(){
+  if(!activeConversationId||!activeUser?.isGroup)return;
+  const isAdmin=(activeUser.admins||[]).includes(currentUser.uid);if(!isAdmin){showToast("Only group admins can change settings.","error");return;}
+  const name=String($id("groupSettingsName")?.value||"").trim().slice(0,60);const description=String($id("groupSettingsDescription")?.value||"").trim().slice(0,240);if(!name){showToast("Group name cannot be empty.","error");return;}
+  try{await updateDoc(doc(db,"conversations",activeConversationId),{groupName:name,groupDescription:description,joinApproval:$id("groupSettingsJoinApproval")?.checked!==false});closeModal("groupSettingsModal");await openChatById(activeConversationId);showToast("Group settings saved","success");}catch(e){console.error(e);showToast(e?.code==="permission-denied"?"Firebase blocked group settings. Deploy the latest firestore.rules.":"Could not save group settings.","error");}
+}
+async function uploadGroupPhoto(){
+  if(!activeConversationId||!activeUser?.isGroup||!(activeUser.admins||[]).includes(currentUser.uid))return;
+  const input=$id("groupPhotoInput");const file=input?.files?.[0];if(!file)return;
+  try{const url=await uploadImageToCloudinary(file);await updateDoc(doc(db,"conversations",activeConversationId),{groupPhotoURL:url});showToast("Group photo updated","success");closeModal("groupSettingsModal");await openChatById(activeConversationId);}catch(e){console.error(e);showToast(e?.userMessage||"Could not upload group photo.","error");}finally{if(input)input.value="";}
+}
+async function openGroupPollModal(){if(!activeUser?.isGroup)return; $id("pollQuestion").value=""; $id("pollOptions").value="";openModal("groupPollModal");setTimeout(()=>$id("pollQuestion")?.focus(),20);}
+async function sendGroupPoll(){if(!activeUser?.isGroup)return;const q=String($id("pollQuestion")?.value||"").trim();const options=String($id("pollOptions")?.value||"").split(/\n|,/).map(x=>x.trim()).filter(Boolean).slice(0,10);if(!q||options.length<2){showToast("Add a question and at least two options.","error");return;}try{await sendMessage({type:"poll",text:q,pollQuestion:q,pollOptions:options});closeModal("groupPollModal");playSend();showToast("Poll sent","success");}catch(e){console.error(e);showToast("Could not send the poll.","error");}}
+async function openGroupEventModal(){if(!activeUser?.isGroup)return;$id("eventTitle").value="";$id("eventWhen").value="";$id("eventDescription").value="";openModal("groupEventModal");setTimeout(()=>$id("eventTitle")?.focus(),20);}
+async function sendGroupEvent(){if(!activeUser?.isGroup)return;const title=String($id("eventTitle")?.value||"").trim();const when=String($id("eventWhen")?.value||"").trim();const desc=String($id("eventDescription")?.value||"").trim();if(!title||!when){showToast("Add an event title and date/time.","error");return;}try{await sendMessage({type:"event",text:title,eventTitle:title,eventWhen:new Date(when).toISOString(),eventDescription:desc});closeModal("groupEventModal");playSend();showToast("Event shared","success");}catch(e){console.error(e);showToast("Could not send the event.","error");}}
 
 function showChatItemContextMenu(conversationId,anchorEl,clientX,clientY){
   closeChatItemContextMenu();
@@ -839,8 +1133,8 @@ async function loadBlockedUsers(){currentBlockedUsers=new Set();if(!currentUser)
 async function toggleBlockUser(uid,shouldBlock){try{const ref=doc(db,"users",currentUser.uid,"blockedUsers",uid);if(shouldBlock)await setDoc(ref,{uid,createdAt:serverTimestamp()});else await deleteDoc(ref);shouldBlock?currentBlockedUsers.add(uid):currentBlockedUsers.delete(uid);renderChatList();refreshChatHeader();setComposerState();showToast(shouldBlock?"User blocked":"User unblocked","success");}catch(e){console.error(e);showToast("Could not update block setting.","error");}}
 
 /* Typing */
-function listenTyping(){unsubscribeTyping?.();if(!activeConversationId)return;const dots='<i></i><i></i><i></i> ';unsubscribeTyping=onSnapshot(collection(db,"conversations",activeConversationId,"typing"),snap=>{const el=$id("chatTyping");if(!el)return;if(activeUser?.isGroup){const typers=snap.docs.filter(d=>d.id!==currentUser.uid&&d.data()?.typing===true).map(d=>(activeGroupMembers.get(d.id)?.name||"Someone").split(" ")[0]);el.hidden=!typers.length;if(typers.length)el.innerHTML=dots+escapeHtml(`${typers.slice(0,2).join(", ")}${typers.length>1?" are":" is"} typing…`);return;}const other=activeUser?.uid;const state=snap.docs.some(d=>d.id===other&&d.data()?.typing===true);el.hidden=!state;el.innerHTML=dots+"typing…";},()=>{const el=$id("chatTyping");if(el)el.hidden=true;});}
-const sendTypingState=debounce(async(typing)=>{if(!activeConversationId||!currentUser)return;const ref=doc(db,"conversations",activeConversationId,"typing",currentUser.uid);try{if(typing)await setDoc(ref,{uid:currentUser.uid,typing:true,updatedAt:serverTimestamp()},{merge:true});else await deleteDoc(ref);}catch(e){}},450);
+function listenTyping(){unsubscribeTyping?.();if(!activeConversationId||currentUserData.showTypingIndicators===false)return;const dots='<i></i><i></i><i></i> ';unsubscribeTyping=onSnapshot(collection(db,"conversations",activeConversationId,"typing"),snap=>{const el=$id("chatTyping");if(!el)return;if(activeUser?.isGroup){const typers=snap.docs.filter(d=>d.id!==currentUser.uid&&d.data()?.typing===true).map(d=>(activeGroupMembers.get(d.id)?.name||"Someone").split(" ")[0]);el.hidden=!typers.length;if(typers.length)el.innerHTML=dots+escapeHtml(`${typers.slice(0,2).join(", ")}${typers.length>1?" are":" is"} typing…`);return;}const other=activeUser?.uid;const state=snap.docs.some(d=>d.id===other&&d.data()?.typing===true);el.hidden=!state;el.innerHTML=dots+"typing…";},()=>{const el=$id("chatTyping");if(el)el.hidden=true;});}
+const sendTypingState=debounce(async(typing)=>{if(!activeConversationId||!currentUser||currentUserData.showTypingIndicators===false)return;const ref=doc(db,"conversations",activeConversationId,"typing",currentUser.uid);try{if(typing)await setDoc(ref,{uid:currentUser.uid,typing:true,updatedAt:serverTimestamp()},{merge:true});else await deleteDoc(ref);}catch(e){}},450);
 function handleTypingInput(){const typing=!!$id("messageInput")?.value.trim();clearTimeout(window.__cunnactTypingTimer);if(typing){sendTypingState(true);window.__cunnactTypingTimer=setTimeout(()=>sendTypingState(false),2500);}else sendTypingState(false);}
 function stopTyping(){clearTimeout(window.__cunnactTypingTimer);sendTypingState(false);}
 
@@ -983,7 +1277,43 @@ function buildMessageElement(message){
   if(!outgoing&&activeUser?.isGroup){const senderName=(activeGroupMembers.get(message.senderId)?.name||userListeners.get(message.senderId)?.data?.name||"Member");const label=document.createElement("div");label.className="sender-name";label.textContent=senderName;bubble.appendChild(label);}
   if(message.replyTo){const quote=document.createElement("button");quote.type="button";quote.className="reply-quote";quote.innerHTML=`<span>${escapeHtml(message.replyTo.senderName||"Message")}</span><p>${escapeHtml(message.replyTo.text||"Photo")}</p>`;quote.addEventListener("click",()=>scrollToMessage(message.replyTo.messageId));bubble.appendChild(quote);}
   if(message.forwardedFrom){const f=document.createElement("div");f.className="forwarded-label";f.textContent=`↪ Forwarded from ${message.forwardedFrom.senderName||"Someone"}`;bubble.appendChild(f);}
-  if(message.type==="image"&&isTrustedImageUrl(message.imageURL)){el.classList.add("image-message");const img=document.createElement("img");img.src=imageUrl(message.imageURL,"chat");img.alt="Shared image";img.loading="lazy";img.addEventListener("click",()=>openLightbox(message.imageURL));bubble.appendChild(img);}else if(message.type==="audio"&&isTrustedImageUrl(message.mediaURL)){const audio=document.createElement("audio");audio.controls=true;audio.preload="metadata";audio.src=message.mediaURL;bubble.appendChild(audio);}else if(message.type==="video"&&isTrustedImageUrl(message.mediaURL)){const video=document.createElement("video");video.controls=true;video.preload="metadata";video.playsInline=true;video.src=message.mediaURL;video.className="media-video";bubble.appendChild(video);}else if(message.type==="document"&&isTrustedImageUrl(message.mediaURL)){const a=document.createElement("a");a.href=message.mediaURL;a.target="_blank";a.rel="noopener noreferrer";a.className="document-card";a.textContent=`📄 ${message.fileName||"Document"}`;bubble.appendChild(a);}else if(message.type==="sticker"){const p=document.createElement("div");p.className="sticker-message";p.textContent=message.text||"✨";bubble.appendChild(p);}else{const p=document.createElement("p");p.textContent=message.text||"Attachment unavailable";bubble.appendChild(p);}
+  const viewedOnce=Array.isArray(message.viewedBy)&&message.viewedBy.includes(currentUser.uid);
+  if(message.deletedAt){
+    const p=document.createElement("p");p.className="deleted-message";p.textContent="This message was deleted";bubble.appendChild(p);
+  }else if(message.viewOnce && viewedOnce){
+    const p=document.createElement("p");p.className="deleted-message";p.textContent="View once media was opened";bubble.appendChild(p);
+  }else if(message.viewOnce && !viewedOnce && (message.type==="image"||message.type==="video")){
+    const btn=document.createElement("button");btn.type="button";btn.className="view-once-card";btn.innerHTML=`<strong>👁 View once</strong><small>${message.type==="video"?"Video":"Photo"} • Opens once on this device</small>`;btn.addEventListener("click",()=>openViewOnce(message));bubble.appendChild(btn);
+  }else if(message.type==="image"&&isTrustedImageUrl(message.imageURL)){
+    el.classList.add("image-message");const img=document.createElement("img");
+    const preset=message.quality==="original"?null:(message.quality==="hd"?"hd":"chat");
+    img.src=preset?imageUrl(message.imageURL,preset):message.imageURL;img.alt="Shared image";img.loading="lazy";img.addEventListener("click",()=>openLightbox(message.imageURL));bubble.appendChild(img);
+  }else if(message.type==="gif"&&(isTrustedGifUrl(message.imageURL)||isTrustedImageUrl(message.imageURL))){
+    el.classList.add("gif-message");const img=document.createElement("img");img.src=message.imageURL;img.alt="GIF";img.loading="lazy";img.addEventListener("click",()=>openLightbox(message.imageURL));bubble.appendChild(img);
+  }else if(message.type==="audio"&&isTrustedCloudinaryUrl(message.mediaURL)){
+    const audio=document.createElement("audio");audio.controls=true;audio.preload="metadata";audio.src=message.mediaURL;bubble.appendChild(audio);
+  }else if(message.type==="video"&&isTrustedCloudinaryUrl(message.mediaURL)){
+    el.classList.add("video-message");const video=document.createElement("video");video.controls=true;video.preload="metadata";video.playsInline=true;video.src=message.mediaURL;video.className="media-video";bubble.appendChild(video);
+  }else if(message.type==="document"&&isTrustedCloudinaryUrl(message.mediaURL)){
+    const a=document.createElement("a");a.href=message.mediaURL;a.target="_blank";a.rel="noopener noreferrer";a.className="document-card";a.download=message.fileName||"";a.innerHTML=`<span class="document-icon">📄</span><span><strong>${escapeHtml(message.fileName||"Document")}</strong><small>${escapeHtml(formatBytes(message.fileSize||0))}</small></span>`;bubble.appendChild(a);
+  }else if(message.type==="contact"){
+    const card=document.createElement("div");card.className="shared-contact-card";card.innerHTML=`<div class="shared-contact-avatar">${message.contactPhotoURL?`<img src="${escapeHtml(message.contactPhotoURL)}" alt="">`:`👤`}</div><div><strong>${escapeHtml(message.contactName||"Contact")}</strong><small>${message.contactUsername?`@${escapeHtml(message.contactUsername)}`:"CUNNACT contact"}</small></div>`;bubble.appendChild(card);
+  }else if(message.type==="location"&&Number.isFinite(Number(message.latitude))&&Number.isFinite(Number(message.longitude))){
+    const url=`https://www.google.com/maps?q=${encodeURIComponent(`${message.latitude},${message.longitude}`)}`;const card=document.createElement("a");card.className="shared-location-card";card.href=url;card.target="_blank";card.rel="noopener noreferrer";card.innerHTML=`<span class="location-icon">📍</span><span><strong>${escapeHtml(message.locationLabel||"Shared location")}</strong><small>Open in Google Maps</small></span>`;bubble.appendChild(card);
+  }else if(message.type==="sticker"){
+    const p=document.createElement("div");p.className="sticker-message";p.textContent=message.text||"✨";bubble.appendChild(p);
+  }else if(message.type==="poll"){
+    const card=document.createElement("div");card.className="group-poll-card";
+    const q=document.createElement("strong");q.textContent=message.pollQuestion||message.text||"Poll";card.appendChild(q);
+    const options=Array.isArray(message.pollOptions)?message.pollOptions:[];const mine=message.pollVotes?.[currentUser.uid];
+    options.forEach((opt,i)=>{const btn=document.createElement("button");btn.type="button";btn.className="poll-option";btn.dataset.option=String(i);btn.innerHTML=`<span>${escapeHtml(opt)}</span><span>${Object.values(message.pollVotes||{}).filter(v=>Number(v)===i).length}</span>`;btn.addEventListener("click",()=>voteInPoll(message.id,i));if(Number(mine)===i)btn.classList.add("selected");card.appendChild(btn);});bubble.appendChild(card);
+  }else if(message.type==="event"){
+    const card=document.createElement("div");card.className="group-event-card";card.innerHTML=`<span class="event-icon">📅</span><div><strong>${escapeHtml(message.eventTitle||message.text||"Event")}</strong><small>${escapeHtml(message.eventWhen?new Date(message.eventWhen).toLocaleString():"")}</small>${message.eventDescription?`<p>${escapeHtml(message.eventDescription)}</p>`:""}</div>`;bubble.appendChild(card);
+  }else{
+    const p=document.createElement("p");p.textContent=message.text||"Attachment unavailable";bubble.appendChild(p);
+    const preview=message.type==="text"?linkPreviewData(message.text):null;if(preview){const card=document.createElement("a");card.className="link-preview-card";card.href=preview.url;card.target="_blank";card.rel="noopener noreferrer";card.innerHTML=`<span class="link-preview-icon">↗</span><span><strong>${escapeHtml(preview.host)}</strong><small>${escapeHtml(preview.url)}</small></span>`;bubble.appendChild(card);}
+  }
+  if(message.albumSize>1){const label=document.createElement("small");label.className="album-indicator";label.textContent=`Album · ${Number(message.albumIndex||0)+1}/${Number(message.albumSize)}`;bubble.appendChild(label);}
   const meta=document.createElement("div");meta.className="message-meta";const time=document.createElement("small");time.textContent=message.createdAt?.toDate?formatTime(message.createdAt.toDate()):"";meta.appendChild(time);if(message.editedAt){const edited=document.createElement("small");edited.className="edited-label";edited.textContent="edited";meta.appendChild(edited);}if(Array.isArray(message.pinnedBy)&&message.pinnedBy.length){const pin=document.createElement("span");pin.className="message-pin-indicator";pin.textContent="📌";pin.title="Pinned";meta.appendChild(pin);}if(outgoing){const status=document.createElement("span");status.className="delivery-check";setDeliveryIcon(status,message);meta.appendChild(status);}bubble.appendChild(meta);
   renderReactionChips(el,message);if(isSavedByUser(message,currentUser.uid)){const mark=document.createElement("span");mark.className="bookmark-icon";mark.innerHTML=ICONS.bookmark;el.appendChild(mark);}
   el.addEventListener("click",e=>{if(selectionMode){e.preventDefault();toggleSelectedMessage(message.id);}});
@@ -995,7 +1325,23 @@ function buildMessageElement(message){
   el.addEventListener("click",e=>{if(msgLongPressed){e.preventDefault();msgLongPressed=false;}});
   return el;
 }
+async function openViewOnce(message){
+  if(!message?.viewOnce||!currentUser||!activeConversationId)return;
+  const viewed=Array.isArray(message.viewedBy)&&message.viewedBy.includes(currentUser.uid);
+  if(viewed){showToast("This view-once message has already been opened.","info");return;}
+  const videoWindow=message.type==="video"?window.open("about:blank","_blank","noopener,noreferrer"):null;
+  try{
+    await updateDoc(doc(db,"conversations",activeConversationId,"messages",message.id),{viewedBy:arrayUnion(currentUser.uid)});
+    if(message.type==="image"&&isTrustedImageUrl(message.imageURL))openLightbox(message.imageURL);
+    else if(message.type==="video"&&isTrustedCloudinaryUrl(message.mediaURL)){
+      if(videoWindow){videoWindow.document.write(`<title>CUNNACT view once video</title><body style=\"margin:0;background:#111827;display:grid;place-items:center;min-height:100vh\"><video controls autoplay playsinline style=\"max-width:100%;max-height:100vh\" src=\"${escapeHtml(message.mediaURL)}\"></video></body>`);videoWindow.document.close();}
+      else showToast("Allow pop-ups to open the view-once video.","info");
+    }
+  }catch(e){try{videoWindow?.close();}catch{}console.error(e);showToast(e?.code==="permission-denied"?"Firebase blocked opening this view-once message.":"Could not open view-once media.","error");}
+}
 function updateMessageElement(el,message){
+  const previous=el._message||{};
+  if(previous.type!==message.type||!!previous.deletedAt!==!!message.deletedAt||!!previous.viewOnce!==!!message.viewOnce||JSON.stringify(previous.viewedBy||[])!==JSON.stringify(message.viewedBy||[])||previous.imageURL!==message.imageURL||previous.mediaURL!==message.mediaURL||previous.albumIndex!==message.albumIndex||previous.quality!==message.quality||previous.text!==message.text||JSON.stringify(previous.pollVotes||{})!==JSON.stringify(message.pollVotes||{})||previous.eventWhen!==message.eventWhen||previous.eventTitle!==message.eventTitle||previous.eventDescription!==message.eventDescription){const replacement=buildMessageElement(message);el.replaceWith(replacement);return;}
   el._message=message;el.classList.toggle("is-selected",selectedMessageIds.has(message.id));
   const outgoing=message.senderId===currentUser.uid;const bubble=el.querySelector(".message-bubble");if(!bubble)return;
   const quote=bubble.querySelector(".reply-quote");if(message.replyTo&&!quote){const q=document.createElement("button");q.type="button";q.className="reply-quote";q.innerHTML=`<span>${escapeHtml(message.replyTo.senderName||"Message")}</span><p>${escapeHtml(message.replyTo.text||"Photo")}</p>`;q.addEventListener("click",()=>scrollToMessage(message.replyTo.messageId));bubble.prepend(q);}
@@ -1005,7 +1351,7 @@ function updateMessageElement(el,message){
   if(meta&&outgoing){const status=meta.querySelector(".delivery-check")||document.createElement("span");status.className="delivery-check";setDeliveryIcon(status,message);if(!status.parentNode)meta.appendChild(status);}
   renderReactionChips(el,message);const saved=isSavedByUser(message,currentUser.uid);const oldMark=el.querySelector(".bookmark-icon");if(saved&&!oldMark){const mark=document.createElement("span");mark.className="bookmark-icon";mark.innerHTML=ICONS.bookmark;el.appendChild(mark);}if(!saved&&oldMark)oldMark.remove();
 }
-function setDeliveryIcon(status,message){const delivered=!!message.deliveredBy?.[activeUser?.uid],read=!!message.readBy?.[activeUser?.uid];status.classList.toggle("read",read);status.innerHTML=read?ICONS.check+ICONS.check:delivered?ICONS.check+ICONS.check:ICONS.check;}
+function setDeliveryIcon(status,message){const delivered=currentUserData.showReadReceipts===false?false:!!message.deliveredBy?.[activeUser?.uid],read=currentUserData.showReadReceipts===false?false:!!message.readBy?.[activeUser?.uid];status.classList.toggle("read",read);status.innerHTML=read?ICONS.check+ICONS.check:delivered?ICONS.check+ICONS.check:ICONS.check;}
 function renderReactionChips(el,message){let wrap=el.querySelector(".message-reactions"),entries=Object.entries(message.reactions||{}).filter(([,v])=>v);if(!entries.length){wrap?.remove();return;}if(!wrap){wrap=document.createElement("div");wrap.className="message-reactions";el.appendChild(wrap);}const counts=new Map();entries.forEach(([uid,emoji])=>counts.set(emoji,(counts.get(emoji)||0)+1));wrap.innerHTML="";counts.forEach((count,emoji)=>{const b=document.createElement("button");b.type="button";b.className="reaction-chip";b.textContent=`${emoji}${count>1?` ${count}`:""}`;b.addEventListener("click",()=>toggleReaction(message.id,emoji,el));wrap.appendChild(b);});}
 function showMessageActions(messageEl,message,isOutgoing,anchor){
   closeMessageActionMenus();
@@ -1014,7 +1360,7 @@ function showMessageActions(messageEl,message,isOutgoing,anchor){
   const saved=isSavedByUser(message,currentUser.uid);
   const pinned=Array.isArray(message.pinnedBy)&&message.pinnedBy.includes(currentUser.uid);
   const canEdit=isOutgoing&&message.type==="text"&&!message.deletedAt;
-  menu.innerHTML=`<div class="reaction-picker">${["❤️","😂","👍","😮","😢","🔥"].map(e=>`<button type="button" class="reaction-choice" data-reaction="${e}" aria-label="React ${e}">${e}</button>`).join("")}</div>${canEdit?`<button class="menu-item edit-msg" type="button">${ICONS.edit}<span>Edit</span></button>`:""}<button class="menu-item reply-msg" type="button">${ICONS.reply}<span>Reply</span></button><button class="menu-item forward-msg" type="button">${ICONS.forward}<span>Forward</span></button><button class="menu-item select-msg" type="button">${ICONS.check}<span>Select</span></button><button class="menu-item copy-msg" type="button">${ICONS.copy}<span>Copy text</span></button><button class="menu-item pin-msg" type="button">${ICONS.pin}<span>${pinned?"Unpin message":"Pin message"}</span></button><button class="menu-item save-msg" type="button">${ICONS.bookmark}<span>${saved?"Unsave message":"Save message"}</span></button><button class="menu-item details-msg" type="button">${ICONS.info}<span>Message details</span></button>${isOutgoing?`<button class="menu-item danger-item delete-msg" type="button">${ICONS.trash}<span>Delete for everyone</span></button>`:""}<button class="menu-item danger-item delete-for-me" type="button">${ICONS.trash}<span>Delete for me</span></button>`;
+  menu.innerHTML=`<div class="reaction-picker">${["❤️","😂","👍","😮","😢","🔥"].map(e=>`<button type="button" class="reaction-choice" data-reaction="${e}" aria-label="React ${e}">${e}</button>`).join("")}</div>${canEdit?`<button class="menu-item edit-msg" type="button">${ICONS.edit}<span>Edit</span></button>`:""}<button class="menu-item reply-msg" type="button">${ICONS.reply}<span>Reply</span></button><button class="menu-item forward-msg" type="button">${ICONS.forward}<span>Forward</span></button><button class="menu-item select-msg" type="button">${ICONS.check}<span>Select</span></button><button class="menu-item copy-msg" type="button">${ICONS.copy}<span>Copy text</span></button><button class="menu-item pin-msg" type="button">${ICONS.pin}<span>${pinned?"Unpin message":"Pin message"}</span></button><button class="menu-item save-msg" type="button">${ICONS.bookmark}<span>${saved?"Unsave message":"Save message"}</span></button><button class="menu-item details-msg" type="button">${ICONS.info}<span>Message details</span></button>${isOutgoing?`<button class="menu-item danger-item delete-msg" type="button">${ICONS.trash}<span>Delete for everyone</span></button>`:""}${activeUser?.isGroup?`<button class="menu-item danger-item report-msg" type="button">⚑<span>Report message</span></button>`:""}<button class="menu-item danger-item delete-for-me" type="button">${ICONS.trash}<span>Delete for me</span></button>`;
   document.body.appendChild(menu);
   const rect=anchor.getBoundingClientRect();const mr=menu.getBoundingClientRect();const top=rect.bottom+8+mr.height>innerHeight?rect.top-mr.height-8:rect.bottom+8;const left=Math.min(Math.max(8,rect.left),innerWidth-mr.width-8);menu.style.top=`${Math.max(8,top)}px`;menu.style.left=`${left}px`;
   menu.querySelectorAll(".reaction-choice").forEach(b=>b.addEventListener("click",async()=>{await toggleReaction(message.id,b.dataset.reaction,messageEl);menu.remove();}));
@@ -1027,15 +1373,22 @@ function showMessageActions(messageEl,message,isOutgoing,anchor){
   menu.querySelector(".copy-msg")?.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(message.text||"");showToast("Message copied","success");}catch{showToast("Could not copy message","error");}menu.remove();});
   menu.querySelector(".save-msg")?.addEventListener("click",async()=>{await toggleSaveMessage(message.id,saved);menu.remove();});
   menu.querySelector(".delete-msg")?.addEventListener("click",async()=>{playDelete();await deleteMessageForEveryone(message.id);menu.remove();});
+  menu.querySelector(".report-msg")?.addEventListener("click",async()=>{playDelete();await reportGroupMessage(message.id);menu.remove();});
   menu.querySelector(".delete-for-me")?.addEventListener("click",async()=>{playDelete();await deleteMessageForMe(message.id,messageEl);menu.remove();});
 }
 function closeMessageActionMenus(){document.querySelectorAll(".message-action-menu").forEach(m=>m.remove());}
 async function toggleReaction(messageId,emoji){try{await runTransaction(db,async(tx)=>{const ref=doc(db,"conversations",activeConversationId,"messages",messageId),snap=await tx.get(ref);if(!snap.exists())throw new Error("MESSAGE_NOT_FOUND");const reactions={...(snap.data().reactions||{})};reactions[currentUser.uid]=reactions[currentUser.uid]===emoji?null:emoji;tx.update(ref,{reactions});});}catch(e){console.error(e);showToast("Could not update reaction.","error");}}
 async function toggleSaveMessage(messageId,currentSaved){try{const ref=doc(db,"conversations",activeConversationId,"messages",messageId),savedRef=doc(db,"users",currentUser.uid,"savedMessages",messageId),message=currentMessages.find(m=>m.id===messageId);const batch=writeBatch(db);batch.update(ref,{savedBy:currentSaved?arrayRemove(currentUser.uid):arrayUnion(currentUser.uid)});if(currentSaved)batch.delete(savedRef);else batch.set(savedRef,{messageId,conversationId:activeConversationId,partnerUid:activeUser?.isGroup?"":activeUser.uid,savedAt:serverTimestamp(),type:message?.type||"text",text:(message?.text||"").slice(0,500),imageURL:message?.imageURL||"",mediaURL:message?.mediaURL||"",fileName:message?.fileName||""});await batch.commit();showToast(currentSaved?"Message unsaved":"Message saved 🔖",currentSaved?"info":"success");if(!currentSaved)playSave();return true;}catch(e){console.error(e);showToast(e?.code==="permission-denied"?"Firebase blocked saving this message. Deploy the updated rules.":"Could not update saved message.","error");return false;}}
-async function deleteMessageForEveryone(messageId){const ok=await showConfirmDialog({title:"Delete message for everyone?",message:"This message will be removed from both sides of the conversation.",confirmText:"Delete message",cancelText:"Keep message",danger:true});if(!ok)return false;try{await deleteDoc(doc(db,"conversations",activeConversationId,"messages",messageId));await refreshConversationPreview();showToast("Message deleted for everyone","success");return true;}catch(e){console.error(e);showToast(e?.code==="permission-denied"?"Only the sender can delete this message.":"Could not delete the message.","error");return false;}}
+async function deleteMessageForEveryone(messageId){const ok=await showConfirmDialog({title:"Delete message for everyone?",message:"The message content will be replaced with a deleted-message notice.",confirmText:"Delete message",cancelText:"Keep message",danger:true});if(!ok)return false;try{await updateDoc(doc(db,"conversations",activeConversationId,"messages",messageId),{deletedAt:serverTimestamp(),deletedBy:currentUser.uid});await refreshConversationPreview();showToast("Message deleted for everyone","success");return true;}catch(e){console.error(e);showToast(e?.code==="permission-denied"?"Only the sender can delete this message.":"Could not delete the message.","error");return false;}}
 async function deleteMessageForMe(messageId,messageEl){try{messageEl?.classList.add("deleting");await updateDoc(doc(db,"conversations",activeConversationId,"messages",messageId),{deletedFor:arrayUnion(currentUser.uid)});const c=conversations.find(x=>x.id===activeConversationId);if(c?.lastMessageId===messageId)localHiddenLatest.add(activeConversationId);showToast("Message deleted for you","info");return true;}catch(e){messageEl?.classList.remove("deleting");console.error(e);showToast("Could not delete the message for you.","error");return false;}}
-async function refreshConversationPreview(){const c=conversations.find(x=>x.id===activeConversationId);if(!c)return;try{const snap=await getDocs(query(collection(db,"conversations",activeConversationId,"messages"),orderBy("createdAt","desc"),limit(1)));if(!snap.empty){const m={id:snap.docs[0].id,...snap.docs[0].data()};await updateDoc(doc(db,"conversations",activeConversationId),{lastMessage:m.type==="image"?"":(m.text||"").slice(0,500),lastMessageType:m.type||"text",lastMessageSenderId:m.senderId||"",lastMessageId:m.id,lastMessageTime:m.createdAt||serverTimestamp()});}else{await updateDoc(doc(db,"conversations",activeConversationId),{lastMessage:"",lastMessageType:"text",lastMessageSenderId:"",lastMessageId:"",lastMessageTime:serverTimestamp()});}}catch(e){console.warn("Preview reconcile failed",e);}}
-function updateConversationPreviewFromMessages(){const c=conversations.find(x=>x.id===activeConversationId);if(!c||!currentMessages.length)return;const newest=currentMessages[currentMessages.length-1];if(newest&&c.lastMessageId!==newest.id){const preview=newest.type==="image"?"":(newest.text||"").slice(0,500);updateDoc(doc(db,"conversations",activeConversationId),{lastMessage:preview,lastMessageType:newest.type||"text",lastMessageSenderId:newest.senderId||"",lastMessageId:newest.id,lastMessageTime:newest.createdAt||serverTimestamp()}).catch(()=>{});}}
+async function refreshConversationPreview(){const c=conversations.find(x=>x.id===activeConversationId);if(!c)return;try{const snap=await getDocs(query(collection(db,"conversations",activeConversationId,"messages"),orderBy("createdAt","desc"),limit(20)));const docs=snap.docs.map(d=>({id:d.id,...d.data()})).filter(m=>!m.deletedAt&&!isDeletedForUser(m,currentUser.uid));const m=docs[0];if(m){const preview=m.type==="image"?"📷 Photo":m.type==="gif"?"GIF":m.type==="audio"?"🎤 Voice message":m.type==="video"?"🎬 Video":m.type==="document"?`📄 ${m.fileName||"Document"}`:m.type==="contact"?`👤 ${m.contactName||"Contact"}`:m.type==="location"?"📍 Location":(m.text||"").slice(0,500);await updateDoc(doc(db,"conversations",activeConversationId),{lastMessage:preview,lastMessageType:m.type||"text",lastMessageSenderId:m.senderId||"",lastMessageId:m.id,lastMessageTime:m.createdAt||serverTimestamp()});}else{await updateDoc(doc(db,"conversations",activeConversationId),{lastMessage:"",lastMessageType:"text",lastMessageSenderId:"",lastMessageId:"",lastMessageTime:serverTimestamp()});}}catch(e){console.warn("Preview reconcile failed",e);}}
+function updateConversationPreviewFromMessages(){const c=conversations.find(x=>x.id===activeConversationId);if(!c||!currentMessages.length)return;const newest=[...currentMessages].reverse().find(m=>!m.deletedAt&&!isDeletedForUser(m,currentUser.uid));if(newest&&c.lastMessageId!==newest.id){const preview=newest.type==="image"?"📷 Photo":newest.type==="gif"?"GIF":newest.type==="audio"?"🎤 Voice message":newest.type==="video"?"🎬 Video":newest.type==="document"?`📄 ${newest.fileName||"Document"}`:newest.type==="contact"?`👤 ${newest.contactName||"Contact"}`:newest.type==="location"?"📍 Location":(newest.text||"").slice(0,500);updateDoc(doc(db,"conversations",activeConversationId),{lastMessage:preview,lastMessageType:newest.type||"text",lastMessageSenderId:newest.senderId||"",lastMessageId:newest.id,lastMessageTime:newest.createdAt||serverTimestamp()}).catch(()=>{});}}
+
+async function voteInPoll(messageId, optionIndex){
+  if(!activeUser?.isGroup)return;
+  const ref=doc(db,"conversations",activeConversationId,"messages",messageId);
+  try{await runTransaction(db,async tx=>{const snap=await tx.get(ref);if(!snap.exists()||snap.data()?.type!=="poll")throw new Error("POLL_NOT_FOUND");const data=snap.data();const votes={...(data.pollVotes||{})};votes[currentUser.uid]=Number(optionIndex);tx.update(ref,{pollVotes:votes});});showToast("Vote saved","success");}catch(e){console.error(e);showToast("Could not save your vote.","error");}
+}
 
 /* Delivery receipts */
 function queueDeliveredForIncoming(messages){
@@ -1058,38 +1411,169 @@ async function flushDelivered(){
 }
 
 /* Read receipts */
-function queueRead(messageId){const m=activeMessageMap.get(messageId);if(!m||m.receiverId!==currentUser.uid||m.readBy?.[currentUser.uid]||isDeletedForUser(m,currentUser.uid))return;queuedReadIds.add(messageId);clearTimeout(readFlushTimer);readFlushTimer=setTimeout(flushQueuedReads,220);}
+function queueRead(messageId){const m=activeMessageMap.get(messageId);if(currentUserData.showReadReceipts===false)return;if(!m||m.receiverId!==currentUser.uid||m.readBy?.[currentUser.uid]||isDeletedForUser(m,currentUser.uid))return;queuedReadIds.add(messageId);clearTimeout(readFlushTimer);readFlushTimer=setTimeout(flushQueuedReads,220);}
 async function flushQueuedReads(){if(!activeConversationId||!currentUser||!queuedReadIds.size)return;const ids=[...queuedReadIds].slice(0,450);ids.forEach(id=>queuedReadIds.delete(id));try{const batch=writeBatch(db);ids.forEach(id=>batch.update(doc(db,"conversations",activeConversationId,"messages",id),{[`readBy.${currentUser.uid}`]:serverTimestamp()}));await batch.commit();}catch(e){ids.forEach(id=>queuedReadIds.add(id));console.warn("Read batch failed",e);}}
 function observeVisibleIncoming(){document.querySelectorAll("#messages .message").forEach(el=>{const m=activeMessageMap.get(el.dataset.messageId);if(m?.receiverId===currentUser.uid)readObserver?.observe(el);});}
 function scrollToMessage(id){const el=$id("messages")?.querySelector(`.message[data-message-id="${CSS.escape(id)}"]`);if(el){el.scrollIntoView({block:"center",behavior:"smooth"});el.classList.add("flash-message");setTimeout(()=>el.classList.remove("flash-message"),700);}}
 
 /* Reply / composer */
-function startReply(message){replyTarget={messageId:message.id,senderId:message.senderId,senderName:message.senderId===currentUser.uid?"You":(activeUser?.name||"User"),text:message.type==="image"?"📷 Photo":String(message.text||"")};$id("replyBar").hidden=false;$id("replyAuthor").textContent=replyTarget.senderName;$id("replyPreview").textContent=replyTarget.text;$id("messageInput")?.focus();}
+function startReply(message){const preview=message.type==="image"?"📷 Photo":message.type==="gif"?"GIF":message.type==="audio"?"🎤 Voice message":message.type==="video"?"🎬 Video":message.type==="document"?`📄 ${message.fileName||"Document"}`:message.type==="contact"?`👤 ${message.contactName||"Contact"}`:message.type==="location"?"📍 Location":String(message.text||"");replyTarget={messageId:message.id,senderId:message.senderId,senderName:message.senderId===currentUser.uid?"You":(activeUser?.isGroup?(activeGroupMembers.get(message.senderId)?.name||"Member"):(activeUser?.name||"User")),text:preview};$id("replyBar").hidden=false;$id("replyAuthor").textContent=replyTarget.senderName;$id("replyPreview").textContent=replyTarget.text;$id("messageInput")?.focus();}
 function clearReply(){replyTarget=null;const bar=$id("replyBar");if(bar)bar.hidden=true;}
 async function handleMessageSubmit(e){e.preventDefault();if(sendingMessage||!activeUser||!activeConversationId||isBlockedByEither())return;const input=$id("messageInput"),text=input.value.trim();if(!text)return;sendingMessage=true;const sendBtn=$id("messageForm").querySelector('button[type="submit"]');input.value="";autoGrowComposer();stopTyping();const savedReply=replyTarget;clearReply();try{await sendMessage({type:"text",text,replyTo:savedReply});playSend();input.focus();}catch(err){console.error("Send message failed",err);input.value=text;if(savedReply)startReply(savedReply);autoGrowComposer();showToast(err?.code==="permission-denied"?"Message blocked by chat permissions.":"Message could not be sent. Please try again.","error");}finally{sendingMessage=false;setComposerState();}}
-async function sendMessage({type,text,imageURL,mediaURL,fileName,mimeType,fileSize,replyTo,forwardedFrom}){if(!currentUser||!activeUser||!activeConversationId)throw new Error("NO_ACTIVE_CHAT");if(isBlockedByEither())throw new Error("BLOCKED");const isGroup=!!activeUser.isGroup;const ref=doc(db,"conversations",activeConversationId,"messages",crypto.randomUUID?crypto.randomUUID():`${Date.now()}_${Math.random().toString(36).slice(2)}`);const batch=writeBatch(db);batch.set(ref,{senderId:currentUser.uid,...(isGroup?{}:{receiverId:activeUser.uid}),type,...(type==="image"?{imageURL}:{}),...(mediaURL?{mediaURL}:{}),...(fileName?{fileName}:{}),...(mimeType?{mimeType}:{}),...(fileSize?{fileSize}:{}),...(type!=="image"&&type!=="audio"&&type!=="video"&&type!=="document"?{text:String(text||"").slice(0,5000)}:{}),...(replyTo?{replyTo}:{}),...(forwardedFrom?{forwardedFrom}:{}),createdAt:serverTimestamp(),savedBy:[],pinnedBy:[],deletedFor:[],readBy:{},deliveredBy:{},reactions:{}});const unreadPatch={};if(isGroup)(activeUser.members||[]).forEach(uid=>{if(uid!==currentUser.uid)unreadPatch[`unread.${uid}`]=increment(1);});else unreadPatch[`unread.${activeUser.uid}`]=increment(1);const preview=type==="image"?"📷 Photo":type==="audio"?"🎤 Voice message":type==="video"?"🎬 Video":type==="document"?`📄 ${fileName||"Document"}`:type==="sticker"?String(text||"✨"):String(text||"").slice(0,500);batch.update(doc(db,"conversations",activeConversationId),{lastMessage:preview,lastMessageType:type,lastMessageSenderId:currentUser.uid,lastMessageId:ref.id,lastMessageTime:serverTimestamp(),...unreadPatch});await batch.commit();}
-
-/* Image */
-async function handleImageSelection(){const file=$id("fileInput").files?.[0];$id("fileInput").value="";if(!file||!activeUser||!activeConversationId||isBlockedByEither())return;try{await validateImageFile(file);}catch(e){showToast(e instanceof UploadError?e.userMessage:UPLOAD_MESSAGES.invalid,"error");return;}pendingImageFile=file;pendingImageUrl=URL.createObjectURL(file);$id("imagePreviewThumb").src=pendingImageUrl;$id("imagePreviewStatus").textContent="Your image is ready.";$id("imagePreviewProgress").style.width="0%";$id("imagePreviewBar").hidden=false;}
-function cancelImagePreview(){uploadController?.abort();clearImagePreview();}
-async function sendPendingImage(){
-  if(!pendingImageFile||!activeConversationId||!activeUser||isBlockedByEither())return;
-  const file=pendingImageFile;
-  const savedReply=replyTarget;
-  $id("imagePreviewSend").disabled=true;
-  $id("imagePreviewBar").classList.add("uploading");
-  uploadController=new AbortController();
-  try{
-    const url=await uploadImageToCloudinary(file,{signal:uploadController.signal,onProgress:p=>$id("imagePreviewProgress").style.width=`${Math.round(p*100)}%`});
-    await sendMessage({type:"image",imageURL:url,replyTo:savedReply});
-    playSend();showToast("Photo sent","success");clearImagePreview();clearReply();
-  }catch(e){
-    if(e?.kind!=="aborted"){console.error(e);$id("imagePreviewStatus").textContent=e instanceof UploadError?e.userMessage:"Photo could not be sent.";$id("imagePreviewSend").disabled=false;}
-  }
+function groupMentionData(text){
+  if(!activeUser?.isGroup)return {mentions:[],mentionAll:false};
+  const raw=String(text||"");const mentionAll=/@everyone\b/i.test(raw);const usernames=new Set((raw.match(/@([a-z0-9_]{3,24})/gi)||[]).map(x=>x.slice(1).toLowerCase()).filter(x=>x!=="everyone"));
+  const mentions=[];for(const [uid,u] of activeGroupMembers){const name=String(u?.username||"").toLowerCase();if(name&&usernames.has(name))mentions.push(uid);}
+  return {mentions,mentionAll};
 }
-function clearImagePreview(){if(pendingImageUrl)URL.revokeObjectURL(pendingImageUrl);pendingImageFile=null;pendingImageUrl=null;uploadController=null;const bar=$id("imagePreviewBar");if(!bar)return;bar.hidden=true;bar.classList.remove("uploading");$id("imagePreviewSend").disabled=false;$id("imagePreviewThumb").src="";}
+
+async function sendMessage({type,text,imageURL,mediaURL,fileName,mimeType,fileSize,replyTo,forwardedFrom,albumId,albumIndex,albumSize,quality,linkUrl,linkHost,contactUid,contactName,contactUsername,contactPhotoURL,latitude,longitude,locationLabel,pollQuestion,pollOptions,eventTitle,eventWhen,eventDescription,mentions,mentionAll,viewOnce=false}={}){
+  if(!currentUser||!activeUser||!activeConversationId)throw new Error("NO_ACTIVE_CHAT");
+  if(isBlockedByEither())throw new Error("BLOCKED");
+  const isGroup=!!activeUser.isGroup;
+  const extractedMentions=type==="text"?groupMentionData(text):{mentions:[],mentionAll:false};
+  mentions=[...(mentions||extractedMentions.mentions)];
+  mentionAll=Boolean(mentionAll||extractedMentions.mentionAll);
+  const allowed=["text","image","gif","audio","video","document","sticker","contact","location","poll","event"];
+  if(!allowed.includes(type))throw new Error("UNSUPPORTED_MESSAGE_TYPE");
+  if(["poll","event"].includes(type)&&!isGroup)throw new Error("GROUP_ONLY_MESSAGE");
+  if(["image","gif"].includes(type)&&!isTrustedImageUrl(imageURL)&&type!=="gif")throw new Error("UNTRUSTED_MEDIA_URL");
+  if(type==="gif"&&!isTrustedGifUrl(imageURL)&&!isTrustedImageUrl(imageURL))throw new Error("UNTRUSTED_GIF_URL");
+  const ref=doc(db,"conversations",activeConversationId,"messages",crypto.randomUUID?crypto.randomUUID():`${Date.now()}_${Math.random().toString(36).slice(2)}`);
+  const message={
+    senderId:currentUser.uid,
+    ...(isGroup?{}:{receiverId:activeUser.uid}),
+    type,
+    ...(type==="image"?{imageURL}:{}),
+    ...(type==="gif"?{imageURL}:{}),
+    ...(mediaURL?{mediaURL}:{}),
+    ...(fileName?{fileName:String(fileName).slice(0,180)}:{}),
+    ...(mimeType?{mimeType:String(mimeType).slice(0,120)}:{}),
+    ...(fileSize?{fileSize:Number(fileSize)||0}:{}),
+    ...((type==="text"||type==="sticker"||type==="poll"||type==="event")?{text:String(text||"").slice(0,5000)}:{}),
+    ...(replyTo?{replyTo}:{}),
+    ...(forwardedFrom?{forwardedFrom}:{}),
+    ...(albumId?{albumId:String(albumId).slice(0,80),albumIndex:Number(albumIndex)||0,albumSize:Number(albumSize)||1}:{}),
+    ...(quality&&type==="image"?{quality}:{}),
+    ...(linkUrl?{linkUrl:String(linkUrl).slice(0,2048),linkHost:String(linkHost||"").slice(0,180)}:{}),
+    ...(type==="contact"?{contactUid:String(contactUid||""),contactName:String(contactName||"").slice(0,120),contactUsername:String(contactUsername||"").slice(0,60),contactPhotoURL:String(contactPhotoURL||"").slice(0,2048)}:{}),
+    ...(type==="location"?{latitude:Number(latitude),longitude:Number(longitude),locationLabel:String(locationLabel||"Shared location").slice(0,160)}:{}),
+    ...(type==="poll"?{pollQuestion:String(pollQuestion||text||"").slice(0,300),pollOptions:(pollOptions||[]).map(x=>String(x).slice(0,120)).filter(Boolean).slice(0,10),pollVotes:{}}:{}),
+    ...(type==="event"?{eventTitle:String(eventTitle||text||"").slice(0,180),eventWhen:String(eventWhen||"").slice(0,80),eventDescription:String(eventDescription||"").slice(0,600)}:{}),
+    ...(Array.isArray(mentions)&&mentions.length?{mentions:[...new Set(mentions)].slice(0,30)}:{}),
+    ...(mentionAll?{mentionAll:true}:{}),
+    ...(viewOnce?{viewOnce:true,viewedBy:[]} : {}),
+    createdAt:serverTimestamp(),...(activeConversation?.disappearingSeconds?{expiresAt:new Date(Date.now()+Number(activeConversation.disappearingSeconds)*1000)}:{}),savedBy:[],pinnedBy:[],deletedFor:[],readBy:{},deliveredBy:{},reactions:{}
+  };
+  if(type==="text"&&!message.text)throw new Error("EMPTY_MESSAGE");
+  if(type==="contact"&&!message.contactUid)throw new Error("INVALID_CONTACT");
+  if(type==="location"&&(!Number.isFinite(message.latitude)||!Number.isFinite(message.longitude)))throw new Error("INVALID_LOCATION");
+  const batch=writeBatch(db);batch.set(ref,message);
+  const unreadPatch={};
+  if(isGroup)(activeUser.members||[]).forEach(uid=>{if(uid!==currentUser.uid)unreadPatch[`unread.${uid}`]=increment(1);});
+  else unreadPatch[`unread.${activeUser.uid}`]=increment(1);
+  const preview=type==="image"?"📷 Photo":type==="gif"?"GIF":type==="audio"?"🎤 Voice message":type==="video"?"🎬 Video":type==="document"?`📄 ${fileName||"Document"}`:type==="sticker"?String(text||"✨"):type==="contact"?`👤 ${contactName||"Contact"}`:type==="location"?"📍 Location":type==="poll"?`📊 ${text||"Poll"}`:type==="event"?`📅 ${text||"Event"}`:String(text||"").slice(0,500);
+  batch.update(doc(db,"conversations",activeConversationId),{lastMessage:preview,lastMessageType:type,lastMessageSenderId:currentUser.uid,lastMessageId:ref.id,lastMessageTime:serverTimestamp(),...unreadPatch});
+  await batch.commit();
+}
+
+function extractFirstUrl(text){
+  const m=String(text||"").match(/https?:\\/\\/[^\\s<]+/i);
+  if(!m)return null;
+  const raw=m[0].replace(/[),.!?;:]$/g,"");
+  try{const u=new URL(raw);if(u.protocol!=="http:"&&u.protocol!=="https:")return null;return u;}catch{return null;}
+}
+function isTrustedGifUrl(value){
+  if(typeof value!=="string"||value.length>2048)return false;
+  try{const u=new URL(value);if(u.protocol!=="https:")return false;const h=u.hostname.toLowerCase();return ["media.giphy.com","i.giphy.com","media.tenor.com","c.tenor.com"].some(x=>h===x||h.endsWith(`.${x}`)) && /\.gif(?:$|[?#])/i.test(u.pathname+u.search+u.hash);}catch{return false;}
+}
+function linkPreviewData(text){const u=extractFirstUrl(text);if(!u)return null;return{url:u.href,host:u.hostname.replace(/^www\\./i,"")};}
+
+/* ---------------- Phase 2 media selection ---------------- */
+async function handleMediaSelection(){
+  const files=[...( $id("fileInput")?.files||[] )];
+  if($id("fileInput"))$id("fileInput").value="";
+  if(!files.length||!activeUser||!activeConversationId||isBlockedByEither())return;
+  if(files.length>8){showToast("You can send up to 8 files at a time.","info");files.splice(8);} 
+  let total=0;const items=[];
+  for(const file of files){
+    try{
+      const kind=await validateMediaFile(file);total+=file.size;
+      if(total>50*1024*1024)throw new UploadError("size","The selected batch must be 50 MB or smaller.");
+      items.push({file,kind,previewUrl:(kind==="image"||kind==="video")?URL.createObjectURL(file):"",status:"pending",error:""});
+    }catch(e){showToast(e instanceof UploadError?e.userMessage:"One of the selected files is not supported.","error");}
+  }
+  if(!items.length)return;
+  pendingMediaItems=items;mediaQuality="optimized";if($id("mediaQuality"))$id("mediaQuality").value=mediaQuality;renderMediaPreview();
+}
+function renderMediaPreview(){
+  const bar=$id("imagePreviewBar"),list=$id("mediaPreviewList");if(!bar||!list)return;
+  list.innerHTML="";
+  pendingMediaItems.forEach((item,index)=>{
+    const card=document.createElement("div");card.className=`media-preview-item ${item.status}`;
+    if(item.kind==="image"&&item.previewUrl){const img=document.createElement("img");img.src=item.previewUrl;img.alt=item.file.name;card.appendChild(img);}
+    else if(item.kind==="video"&&item.previewUrl){const video=document.createElement("video");video.src=item.previewUrl;video.muted=true;video.playsInline=true;video.preload="metadata";card.appendChild(video);}
+    else{const icon=document.createElement("span");icon.className="file-preview-icon";icon.textContent=item.kind==="document"?"📄":"📎";card.appendChild(icon);}
+    const name=document.createElement("span");name.className="media-preview-name";name.textContent=item.file.name;card.appendChild(name);
+    if(item.status==="error"){const err=document.createElement("span");err.className="media-preview-error";err.textContent="Failed";card.appendChild(err);}
+    if(item.status==="sent"){const ok=document.createElement("span");ok.className="media-preview-ok";ok.textContent="✓";card.appendChild(ok);}
+    const remove=document.createElement("button");remove.type="button";remove.className="media-preview-remove";remove.textContent="×";remove.setAttribute("aria-label",`Remove ${item.file.name}`);remove.addEventListener("click",()=>{if(item.previewUrl)URL.revokeObjectURL(item.previewUrl);pendingMediaItems.splice(index,1);if(!pendingMediaItems.length)clearImagePreview();else renderMediaPreview();});card.appendChild(remove);list.appendChild(card);
+  });
+  const total=pendingMediaItems.reduce((n,x)=>n+x.file.size,0);
+  const viewToggle=$id("viewOnceToggle");
+  if(viewToggle){const allowed=pendingMediaItems.length===1&&["image","video"].includes(pendingMediaItems[0]?.kind);viewToggle.disabled=!allowed;if(!allowed)viewToggle.checked=false;viewToggle.closest(".check-inline")?.classList.toggle("disabled",!allowed);}
+  $id("imagePreviewName").textContent=pendingMediaItems.length?`${pendingMediaItems.length} file${pendingMediaItems.length===1?"":"s"}`:"Ready to send";
+  $id("imagePreviewStatus").textContent=pendingMediaItems.some(x=>x.status==="error")?"Some uploads failed. Tap send to retry failed files.":`${formatBytes(total)} selected${pendingMediaItems.length>1?" · album will be grouped":""}`;
+  $id("imagePreviewSend").textContent=pendingMediaItems.some(x=>x.status==="error")?"Retry failed":"Send files";
+  $id("imagePreviewSend").disabled=!pendingMediaItems.some(x=>x.status!=="sent");
+  bar.hidden=!pendingMediaItems.length;
+}
+function formatBytes(bytes){if(!Number.isFinite(bytes)||bytes<0)return "0 B";if(bytes<1024)return `${bytes} B`;const units=["KB","MB","GB"];let n=bytes/1024;let i=0;while(n>=1024&&i<units.length-1){n/=1024;i++;}return `${n.toFixed(n>=10?0:1)} ${units[i]}`;}
+function cancelImagePreview(){uploadController?.abort();clearImagePreview();}
+async function uploadMediaWithRetry(file,progressHandler,signal){
+  let lastErr=null;
+  for(let attempt=0;attempt<2;attempt++){
+    try{return await uploadFileToCloudinary(file,{signal,onProgress:progressHandler});}
+    catch(e){lastErr=e;if(e?.kind==="aborted")throw e;if(attempt===0)await new Promise(r=>setTimeout(r,500));}
+  }
+  throw lastErr||new Error("UPLOAD_FAILED");
+}
+async function sendPendingMedia(){
+  if(!pendingMediaItems.length||!activeConversationId||!activeUser||isBlockedByEither())return;
+  const unsent=pendingMediaItems.filter(x=>x.status!=="sent");if(!unsent.length)return;
+  const savedReply=replyTarget;const albumId=unsent.length>1?`album_${Date.now()}_${Math.random().toString(36).slice(2,8)}`:"";const albumSize=unsent.length;
+  const viewOnce=!!$id("viewOnceToggle")?.checked && unsent.length===1 && ["image","video"].includes(unsent[0]?.kind);
+  const sendBtn=$id("imagePreviewSend");sendBtn.disabled=true;$id("imagePreviewBar")?.classList.add("uploading");uploadController=new AbortController();
+  let done=0;const total=unsent.reduce((n,x)=>n+x.file.size,0)||1;
+  try{
+    for(const item of unsent){
+      try{
+        item.status="uploading";item.error="";renderMediaPreview();
+        const url=await uploadMediaWithRetry(item.file,p=>{const base=unsent.slice(0,done).reduce((n,x)=>n+x.file.size,0);const pct=(base+(p||0)*item.file.size)/total;$id("imagePreviewProgress").style.width=`${Math.round(pct*100)}%`;},uploadController.signal);
+        const type=item.kind==="image"?(item.file.type==="image/gif"?"gif":"image"):item.kind;
+        await sendMessage({type,imageURL:type==="image"||type==="gif"?url:undefined,mediaURL:type==="image"||type==="gif"?undefined:url,fileName:item.file.name,mimeType:item.file.type,fileSize:item.file.size,replyTo:done===0?savedReply:undefined,albumId,albumIndex:done,albumSize,quality:mediaQuality,viewOnce});
+        item.status="sent";done++;renderMediaPreview();
+      }catch(e){item.status=e?.kind==="aborted"?"pending":"error";item.error=e?.userMessage||"Upload failed";renderMediaPreview();if(e?.kind==="aborted")throw e;}
+    }
+    const failed=pendingMediaItems.some(x=>x.status==="error");
+    if(!failed){playSend();showToast(albumSize>1?`${albumSize} files sent`:`${pendingMediaItems.length} file sent`,"success");clearImagePreview();clearReply();}
+    else showToast("Some files could not be sent. Tap Retry failed to try again.","error");
+  }catch(e){if(e?.kind!=="aborted"){console.error("Media batch failed",e);showToast(e?.userMessage||"Upload stopped. You can retry.","error");}}
+  finally{uploadController=null;$id("imagePreviewBar")?.classList.remove("uploading");renderMediaPreview();}
+}
+async function handleImageSelection(){await handleMediaSelection();}
+async function sendPendingImage(){await sendPendingMedia();}
+function clearImagePreview(){pendingMediaItems.forEach(x=>{if(x.previewUrl)URL.revokeObjectURL(x.previewUrl);});pendingMediaItems=[];pendingImageFile=null;if(pendingImageUrl)URL.revokeObjectURL(pendingImageUrl);pendingImageUrl=null;uploadController=null;const bar=$id("imagePreviewBar");if(!bar)return;bar.hidden=true;bar.classList.remove("uploading");$id("mediaPreviewList")&&($id("mediaPreviewList").innerHTML="");$id("imagePreviewProgress")&&($id("imagePreviewProgress").style.width="0%");$id("imagePreviewSend")&&($id("imagePreviewSend").toggleAttribute("disabled",true));if($id("viewOnceToggle"))$id("viewOnceToggle").checked=false;}
 function autoGrowComposer(){const input=$id("messageInput");if(!input)return;input.style.height="auto";input.style.height=`${Math.min(input.scrollHeight,140)}px`;}
 
+
+async function setGroupMemberRole(uid, role){
+  if(!activeUser?.isGroup||!(activeUser.admins||[]).includes(currentUser.uid)||!uid||uid===currentUser.uid)return;
+  const admins=new Set(activeUser.admins||[]);const moderators=new Set(activeUser.moderators||[]);const roles={...(activeUser.roles||{})};
+  admins.delete(uid);moderators.delete(uid);roles[uid]=role;
+  if(role==="admin")admins.add(uid);else if(role==="moderator")moderators.add(uid);
+  try{await updateDoc(doc(db,"conversations",activeConversationId),{groupAdmins:[...admins],groupModerators:[...moderators],groupRoles:roles});await openChatById(activeConversationId);showToast("Member role updated","success");}catch(e){console.error(e);showToast("Could not update member role.","error");}
+}
 /* Profile drawer / shared media */
 function openProfileDrawer(){if(!activeUser||activeUser.uid===currentUser?.uid)return;renderProfileDrawer();$id("profileDrawer").hidden=false;$id("app")?.classList.add("drawer-open");}
 function closeProfileDrawer(){const d=$id("profileDrawer");if(!d)return;d.hidden=true;$id("app")?.classList.remove("drawer-open");}
@@ -1099,7 +1583,7 @@ function renderProfileDrawer(){
     paintAvatar($id("drawerAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name});
     $id("drawerName").textContent=activeUser.name||"Group";
     $id("drawerUsername").textContent=`${activeUser.memberCount||activeUser.members?.length||0} members`;
-    $id("drawerBio").textContent="";
+    $id("drawerBio").textContent=activeUser.description||"";
     $id("drawerViewProfile").hidden=true;
     const isAdmin=(activeUser.admins||[]).includes(currentUser.uid);
     const section=$id("groupMembersSection");
@@ -1109,11 +1593,15 @@ function renderProfileDrawer(){
       list.innerHTML=(activeUser.members||[]).map(uid=>{
         const u=uid===currentUser.uid?{name:"You",photoURL:currentUserData.photoURL}:(activeGroupMembers.get(uid)||userListeners.get(uid)?.data||{name:"Member"});
         const isMemberAdmin=(activeUser.admins||[]).includes(uid);
-        return `<div class="group-member-row" data-uid="${escapeHtml(uid)}">${avatarHtml(u,{dot:false})}<span class="meta"><strong>${escapeHtml(u.name||"Member")}</strong>${isMemberAdmin?'<span class="admin-tag">Admin</span>':""}</span>${isAdmin&&uid!==currentUser.uid?`<button class="remove-member" type="button" aria-label="Remove member">${ICONS.trash}</button>`:""}</div>`;
+        const role=(activeUser.roles||{})[uid]||((activeUser.admins||[]).includes(uid)?"admin":((activeUser.moderators||[]).includes(uid)?"moderator":"member")); return `<div class="group-member-row" data-uid="${escapeHtml(uid)}">${avatarHtml(u,{dot:false})}<span class="meta"><strong>${escapeHtml(u.name||"Member")}</strong><span class="admin-tag">${escapeHtml(role)}</span></span>${isAdmin&&uid!==currentUser.uid?`<select class="member-role-select" aria-label="Role"><option value="member" ${role==="member"?"selected":""}>Member</option><option value="moderator" ${role==="moderator"?"selected":""}>Moderator</option><option value="admin" ${role==="admin"?"selected":""}>Admin</option></select><button class="remove-member" type="button" aria-label="Remove member">${ICONS.trash}</button>`:""}</div>`;
       }).join("");
       (activeUser.members||[]).forEach(uid=>{const u=uid===currentUser.uid?{name:"You",photoURL:currentUserData.photoURL}:(activeGroupMembers.get(uid)||userListeners.get(uid)?.data||{name:"Member"});paintAvatar(list.querySelector(`[data-uid="${CSS.escape(uid)}"] .avatar`),u);});
       list.querySelectorAll(".remove-member").forEach(btn=>btn.addEventListener("click",()=>removeGroupMember(btn.closest(".group-member-row").dataset.uid)));
+      list.querySelectorAll(".member-role-select").forEach(sel=>sel.addEventListener("change",()=>setGroupMemberRole(sel.closest(".group-member-row").dataset.uid,sel.value)));
       $id("addGroupMembersBtn").hidden=!isAdmin;
+      $id("groupInviteBtn").hidden=!isAdmin;
+      $id("groupJoinRequestsBtn").hidden=!isAdmin;
+      $id("groupSettingsBtn").hidden=!isAdmin;
       $id("leaveGroupBtn").hidden=false;
     }
     const grid=$id("sharedMediaGrid");if(!grid)return;
@@ -1123,6 +1611,7 @@ function renderProfileDrawer(){
     return;
   }
   $id("groupMembersSection")?.setAttribute("hidden","");
+  ["groupInviteBtn","groupJoinRequestsBtn","groupSettingsBtn","addGroupMembersBtn","leaveGroupBtn"].forEach(id=>{$id(id)?.setAttribute("hidden","");});
   $id("drawerViewProfile").hidden=false;
   const live=userListeners.get(activeUser.uid)?.data;if(live)activeUser={...activeUser,...live};paintAvatar($id("drawerAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name,email:activeUser.email});$id("drawerName").textContent=activeUser.name||(activeUser.username?`@${activeUser.username}`:"Contact");$id("drawerUsername").textContent=activeUser.username?`@${activeUser.username}`:"";$id("drawerBio").textContent=activeUser.bio||"";const grid=$id("sharedMediaGrid");if(!grid)return;const images=currentMessages.filter(m=>m.type==="image"&&isTrustedImageUrl(m.imageURL)).slice(-12).reverse();if(!images.length){grid.innerHTML='<div class="empty-state">No shared images yet.</div>';return;}grid.innerHTML=images.map(m=>`<button type="button" class="shared-media-item" data-image="${escapeHtml(m.imageURL)}"><img src="${escapeHtml(imageUrl(m.imageURL,"chat"))}" alt="Shared image" loading="lazy"></button>`).join("");grid.querySelectorAll(".shared-media-item").forEach(b=>b.addEventListener("click",()=>openLightbox(b.dataset.image)));}
 
@@ -1142,14 +1631,20 @@ function renderSelectionToolbar(){const bar=$id("selectionToolbar");if(!bar)retu
 async function deleteSelectedForMe(){const ids=[...selectedMessageIds];if(!ids.length)return;try{for(let i=0;i<ids.length;i+=400){const batch=writeBatch(db);ids.slice(i,i+400).forEach(id=>batch.update(doc(db,"conversations",activeConversationId,"messages",id),{deletedFor:arrayUnion(currentUser.uid)}));await batch.commit();}showToast(`${ids.length} message${ids.length===1?"":"s"} deleted for you`,`info`);setSelectionMode(false);}catch(e){console.error(e);showToast("Could not delete selected messages.","error");}}
 async function saveSelectedMessages(){const ids=[...selectedMessageIds];for(const id of ids){const m=currentMessages.find(x=>x.id===id);if(m&&!isSavedByUser(m,currentUser.uid))await toggleSaveMessage(id,false);}setSelectionMode(false);}
 function searchCurrentConversation(value){const box=$id("conversationSearchResults");if(!box)return;const q=String(value||"").trim().toLowerCase();const matches=!q?[]:currentMessages.filter(m=>String(m.text||"").toLowerCase().includes(q)).slice(0,80);if(!q){box.innerHTML='<div class="empty-state">Type a word or phrase to search this conversation.</div>';return;}if(!matches.length){box.innerHTML='<div class="empty-state">No matching messages in the currently loaded history.</div>';return;}box.innerHTML=matches.map(m=>`<button type="button" class="search-message-row" data-id="${escapeHtml(m.id)}"><strong>${escapeHtml(m.senderId===currentUser.uid?"You":(activeUser?.isGroup?(activeGroupMembers.get(m.senderId)?.name||"Member"):activeUser?.name||"User"))}</strong><span>${escapeHtml(m.type==="image"?"📷 Photo":m.text||"Attachment")}</span></button>`).join("");box.querySelectorAll(".search-message-row").forEach(b=>b.addEventListener("click",()=>{closeModal("conversationSearchModal");scrollToMessage(b.dataset.id);}));}
-async function openForwardModal(messages){const box=$id("forwardConversationList");if(!box)return;window.__cunnactForwardMessages=messages.map(m=>({id:m.id,type:m.type,text:m.text||"",imageURL:m.imageURL||"",mediaURL:m.mediaURL||"",fileName:m.fileName||"",mimeType:m.mimeType||"",fileSize:m.fileSize||0,senderId:m.senderId}));const list=conversations.filter(c=>!c.hiddenFor?.[currentUser.uid]&&c.id!==activeConversationId).slice(0,80);if(!list.length){box.innerHTML='<div class="empty-state">No other conversations available.</div>';}else{box.innerHTML=list.map(c=>{const u=conversationDisplay(c);return `<button type="button" class="forward-chat-row" data-conversation-id="${escapeHtml(c.id)}">${avatarHtml(u,{dot:false})}<span><strong>${escapeHtml(u.name||"Conversation")}</strong><small>${c.type==="group"?"Group":"Direct chat"}</small></span></button>`;}).join("");list.forEach(c=>{const row=box.querySelector(`[data-conversation-id="${CSS.escape(c.id)}"]`);paintAvatar(row?.querySelector(".avatar"),conversationDisplay(c));row?.addEventListener("click",()=>forwardToConversation(c));});}openModal("forwardModal");}
-async function forwardToConversation(conversation){const messages=window.__cunnactForwardMessages||[];if(!messages.length)return;try{const isGroup=conversation.type==="group",targetUid=isGroup?null:otherUid(conversation);if(!isGroup&&currentBlockedUsers.has(targetUid))throw new Error("BLOCKED");const batch=writeBatch(db);messages.forEach(m=>{const ref=doc(collection(db,"conversations",conversation.id,"messages"));batch.set(ref,{senderId:currentUser.uid,...(isGroup?{}:{receiverId:targetUid}),type:m.type,...(m.text?{text:m.text.slice(0,5000)}:{}),...(m.imageURL?{imageURL:m.imageURL}:{}),...(m.mediaURL?{mediaURL:m.mediaURL}:{}),...(m.fileName?{fileName:m.fileName}:{}),...(m.mimeType?{mimeType:m.mimeType}:{}),...(m.fileSize?{fileSize:m.fileSize}:{}),forwardedFrom:{messageId:m.id,senderId:m.senderId,senderName:m.senderId===currentUser.uid?"You":(userListeners.get(m.senderId)?.data?.name||"Someone")},createdAt:serverTimestamp(),savedBy:[],pinnedBy:[],deletedFor:[],readBy:{},deliveredBy:{},reactions:{}});});const unreadPatch={};if(isGroup)(conversation.members||[]).forEach(uid=>{if(uid!==currentUser.uid)unreadPatch[`unread.${uid}`]=increment(messages.length);});else unreadPatch[`unread.${targetUid}`]=increment(messages.length);const last=messages[messages.length-1];const preview=last.type==="image"?"📷 Photo":last.type==="audio"?"🎤 Voice message":last.type==="video"?"🎬 Video":last.type==="document"?`📄 ${last.fileName||"Document"}`:last.text||"Forwarded message";batch.update(doc(db,"conversations",conversation.id),{lastMessage:preview,lastMessageType:last.type,lastMessageSenderId:currentUser.uid,lastMessageTime:serverTimestamp(),...unreadPatch});await batch.commit();closeModal("forwardModal");showToast("Message forwarded","success");}catch(e){console.error(e);showToast(e?.message==="BLOCKED"?"That conversation is blocked.":e?.code==="permission-denied"?"Firebase blocked forwarding. Deploy the updated rules.":"Could not forward message.","error");}}
+async function openForwardModal(messages){const box=$id("forwardConversationList");if(!box)return;window.__cunnactForwardMessages=messages.map(m=>({id:m.id,type:m.type,text:m.text||"",imageURL:m.imageURL||"",mediaURL:m.mediaURL||"",fileName:m.fileName||"",mimeType:m.mimeType||"",fileSize:m.fileSize||0,senderId:m.senderId,quality:m.quality||"optimized",albumId:m.albumId||"",albumIndex:m.albumIndex||0,albumSize:m.albumSize||1,linkUrl:m.linkUrl||"",linkHost:m.linkHost||"",contactUid:m.contactUid||"",contactName:m.contactName||"",contactUsername:m.contactUsername||"",contactPhotoURL:m.contactPhotoURL||"",latitude:m.latitude,longitude:m.longitude,locationLabel:m.locationLabel||""}));const list=conversations.filter(c=>!c.hiddenFor?.[currentUser.uid]&&c.id!==activeConversationId).slice(0,80);if(!list.length){box.innerHTML='<div class="empty-state">No other conversations available.</div>';}else{box.innerHTML=list.map(c=>{const u=conversationDisplay(c);return `<button type="button" class="forward-chat-row" data-conversation-id="${escapeHtml(c.id)}">${avatarHtml(u,{dot:false})}<span><strong>${escapeHtml(u.name||"Conversation")}</strong><small>${c.type==="group"?"Group":"Direct chat"}</small></span></button>`;}).join("");list.forEach(c=>{const row=box.querySelector(`[data-conversation-id="${CSS.escape(c.id)}"]`);paintAvatar(row?.querySelector(".avatar"),conversationDisplay(c));row?.addEventListener("click",()=>forwardToConversation(c));});}openModal("forwardModal");}
+async function forwardToConversation(conversation){const messages=window.__cunnactForwardMessages||[];if(!messages.length)return;try{const isGroup=conversation.type==="group",targetUid=isGroup?null:otherUid(conversation);if(!isGroup&&currentBlockedUsers.has(targetUid))throw new Error("BLOCKED");const batch=writeBatch(db);messages.forEach(m=>{const ref=doc(collection(db,"conversations",conversation.id,"messages"));batch.set(ref,{senderId:currentUser.uid,...(isGroup?{}:{receiverId:targetUid}),type:m.type,...(m.text?{text:m.text.slice(0,5000)}:{}),...(m.imageURL?{imageURL:m.imageURL}:{}),...(m.mediaURL?{mediaURL:m.mediaURL}:{}),...(m.fileName?{fileName:m.fileName}:{}),...(m.mimeType?{mimeType:m.mimeType}:{}),...(m.fileSize?{fileSize:m.fileSize}:{}),forwardedFrom:{messageId:m.id,senderId:m.senderId,senderName:m.senderId===currentUser.uid?"You":(userListeners.get(m.senderId)?.data?.name||"Someone")},...(m.albumId?{albumId:m.albumId,albumIndex:m.albumIndex||0,albumSize:m.albumSize||1}:{}),...(m.quality?{quality:m.quality}:{}),...(m.linkUrl?{linkUrl:m.linkUrl,linkHost:m.linkHost||""}:{}),...(m.contactUid?{contactUid:m.contactUid,contactName:m.contactName||"",contactUsername:m.contactUsername||"",contactPhotoURL:m.contactPhotoURL||""}:{}),...(Number.isFinite(Number(m.latitude))?{latitude:Number(m.latitude),longitude:Number(m.longitude),locationLabel:m.locationLabel||"Shared location"}:{}),createdAt:serverTimestamp(),savedBy:[],pinnedBy:[],deletedFor:[],readBy:{},deliveredBy:{},reactions:{}});});const unreadPatch={};if(isGroup)(conversation.members||[]).forEach(uid=>{if(uid!==currentUser.uid)unreadPatch[`unread.${uid}`]=increment(messages.length);});else unreadPatch[`unread.${targetUid}`]=increment(messages.length);const last=messages[messages.length-1];const preview=last.type==="image"?"📷 Photo":last.type==="audio"?"🎤 Voice message":last.type==="video"?"🎬 Video":last.type==="document"?`📄 ${last.fileName||"Document"}`:last.text||"Forwarded message";batch.update(doc(db,"conversations",conversation.id),{lastMessage:preview,lastMessageType:last.type,lastMessageSenderId:currentUser.uid,lastMessageTime:serverTimestamp(),...unreadPatch});await batch.commit();closeModal("forwardModal");showToast("Message forwarded","success");}catch(e){console.error(e);showToast(e?.message==="BLOCKED"?"That conversation is blocked.":e?.code==="permission-denied"?"Firebase blocked forwarding. Deploy the updated rules.":"Could not forward message.","error");}}
 function toggleComposerPanel(id){document.querySelectorAll(".composer-popover").forEach(p=>{if(p.id!==id)p.hidden=true;});const p=$id(id);if(p)p.hidden=!p.hidden;}
 function insertComposerText(text){const input=$id("messageInput");if(!input)return;const start=input.selectionStart??input.value.length,end=input.selectionEnd??start;input.value=input.value.slice(0,start)+text+input.value.slice(end);input.selectionStart=input.selectionEnd=start+text.length;autoGrowComposer();input.focus();}
 async function sendSticker(sticker){if(!activeUser||!activeConversationId)return;try{await sendMessage({type:"sticker",text:sticker});playSend();$id("stickerPanel").hidden=true;}catch(e){console.error(e);showToast("Could not send sticker.","error");}}
 function updateVoiceButton(recording){const b=$id("voiceNoteBtn");if(!b)return;b.classList.toggle("recording",recording);b.setAttribute("aria-label",recording?"Stop recording":"Record voice note");b.title=recording?"Stop & send voice note":"Voice note";}
 async function sendVoiceBlob(blob){try{const {uploadFileToCloudinary}=await import("./cloudinary.js");const url=await uploadFileToCloudinary(new File([blob],`cunnact-voice-${Date.now()}.webm`,{type:blob.type}),{});await sendMessage({type:"audio",mediaURL:url,mimeType:blob.type,fileSize:blob.size});playSend();showToast("Voice note sent","success");}catch(e){console.error(e);showToast(e?.userMessage||"Voice note could not be uploaded. Check the Cloudinary preset.","error");}}
 async function recordVoiceNote(){if(voiceRecorder){voiceRecorder.stop();updateVoiceButton(false);return;}if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){showToast("Voice recording is not supported here.","error");return;}try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});const mime=["audio/webm;codecs=opus","audio/webm","audio/ogg;codecs=opus"].find(x=>window.MediaRecorder.isTypeSupported?.(x))||"";voiceChunks=[];voiceRecorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);voiceRecorder.ondataavailable=e=>{if(e.data.size)voiceChunks.push(e.data);};voiceRecorder.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());const blob=new Blob(voiceChunks,{type:voiceRecorder?.mimeType||"audio/webm"});voiceRecorder=null;voiceChunks=[];updateVoiceButton(false);if(blob.size<500){showToast("Voice note was too short.","info");return;}await sendVoiceBlob(blob);};voiceRecorder.start();updateVoiceButton(true);showToast("Recording… tap mic again to send.","info");}catch(e){console.error(e);voiceRecorder=null;updateVoiceButton(false);showToast("Microphone permission was denied or unavailable.","error");}}
+
+function openGifModal(){if(!activeConversationId||!activeUser||isBlockedByEither())return;$id("gifUrlInput")&&($id("gifUrlInput").value="");$id("gifError")&&($id("gifError").textContent="");openModal("gifModal");setTimeout(()=> $id("gifUrlInput")?.focus(),20);}
+async function sendGifFromModal(){const input=$id("gifUrlInput"),err=$id("gifError");const url=String(input?.value||"").trim();if(!isTrustedGifUrl(url)){if(err)err.textContent="Use a secure GIPHY or Tenor GIF URL.";return;}try{await sendMessage({type:"gif",imageURL:url,text:"GIF"});playSend();closeModal("gifModal");showToast("GIF sent","success");}catch(e){console.error(e);if(err)err.textContent="Could not send the GIF.";}}
+function openContactShareModal(){if(!activeConversationId||!activeUser||isBlockedByEither())return;const box=$id("contactShareList");if(!box)return;const contacts=contactList().filter(u=>u.uid!==activeUser.uid);if(!contacts.length){box.innerHTML='<div class="empty-state">You do not have another connected contact to share yet.</div>';}else{box.innerHTML=contacts.map(u=>`<button type="button" class="forward-chat-row contact-share-row" data-uid="${escapeHtml(u.uid)}">${avatarHtml(u,{dot:false})}<span class="meta"><strong>${escapeHtml(u.name||"User")}</strong><small>${u.username?`@${escapeHtml(u.username)}`:"CUNNACT contact"}</small></span></button>`).join("");contacts.forEach(u=>{const row=box.querySelector(`[data-uid="${CSS.escape(u.uid)}"]`);paintAvatar(row?.querySelector(".avatar"),u);row?.addEventListener("click",async()=>{try{await sendMessage({type:"contact",text:u.name||"Contact",contactUid:u.uid,contactName:u.name||"User",contactUsername:u.username||"",contactPhotoURL:u.photoURL||""});playSend();closeModal("contactModal");showToast("Contact shared","success");}catch(e){console.error(e);showToast(e?.code==="permission-denied"?"Firebase blocked contact sharing.":"Could not share contact.","error");}});});}openModal("contactModal");}
+function shareCurrentLocation(){if(!activeConversationId||!activeUser||isBlockedByEither())return;if(!navigator.geolocation){showToast("Location sharing is not supported here.","error");return;}showToast("Getting your location…","info");navigator.geolocation.getCurrentPosition(async pos=>{const latitude=Number(pos.coords.latitude.toFixed(6)),longitude=Number(pos.coords.longitude.toFixed(6));try{await sendMessage({type:"location",latitude,longitude,locationLabel:"Current location"});playSend();showToast("Location shared","success");}catch(e){console.error(e);showToast(e?.code==="permission-denied"?"Firebase blocked location sharing.":"Could not share location.","error");}},()=>showToast("Could not get your location. Check browser permissions.","error"),{enableHighAccuracy:true,timeout:10000,maximumAge:30000});}
+
 
 /* Shared helpers */
 function closeProfileIfDesktop(){if(innerWidth<=1100)closeProfileDrawer();}

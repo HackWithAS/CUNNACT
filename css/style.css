@@ -211,3 +211,9 @@ body,.profile-page,.public-profile-page{background:radial-gradient(circle at 10%
 :root[data-theme="dark"] .brand-wordmark-wrap .theme-logo-dark{display:block!important}
 
 .verify-spam-note{color:var(--ink-faint);font-size:11px;line-height:1.5}
+
+.offline-bar{position:fixed;left:0;right:0;top:0;z-index:500;padding:9px 14px;text-align:center;background:#9a3412;color:#fff;font-size:12px;font-weight:700;letter-spacing:.01em;box-shadow:0 4px 18px rgba(0,0,0,.18)}
+.keyboard-hint{font-size:9px;color:var(--ink-faint);opacity:.85}.desktop-only{display:inline-grid}@media(max-width:820px){.desktop-only{display:none}.offline-bar{font-size:11px}}
+body.popup-mode .nav-rail,body.popup-mode .sidebar,body.popup-mode .mobile-only{display:none!important}body.popup-mode .app-shell{grid-template-columns:1fr!important}body.popup-mode .chat-panel{border:0;max-width:none}
+.messages.drop-target{outline:2px dashed rgba(35,118,252,.55);outline-offset:-10px;background:rgba(35,118,252,.045)}
+.settings-inline-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.is-enabled{border-color:rgba(22,163,74,.35)!important;color:#15803d!important}.btn-danger-account{margin-top:12px;border:1px solid rgba(185,28,28,.28);background:rgba(185,28,28,.08);color:#b91c1c;border-radius:12px;padding:10px 14px;font-weight:800;cursor:pointer}.btn-danger-account:disabled{opacity:.55;cursor:not-allowed}.account-tools-card{margin-top:18px}.danger-account-card{margin-top:18px;border-color:rgba(185,28,28,.18)}

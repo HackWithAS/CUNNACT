@@ -10,7 +10,17 @@ export const CLOUDINARY = Object.freeze({
   uploadUrl: "https://api.cloudinary.com/v1_1/qfw2dy0h/image/upload",
   autoUploadUrl: "https://api.cloudinary.com/v1_1/qfw2dy0h/auto/upload",
   maxBytes: 5 * 1024 * 1024,
+  maxMediaBytes: 25 * 1024 * 1024,
+  maxBatchBytes: 50 * 1024 * 1024,
   allowedTypes: Object.freeze(["image/jpeg", "image/png", "image/webp", "image/gif"]),
+  allowedMediaTypes: Object.freeze([
+    "image/jpeg", "image/png", "image/webp", "image/gif",
+    "video/mp4", "video/webm", "video/quicktime",
+    "application/pdf", "text/plain", "application/zip", "application/x-zip-compressed",
+    "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+  ]),
   timeoutMs: 60000
 });
 
@@ -72,6 +82,33 @@ export function isTrustedImageUrl(value) {
 }
 
 /* ---------------- Upload ---------------- */
+
+const DOCUMENT_EXTENSIONS = new Set(["pdf","txt","zip","doc","docx","xls","xlsx","ppt","pptx"]);
+const VIDEO_EXTENSIONS = new Set(["mp4","webm","mov"]);
+
+export function mediaKind(file) {
+  const type = String(file?.type || "").toLowerCase();
+  const ext = String(file?.name || "").split(".").pop()?.toLowerCase() || "";
+  if (type.startsWith("image/")) return "image";
+  if (type.startsWith("video/") || VIDEO_EXTENSIONS.has(ext)) return "video";
+  if (DOCUMENT_EXTENSIONS.has(ext) || type.startsWith("application/") || type === "text/plain") return "document";
+  return null;
+}
+
+export async function validateMediaFile(file) {
+  if (!file) throw new UploadError("none", "Please select a file.");
+  if (!file.size) throw new UploadError("type", "The selected file is empty.");
+  const kind = mediaKind(file);
+  if(kind === "image") await validateImageFile(file);
+  const declared=file.type.toLowerCase();
+  const ext=String(file.name||"").split(".").pop()?.toLowerCase()||"";
+  const genericDocument=kind==="document"&&(!declared||declared==="application/octet-stream"||declared==="binary/octet-stream");
+  if (!kind || (!genericDocument && declared && !CLOUDINARY.allowedMediaTypes.includes(declared) && !VIDEO_EXTENSIONS.has(ext) && !DOCUMENT_EXTENSIONS.has(ext))) {
+    throw new UploadError("type", "This file type is not supported.");
+  }
+  if (file.size > CLOUDINARY.maxMediaBytes) throw new UploadError("size", "Each file must be 25 MB or smaller.");
+  return kind;
+}
 
 /**
  * Uploads an image to Cloudinary with the unsigned preset and resolves with its `secure_url`.
@@ -157,6 +194,7 @@ export const PRESETS = Object.freeze({
   avatarSm: `c_fill,g_face,w_96,h_96,${AUTO}`,    // sidebar rows / chat header, shown ~46px (2x)
   avatarXl: `c_fill,g_face,w_288,h_288,${AUTO}`,  // profile page, shown ~128-144px (2x)
   chat: `c_limit,w_720,${AUTO}`,                  // chat bubbles, shown up to ~320px wide (2x)
+  hd: `c_limit,w_1200,${AUTO}`,                   // HD-ish delivery without forcing original bytes
   full: `c_limit,w_1800,${AUTO}`                  // lightbox
 });
 

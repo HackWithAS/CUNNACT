@@ -15,5 +15,8 @@ export const firebaseConfig = {
   storageBucket: "cunnact.firebasestorage.app",
   messagingSenderId: "179918248368",
   appId: "1:179918248368:web:a188f5aafc096043a75e75",
-  measurementId: "G-W7B6GVV3D9"
+  measurementId: "G-W7B6GVV3D9",
+  // Firebase Console → Project settings → Cloud Messaging → Web Push certificates.
+  // Keep the private key out of this project; only the public VAPID key belongs here.
+  messagingVapidKey: "YOUR_PUBLIC_VAPID_KEY_HERE"
 };

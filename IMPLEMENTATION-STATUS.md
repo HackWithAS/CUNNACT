@@ -1,48 +1,34 @@
-# CUNNACT implementation status — 23 Sep 2026
+# CUNNACT Implementation Status
 
-## Completed in this pass
+Phase 0: complete in previous build.
+Phase 1: complete in previous build.
+Phase 2: complete in previous build.
+Phase 3: implemented in this build.
+Phase 4: implemented in this build.
 
-### Foundation / stability
-- Strengthened first-load chat handling by merging an un-ordered Firestore fallback slice for small/legacy conversations whose records may omit `createdAt`.
-- Kept the existing timeout + retry path and realtime listener cleanup.
+### Phase 3 implemented
+- Group roles/admins/moderators
+- Invite link + QR
+- Join requests / approval and optional direct invite join
+- Member controls
+- Mentions and @everyone metadata
+- Group polls and events
+- Group reports and moderator message removal
+- Group settings/description/photo
 
-### Messaging foundation
-- Message edit flow with a 15-minute client/rules guard.
-- Forward one or multiple selected messages to another existing conversation.
-- Per-user message pin/unpin (`pinnedBy`).
-- Message details modal.
-- Multi-select mode with bulk delete-for-me and save/forward actions.
-- In-conversation search over currently loaded history.
-- Emoji insertion palette.
-- Built-in lightweight sticker palette.
-- Voice-note recording using MediaRecorder and a generic Cloudinary upload helper.
-- Rendering support for audio/video/document/sticker message records created by the new message model.
+### Phase 4 implemented
+- 1:1 voice/video WebRTC
+- Group WebRTC mesh calls (up to 8)
+- Call links
+- Call history
+- Screen share
+- Mute/camera controls
+- Call reactions and raise hand
+- Picture-in-picture
+- Incoming call UI/browser notification
 
-## Existing and preserved
-- Google/email authentication + verification
-- Message requests
-- Direct chat / groups
-- Reactions
-- Save / delete / reply
-- Presence + typing + delivery/read state
-- Cloudinary image upload
-- Desktop New Chat -> Create group
-- Mobile New group option
-
-## Requires external/live setup or later phases
-- Cloudinary unsigned preset must permit `auto` uploads before audio/video/document uploads can work live.
-- GIF search provider/API integration is not yet added; GIF files can already be selected through the existing image picker.
-- Calls, stories, communities, channels, global discovery, advanced privacy/security, AI, multi-device/device management, backup, and final security/performance audit remain later phases.
-
-## Validation
-- `node --check` passes for all JS files.
-- `index.html` currently has no duplicate element IDs.
-
-## Request Flow Follow-up
-
-- [x] Outgoing pending-request listener
-- [x] Cancel pending request from New Chat search
-- [x] Prevent accidental full overwrite of existing request records
-- [x] Firestore sender-only pending delete rule
-- [x] More actionable permission/network error handling
-- [x] Legacy/public-profile account compatibility in `canContact`
+### External setup / limitations
+- Firestore rules must be deployed.
+- Browser WebRTC may require TURN for some networks.
+- Group call participant cap is 8.
+- QR rendering currently depends on an external QR image endpoint.

@@ -2,12 +2,16 @@ import {
   auth, db, onAuthStateChanged, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, signOut, updateProfile,
   sendEmailVerification, sendPasswordResetEmail,
-  GoogleAuthProvider, signInWithPopup, EmailAuthProvider, linkWithCredential,
+  GoogleAuthProvider, signInWithPopup, EmailAuthProvider, linkWithCredential, getMultiFactorResolver,
+  PhoneAuthProvider, PhoneMultiFactorGenerator, RecaptchaVerifier, multiFactor,
   doc, getDoc, setDoc, serverTimestamp, runTransaction
 } from "./firebase.js";
 import { $ } from "./ui.js";
 
 const errorBox = $("authError");
+let mfaResolver = null;
+let mfaRecaptcha = null;
+let mfaVerificationId = null;
 const FRIENDLY_ERRORS = {
   "auth/invalid-credential":"Invalid email or password.",
   "auth/user-not-found":"Invalid email or password.",
@@ -43,7 +47,7 @@ async function claimChosenUsername(uid,candidate,name) {
     if(snap.exists()&&snap.data()?.uid!==uid)throw new Error("USERNAME_TAKEN");
     tx.set(ref,{uid,createdAt:serverTimestamp()},{merge:true});
     tx.set(doc(db,"users",uid),{username:candidate,usernameLower:candidate},{merge:true});
-    tx.set(doc(db,"publicProfiles",uid),{uid,username:candidate,usernameLower:candidate,displayName:name,photoURL:"",bio:"",updatedAt:serverTimestamp()},{merge:true});
+    tx.set(doc(db,"publicProfiles",uid),{uid,username:candidate,usernameLower:candidate,displayName:name,displayNameLower:String(name||"").toLowerCase(),profileVisibility:"public",discoverable:true,photoURL:"",bio:"",updatedAt:serverTimestamp()},{merge:true});
   });
 }
 
@@ -81,10 +85,29 @@ onAuthStateChanged(auth, async (user) => {
   showCompleteProfile(user);
 });
 
+
+async function startMfaChallenge(error){
+  mfaResolver=getMultiFactorResolver(auth,error);
+  const hint=mfaResolver?.hints?.[0];
+  if(!hint){setAuthMessage("Two-step verification is required, but no usable second factor is enrolled.");return;}
+  const modal=$("mfaLoginModal");if(!modal){setAuthMessage("Two-step verification is enabled on this account. Update the login page to enter the verification code.");return;}
+  modal.hidden=false;document.body.classList.add("modal-open");
+  $("mfaHint").textContent=hint.phoneNumber?`Code will be sent to ${hint.phoneNumber}`:"Enter your verification code.";
+  try{mfaRecaptcha?.clear();}catch{};mfaRecaptcha=new RecaptchaVerifier(auth,"loginMfaRecaptcha",{size:"normal"});
+  mfaVerificationId=await new PhoneAuthProvider(auth).verifyPhoneNumber({multiFactorHint:hint,session:mfaResolver.session},mfaRecaptcha);
+  $("mfaCodeInput")?.focus();
+}
+async function finishMfaChallenge(){
+  const code=$("mfaCodeInput")?.value.trim();if(!mfaResolver||!mfaVerificationId||!/^\d{6}$/.test(code)){setAuthMessage("Enter the 6-digit verification code.");return;}
+  try{const cred=PhoneAuthProvider.credential(mfaVerificationId,code);const assertion=PhoneMultiFactorGenerator.assertion(cred);await mfaResolver.resolveSignIn(assertion);$("mfaLoginModal").hidden=true;document.body.classList.remove("modal-open");location.href="index.html";}catch(e){console.error("MFA challenge failed",e);setAuthMessage(e?.code==="auth/invalid-verification-code"?"Incorrect verification code.":"Could not verify the code. Try again.");}
+}
+$("mfaVerifyBtn")?.addEventListener("click",finishMfaChallenge);
+$("mfaCodeInput")?.addEventListener("keydown",e=>{if(e.key==="Enter")finishMfaChallenge();if(e.key==="Escape"){$("mfaLoginModal").hidden=true;document.body.classList.remove("modal-open");}});
+
 $("loginForm")?.addEventListener("submit",async e=>{
   e.preventDefault();setAuthMessage("");const form=e.target;setBusy(form,true);
   try{ await signInWithEmailAndPassword(auth,$("email").value.trim(),$("password").value); location.href="index.html"; }
-  catch(err){ setAuthMessage(friendlyError(err)); setBusy(form,false); }
+  catch(err){ if(err?.code==="auth/multi-factor-auth-required"){ try{await startMfaChallenge(err);}catch(mfaErr){console.error(mfaErr);setAuthMessage("Could not start two-step verification.");setBusy(form,false);} return; } setAuthMessage(friendlyError(err)); setBusy(form,false); }
 });
 
 $("forgotPasswordLink")?.addEventListener("click", async (e) => {
@@ -110,6 +133,11 @@ $("googleSignInBtn")?.addEventListener("click", async () => {
     // CUNNACT ID already exists, or the "finish setup" box if it's new.
     // Google accounts are inherently email-verified, so no extra step there.
   } catch (err) {
+    if (err?.code === "auth/multi-factor-auth-required") {
+      try { await startMfaChallenge(err); }
+      catch (mfaErr) { console.error("Google MFA challenge failed", mfaErr); setAuthMessage("Could not start two-step verification."); }
+      return;
+    }
     if (err?.code !== "auth/popup-closed-by-user") console.error("Google sign-in failed", err);
     setAuthMessage(friendlyError(err));
   } finally {

@@ -113,6 +113,12 @@ Created by HackWithAS.
 
 ## Current implementation status
 
-This deliverable includes a first implementation pass for the expanded messaging foundation: edit, forward, pin/unpin, message details, multi-select, conversation search, emoji/sticker controls, voice-note recording plumbing, richer media message rendering, and stronger legacy-message chat loading. Existing authentication, requests, groups, reactions, save/delete, presence and Cloudinary image flows are preserved.
+This deliverable includes the implemented messaging foundation from earlier phases plus Phase 3 groups/calls and the new Phase 5–6 social layer:
 
-The larger roadmap remains intentionally phased: calling, stories, communities/channels, global discovery, privacy/security hardening, AI, multi-device/device management, backup and final full regression still require their own implementation and live-service testing.
+- 24-hour stories/status with photo/video/text, stickers, links, polls, audience controls, replies, reactions and viewer tracking.
+- Communities with public/private visibility, rules, moderators, member management, private join requests, sub-groups and an automatic announcement channel.
+- Channels with public/private visibility, followers, admin posting, media, polls, reactions and comments.
+- Discovery/search surfaces for stories, communities and channels.
+- Scheduled server cleanup for expired stories via Cloud Functions.
+
+Earlier authentication, requests, messaging, groups, calls and Cloudinary features remain in the same codebase. Live Firebase/Cloudinary behavior still requires deployment and testing against the project's services.
