@@ -5,70 +5,323 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Login · CUNNACT</title>
 <link rel="icon" href="assets/brand/favicon.svg"><link rel="icon" type="image/png" sizes="32x32" href="assets/icons/cunnact-32.png"><link rel="apple-touch-icon" href="assets/icons/cunnact-192.png">
+<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#171F30">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<script>document.documentElement.dataset.theme = localStorage.getItem("cunnact_theme") === "dark" ? "dark" : "light";</script>
-<link rel="stylesheet" href="css/style.css">
-<link rel="stylesheet" href="css/auth.css">
-<link rel="stylesheet" href="css/animations.css">
-<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#171F30"><link rel="stylesheet" href="css/security.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script id="tailwind-config">
+tailwind.config={theme:{extend:{colors:{"on-surface":"#131b2e","secondary-fixed":"#dbe1ff","success":"#10B981","surface-pure":"#FFFFFF","surface-container":"#eaedff","tertiary":"#453bdc","surface-canvas":"#F4F6FB","primary":"#2346d5","on-primary":"#ffffff","surface-variant":"#dae2fd","surface-bright":"#faf8ff","on-surface-variant":"#444655","primary-fixed":"#dee1ff","primary-container":"#4361ee","surface-container-low":"#f2f3ff","surface-container-high":"#e2e7ff","accent-gradient-start":"#2563EB","accent-gradient-end":"#4F46E5","text-primary":"#0F172A","text-secondary":"#64748B","text-muted":"#94A3B8","border-subtle":"#E2E8F0","danger":"#EF4444","secondary-container":"#316bf3"},borderRadius:{full:"9999px"},spacing:{"space-xs":"0.25rem","space-sm":"0.5rem","space-md":"1rem","space-lg":"1.5rem","space-xl":"2.5rem",gutter:"1.5rem","gutter-mobile":"1rem"},fontFamily:{"headline":["Plus Jakarta Sans","sans-serif"],"body":["Inter","sans-serif"]}}}}
+</script>
+<style>
+  @layer base{html,body{margin:0;padding:0}}
+  ::-webkit-scrollbar{display:none}
+  details > summary{list-style:none}
+  details > summary::-webkit-details-marker{display:none}
+  details[open] .chevron{transform:rotate(180deg)}
+  .modal-backdrop{background:rgba(19,27,46,.45);backdrop-filter:blur(8px)}
+</style>
 </head>
-<body class="auth-page">
-  <main class="auth-card">
-    <div class="auth-brand">
-      <img class="theme-logo-light auth-wordmark-logo" src="assets/brand/cunnact-logo.svg" alt="CUNNACT — Stay Connected" loading="eager">
-      <img class="theme-logo-dark auth-wordmark-logo" src="assets/brand/cunnact-logo-light.svg" alt="CUNNACT — Stay Connected" loading="eager">
-    </div>
-    <h1>Welcome back</h1>
-    <p>Sign in to continue.</p>
-    <form id="loginForm" novalidate>
-      <label>Email
-        <input id="email" type="email" autocomplete="email" required>
-      </label>
-      <label>Password
-        <input id="password" type="password" autocomplete="current-password" required>
-      </label>
-      <button type="submit" class="btn btn-primary">Login</button>
-      <p id="authError" class="error" role="alert" aria-live="polite"></p>
-    </form>
-    <p class="switch"><a href="#" id="forgotPasswordLink">Forgot password?</a></p>
-    <div class="or-divider"><span>or</span></div>
-    <button type="button" id="googleSignInBtn" class="btn btn-soft" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">
-      <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.2-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3c-7.4 0-13.8 4.1-17.1 10.1z"/><path fill="#4CAF50" d="M24 45c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 36.3 26.7 37 24 37c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.9 40.6 16.4 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.2 5.2C40.5 36.4 45 30.7 45 24c0-1.2-.1-2.4-.4-3.5z"/></svg>
-      Continue with Google
-    </button>
-    <p class="switch">New here? <a href="register.html">Create an account</a></p>
-    <div id="completeProfileBox" class="complete-profile-box" hidden>
-      <p><strong>Pick your CUNNACT ID</strong><br><span class="field-hint">You're signed in — just choose a username to finish setting up.</span></p>
-      <label>CUNNACT ID (username)
-        <input id="completeUsername" type="text" autocomplete="off" placeholder="e.g. rahul_23" maxlength="24">
-      </label>
-      <label>Name
-        <input id="completeName" type="text" autocomplete="name">
-      </label>
-      <div id="completePasswordFields" hidden>
-        <p class="field-hint" style="margin:4px 0 10px">Optional — set a password so you can also log in without Google next time.</p>
-        <label>Password (optional)
-          <input id="completePassword" type="password" autocomplete="new-password" minlength="6">
-        </label>
-      </div>
-      <button type="button" id="completeProfileBtn" class="btn btn-primary">Finish setup</button>
-      <p id="completeProfileError" class="error" role="alert" aria-live="polite"></p>
-    </div>
+<body class="min-h-full bg-surface-canvas text-on-surface font-body antialiased relative">
 
-    <div id="mfaLoginModal" class="modal" hidden aria-hidden="true">
-      <div class="modal-content compact-modal">
-        <div class="modal-header"><div><span class="eyebrow">SECURITY</span><h2>Two-step verification</h2><p id="mfaHint">Enter the code sent to your phone.</p></div></div>
-        <div id="loginMfaRecaptcha" class="mfa-recaptcha"></div>
-        <label class="profile-field-v6" style="display:grid;gap:7px"><span>6-digit code</span><input id="mfaCodeInput" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456"></label>
-        <button id="mfaVerifyBtn" type="button" class="btn btn-primary" style="width:100%;margin-top:14px">Verify code</button>
+<div class="pointer-events-none fixed inset-0 overflow-hidden z-0">
+  <div class="absolute -top-36 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-gradient-to-b from-primary-container/10 via-surface-variant/20 to-transparent blur-3xl opacity-70 rounded-full"></div>
+  <div class="absolute top-1/3 -left-32 w-80 h-80 bg-accent-gradient-start/5 blur-2xl rounded-full"></div>
+  <div class="absolute bottom-10 -right-32 w-80 h-80 bg-accent-gradient-end/5 blur-2xl rounded-full"></div>
+</div>
+
+<div class="relative z-10 flex flex-col min-h-screen">
+
+  <header class="w-full h-20 flex-none">
+    <div class="max-w-7xl mx-auto px-gutter-mobile sm:px-gutter h-full flex items-center justify-between">
+      <div class="flex items-center gap-space-sm">
+        <img alt="CUNNACT" class="h-8 w-8 object-contain rounded-lg" src="assets/brand/cunnact-icon.svg">
+        <span class="font-headline text-lg font-bold tracking-tight text-on-surface">CUNNACT</span>
+      </div>
+      <div class="hidden sm:flex items-center gap-space-sm bg-surface-pure px-space-md py-1.5 rounded-full shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+        <span class="material-symbols-outlined text-success text-[18px]">verified_user</span>
+        <span class="font-body text-xs font-semibold text-on-surface-variant tracking-wide">Private • Simple • Connected</span>
       </div>
     </div>
-    <footer class="auth-footer">
-      <span>CUNNACT by <a href="https://hackwithas.in" target="_blank" rel="noopener noreferrer">HackWithAS</a></span>
-    </footer>
+  </header>
+
+  <main class="flex-1 flex flex-col justify-center items-center px-gutter-mobile py-space-xl max-w-7xl mx-auto w-full">
+    <div class="flex flex-col w-full">
+      <div class="w-full max-w-6xl mx-auto py-space-md lg:py-space-xl">
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-stretch">
+
+          <!-- Left: Auth card -->
+          <div class="lg:col-span-6 flex flex-col justify-center">
+            <div class="auth-card relative bg-surface-pure rounded-3xl p-6 sm:p-10 shadow-[0_20px_50px_rgba(37,99,235,0.07)] flex flex-col">
+              <div class="absolute -top-12 right-12 w-48 h-48 bg-primary-container/5 rounded-full blur-2xl pointer-events-none"></div>
+
+              <div class="relative">
+                <div class="flex items-center justify-between mb-space-md">
+                  <div class="flex items-center gap-space-sm">
+                    <img alt="CUNNACT" class="h-10 w-10 object-contain drop-shadow-sm rounded-xl" src="assets/brand/cunnact-icon.svg">
+                    <div class="flex flex-col">
+                      <span class="font-headline text-lg font-extrabold text-on-surface tracking-tight">CUNNACT</span>
+                      <span class="font-headline text-[10px] font-bold text-primary tracking-widest">STAY CONNECTED</span>
+                    </div>
+                  </div>
+                  <span class="inline-flex items-center gap-1 text-xs font-semibold text-success bg-surface-container px-2.5 py-1 rounded-full">
+                    <span class="material-symbols-outlined text-[16px]">verified</span>
+                    Verified Cloud
+                  </span>
+                </div>
+
+                <h1 class="font-headline text-3xl sm:text-4xl text-on-surface mb-space-xs font-extrabold tracking-tight">Welcome back</h1>
+                <p class="font-body text-sm text-text-secondary leading-relaxed">Sign in to pick up your conversations, communities and 24h stories right where you left off.</p>
+
+                <div class="grid grid-cols-3 gap-2 mt-space-md mb-space-lg">
+                  <div class="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface-canvas text-center">
+                    <span class="material-symbols-outlined text-primary text-[20px] mb-1">bolt</span>
+                    <span class="text-[10px] font-bold tracking-wide text-on-surface">1-CLICK LOGIN</span>
+                    <span class="text-[11px] text-text-muted">Zero Passwords</span>
+                  </div>
+                  <div class="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface-canvas text-center">
+                    <span class="material-symbols-outlined text-tertiary text-[20px] mb-1">shield_lock</span>
+                    <span class="text-[10px] font-bold tracking-wide text-on-surface">ENCRYPTED</span>
+                    <span class="text-[11px] text-text-muted">E2E Secure</span>
+                  </div>
+                  <div class="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface-canvas text-center">
+                    <span class="material-symbols-outlined text-success text-[20px] mb-1">sync_saved_locally</span>
+                    <span class="text-[10px] font-bold tracking-wide text-on-surface">SYNCED</span>
+                    <span class="text-[11px] text-text-muted">Multi-Device</span>
+                  </div>
+                </div>
+
+                <!-- Sign-in actions -->
+                <div class="space-y-space-md">
+                  <div class="bg-surface-canvas p-4 rounded-2xl flex flex-col gap-3">
+                    <div class="flex items-center justify-between px-1">
+                      <span class="text-xs font-medium text-text-secondary">Authentication Protocol</span>
+                      <span class="text-[10px] font-bold text-primary bg-primary-fixed px-2 py-0.5 rounded-md">OAUTH 2.0 SECURE</span>
+                    </div>
+
+                    <button type="button" id="googleSignInBtn" class="group relative w-full h-14 bg-surface-pure hover:bg-surface-bright rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.12)] active:scale-[0.99] transition-all duration-200 flex items-center justify-center px-6 overflow-hidden cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                      <div class="relative flex items-center justify-center gap-3 w-full">
+                        <svg class="w-6 h-6 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
+                          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
+                          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"></path>
+                          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"></path>
+                        </svg>
+                        <span class="font-headline text-base font-semibold text-text-primary group-hover:text-primary transition-colors tracking-tight">Continue with Google</span>
+                        <span class="material-symbols-outlined text-text-muted group-hover:text-primary transition-transform group-hover:translate-x-1 ml-auto text-[20px]">arrow_forward</span>
+                      </div>
+                    </button>
+                  </div>
+
+                  <div id="authNotice" hidden class="p-3 rounded-xl bg-surface-container text-primary flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[18px] animate-spin">sync</span>
+                    <span class="text-xs font-medium">Connecting securely to Google…</span>
+                  </div>
+
+                  <div class="or-divider flex items-center gap-3 text-text-muted text-[11px] font-semibold tracking-wide uppercase">
+                    <span class="flex-1 h-px bg-border-subtle"></span>
+                    <span>or</span>
+                    <span class="flex-1 h-px bg-border-subtle"></span>
+                  </div>
+
+                  <details class="or-divider group/details">
+                    <summary class="cursor-pointer flex items-center justify-center gap-1.5 text-sm font-semibold text-primary hover:underline select-none">
+                      <span class="material-symbols-outlined text-[18px]">mail</span>
+                      Sign in with email instead
+                      <span class="material-symbols-outlined chevron text-[18px] transition-transform">expand_more</span>
+                    </summary>
+
+                    <form id="loginForm" novalidate class="mt-space-md flex flex-col gap-3">
+                      <label class="flex flex-col gap-1.5">
+                        <span class="text-xs font-semibold text-text-secondary">Email</span>
+                        <input id="email" type="email" autocomplete="email" required class="w-full h-12 px-4 rounded-xl border border-border-subtle bg-surface-canvas text-sm text-on-surface outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition">
+                      </label>
+                      <label class="flex flex-col gap-1.5">
+                        <span class="text-xs font-semibold text-text-secondary">Password</span>
+                        <input id="password" type="password" autocomplete="current-password" required class="w-full h-12 px-4 rounded-xl border border-border-subtle bg-surface-canvas text-sm text-on-surface outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition">
+                      </label>
+                      <button type="submit" class="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-on-primary text-sm font-bold tracking-tight transition">Login</button>
+                      <p id="authError" class="text-xs text-danger min-h-[16px]" role="alert" aria-live="polite"></p>
+                      <p class="switch text-center text-xs text-text-muted -mt-1">
+                        <a href="#" id="forgotPasswordLink" class="text-primary font-semibold hover:underline">Forgot password?</a>
+                      </p>
+                    </form>
+                  </details>
+
+                </div>
+              </div>
+              <p class="switch text-center text-sm text-text-secondary mt-space-md">New here? <a href="register.html" class="text-primary font-semibold hover:underline">Create an account</a></p>
+
+              <!-- Complete-profile step (shown after first Google sign-in) -->
+              <div id="completeProfileBox" hidden class="relative mt-space-lg pt-space-lg border-t border-border-subtle flex flex-col gap-4">
+                <div>
+                  <p class="font-headline text-base font-bold text-on-surface mb-1">Pick your CUNNACT ID</p>
+                  <p class="text-xs text-text-secondary">You're signed in — just choose a username to finish setting up.</p>
+                </div>
+                <label class="flex flex-col gap-1.5">
+                  <span class="text-xs font-semibold text-text-secondary">CUNNACT ID (username)</span>
+                  <input id="completeUsername" type="text" autocomplete="off" placeholder="e.g. rahul_23" maxlength="24" class="w-full h-12 px-4 rounded-xl border border-border-subtle bg-surface-canvas text-sm text-on-surface outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition">
+                </label>
+                <label class="flex flex-col gap-1.5">
+                  <span class="text-xs font-semibold text-text-secondary">Name</span>
+                  <input id="completeName" type="text" autocomplete="name" class="w-full h-12 px-4 rounded-xl border border-border-subtle bg-surface-canvas text-sm text-on-surface outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition">
+                </label>
+                <div id="completePasswordFields" hidden class="flex flex-col gap-1.5">
+                  <p class="text-xs text-text-muted">Optional — set a password so you can also log in without Google next time.</p>
+                  <span class="text-xs font-semibold text-text-secondary">Password (optional)</span>
+                  <input id="completePassword" type="password" autocomplete="new-password" minlength="6" class="w-full h-12 px-4 rounded-xl border border-border-subtle bg-surface-canvas text-sm text-on-surface outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition">
+                </div>
+                <button type="button" id="completeProfileBtn" class="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-on-primary text-sm font-bold tracking-tight transition">Finish setup</button>
+                <p id="completeProfileError" class="text-xs text-danger min-h-[16px]" role="alert" aria-live="polite"></p>
+              </div>
+
+              <div class="mt-space-lg pt-space-md">
+                <p class="text-xs text-text-secondary text-center leading-relaxed">
+                  By continuing, you agree to CUNNACT's
+                  <a class="text-primary font-medium hover:underline" href="#">Terms of Service</a> and
+                  <a class="text-primary font-medium hover:underline" href="#">Privacy Policy</a>.
+                </p>
+                <div class="flex items-center justify-center gap-4 mt-3 text-text-muted text-[11px] font-medium">
+                  <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[15px] text-success">lock</span>256-Bit SSL</span>
+                  <span>•</span>
+                  <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[15px] text-primary">cloud_done</span>Zero-Knowledge Store</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Live preview bento (decorative) -->
+          <div class="lg:col-span-6 hidden lg:flex flex-col justify-center">
+            <div class="relative bg-surface-container-low/70 backdrop-blur-md rounded-3xl p-6 sm:p-8 flex flex-col gap-5 shadow-[0_12px_36px_rgba(15,23,42,0.03)]">
+              <div class="flex items-center justify-between pb-2">
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex h-2.5 w-2.5 rounded-full bg-success animate-pulse"></span>
+                  <span class="text-[10px] font-bold text-on-surface uppercase tracking-wider">Live Ecosystem Preview</span>
+                </div>
+                <div class="flex items-center gap-1.5 bg-surface-pure px-3 py-1 rounded-full shadow-sm text-text-secondary text-xs font-medium">
+                  <span class="material-symbols-outlined text-[16px] text-tertiary">groups</span>
+                  <span>Realtime messaging</span>
+                </div>
+              </div>
+
+              <div class="bg-surface-pure rounded-2xl p-4 shadow-sm flex flex-col gap-3">
+                <div class="flex items-center justify-between pb-2">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-full bg-secondary-fixed flex items-center justify-center font-bold text-xs">HW</div>
+                    <div>
+                      <div class="font-headline text-sm font-semibold text-on-surface leading-tight">HackWithAS Core Team</div>
+                      <div class="text-[11px] text-success flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-success"></span>
+                        typing a message…
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1 text-on-surface-variant">
+                    <span class="w-7 h-7 rounded-lg flex items-center justify-center"><span class="material-symbols-outlined text-[18px]">call</span></span>
+                    <span class="w-7 h-7 rounded-lg flex items-center justify-center"><span class="material-symbols-outlined text-[18px]">videocam</span></span>
+                  </div>
+                </div>
+                <div class="space-y-2.5 pt-1">
+                  <div class="flex items-start gap-2">
+                    <div class="w-6 h-6 rounded-full bg-surface-variant flex items-center justify-center text-[10px] font-semibold shrink-0 mt-1">JD</div>
+                    <div class="bg-surface-canvas rounded-2xl rounded-tl-sm px-3.5 py-2 max-w-[85%] text-sm">
+                      <p>Audio sync and instant image transfers feel totally native on CUNNACT 🔥</p>
+                      <span class="text-[10px] text-text-muted mt-1 inline-block">10:42 AM</span>
+                    </div>
+                  </div>
+                  <div class="flex items-start justify-end gap-2">
+                    <div class="bg-primary text-on-primary rounded-2xl rounded-tr-sm px-3.5 py-2 max-w-[85%] text-sm">
+                      <p>1-Click Google sign-in is live! Zero latency across all desktop panels.</p>
+                      <div class="flex items-center justify-end gap-1 mt-1">
+                        <span class="text-[10px] text-on-primary/80">10:43 AM</span>
+                        <span class="material-symbols-outlined text-[13px]">done_all</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="bg-surface-canvas rounded-xl p-2 flex items-center justify-between gap-2 mt-1">
+                  <div class="flex items-center gap-2 text-text-muted px-1">
+                    <span class="material-symbols-outlined text-[18px]">sentiment_satisfied</span>
+                    <span class="text-xs">Type a message…</span>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-text-muted text-[18px]">mic</span>
+                    <div class="w-7 h-7 rounded-lg bg-primary text-on-primary flex items-center justify-center">
+                      <span class="material-symbols-outlined text-[16px]">send</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div class="bg-surface-pure rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div class="w-8 h-8 rounded-xl bg-surface-container flex items-center justify-center text-primary mb-2">
+                      <span class="material-symbols-outlined text-[20px]">history_toggle_off</span>
+                    </div>
+                    <div class="font-headline text-sm font-semibold text-on-surface">24h Stories</div>
+                    <p class="text-xs text-text-secondary mt-1">Share moments, polls and HD snippets that vanish after a day.</p>
+                  </div>
+                </div>
+                <div class="bg-surface-pure rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div class="w-8 h-8 rounded-xl bg-secondary-fixed flex items-center justify-center text-secondary-container mb-2">
+                      <span class="material-symbols-outlined text-[20px]">hub</span>
+                    </div>
+                    <div class="font-headline text-sm font-semibold text-on-surface">Communities</div>
+                    <p class="text-xs text-text-secondary mt-1">Unify subgroups, channel broadcasts and collaborative chatrooms.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
   </main>
-  <script type="module" src="js/auth.js"></script>
+
+  <footer class="w-full h-16 flex-none">
+    <div class="max-w-7xl mx-auto px-gutter h-full flex items-center justify-center">
+      <p class="text-xs text-on-surface-variant text-center flex items-center gap-space-xs">
+        <span>CUNNACT by <a href="https://hackwithas.in" target="_blank" rel="noopener noreferrer" class="font-semibold hover:underline">HackWithAS</a></span>
+        <span class="opacity-40">·</span>
+        <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-primary">lock</span>End-to-End Encrypted</span>
+      </p>
+    </div>
+  </footer>
+</div>
+
+<!-- Two-step verification modal -->
+<div id="mfaLoginModal" hidden aria-hidden="true" class="fixed inset-0 z-[4000] modal-backdrop flex items-center justify-center p-4">
+  <div class="w-full max-w-md bg-surface-pure rounded-3xl shadow-2xl p-6 sm:p-8">
+    <span class="text-[10px] font-bold text-primary tracking-widest">SECURITY</span>
+    <h2 class="font-headline text-xl font-bold text-on-surface mt-1">Two-step verification</h2>
+    <p id="mfaHint" class="text-sm text-text-secondary mt-1">Enter the code sent to your phone.</p>
+    <div id="loginMfaRecaptcha" class="mt-4"></div>
+    <label class="flex flex-col gap-1.5 mt-4">
+      <span class="text-xs font-semibold text-text-secondary">6-digit code</span>
+      <input id="mfaCodeInput" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" class="w-full h-12 px-4 rounded-xl border border-border-subtle bg-surface-canvas text-sm text-on-surface outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition tracking-[0.3em] text-center font-semibold">
+    </label>
+    <button id="mfaVerifyBtn" type="button" class="w-full h-12 mt-4 rounded-xl bg-primary hover:bg-primary/90 text-on-primary text-sm font-bold tracking-tight transition">Verify code</button>
+  </div>
+</div>
+
+<script>
+  // Decorative "connecting" banner — auth.js drives the actual sign-in.
+  (function () {
+    var btn = document.getElementById('googleSignInBtn');
+    var notice = document.getElementById('authNotice');
+    if (btn && notice) {
+      btn.addEventListener('click', function () {
+        notice.hidden = false;
+        setTimeout(function () { notice.hidden = true; }, 4000);
+      });
+    }
+  })();
+</script>
+<script type="module" src="js/auth.js"></script>
 </body>
 </html>
