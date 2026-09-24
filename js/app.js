@@ -397,6 +397,168 @@ window.addEventListener("beforeunload", () => { if (currentUser) setOwnPresence(
 window.addEventListener("online", () => { if (currentUser && document.visibilityState === "visible") setOwnPresence(true); });
 window.addEventListener("offline", () => { if (currentUser) { currentUserData = { ...currentUserData, isOnline:false }; refreshPresenceUI(); } });
 
+/* Calls page — dedicated WhatsApp-style calls workspace */
+let callsPageRows = [];
+let callsPageSearch = "";
+
+function closeCallsPage() {
+  const app = $id("app");
+  $id("callsView")?.setAttribute("hidden", "true");
+  $id("callsPanel")?.setAttribute("hidden", "true");
+  $id("sidebarDefaultView")?.removeAttribute("hidden");
+  $id("newChatView")?.setAttribute("hidden", "true");
+  app?.classList.remove("calls-open");
+}
+window.closeCallsPage = closeCallsPage;
+
+function callRowDirection(call) {
+  if (call?.status === "declined" || call?.status === "missed") return "Missed";
+  return call?.initiatorId === currentUser?.uid ? "Outgoing" : "Incoming";
+}
+function callRowType(call) {
+  return call?.callType === "video" ? "Video call" : "Voice call";
+}
+function callRowTime(value) {
+  const dt = value?.toDate?.() || (value instanceof Date ? value : (value ? new Date(value) : null));
+  if (!dt || Number.isNaN(dt.getTime())) return "";
+  const now = new Date();
+  return dt.toDateString() === now.toDateString() ? formatTime(dt) : formatWhen(dt);
+}
+
+async function loadCallsPageHistory() {
+  const box = $id("callsRecentList");
+  if (!box || !currentUser) return;
+  box.innerHTML = '<div class="calls-list-empty">Loading call history…</div>';
+  const recentConversations = conversations.slice(0, 24);
+  try {
+    const all = [];
+    for (const conv of recentConversations) {
+      try {
+        const snap = await getDocs(query(collection(db, "conversations", conv.id, "calls"), limit(20)));
+        snap.docs.forEach(d => all.push({ id:d.id, conversationId:conv.id, ...d.data() }));
+      } catch (error) {
+        console.warn("Calls history query skipped", conv.id, error);
+      }
+    }
+    callsPageRows = all.sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0)).slice(0, 80);
+    renderCallsPageHistory();
+  } catch (error) {
+    console.error("Calls history failed", error);
+    box.innerHTML = '<div class="calls-list-empty"><strong>Call history could not be loaded.</strong><span>Check your Firebase connection and rules.</span></div>';
+  }
+}
+
+function getCallContactMeta(row) {
+  const conv = conversations.find(c => c.id === row.conversationId);
+  if (!conv) return { name: row.title || "CUNNACT call", username:"", photoURL:"", isGroup:false };
+  if (conv.type === "group") return { name: conv.groupName || row.title || "Group call", username:"", photoURL:conv.groupPhotoURL || "", isGroup:true };
+  const uid = otherUid(conv);
+  const data = userListeners.get(uid)?.data;
+  return { name:data?.name || row.title || "CUNNACT user", username:data?.username || "", photoURL:data?.photoURL || "", uid, isGroup:false };
+}
+
+function renderCallsPageHistory() {
+  const box = $id("callsRecentList");
+  if (!box) return;
+  const term = callsPageSearch.trim().toLowerCase();
+  const filtered = callsPageRows.filter(row => {
+    const meta = getCallContactMeta(row);
+    const hay = `${meta.name||""} ${meta.username||""} ${row.title||""} ${callRowType(row)} ${callRowDirection(row)}`.toLowerCase();
+    return !term || hay.includes(term);
+  }).slice(0, 50);
+  if (!filtered.length) {
+    box.innerHTML = '<div class="calls-list-empty"><strong>No recent calls</strong><span>Your call history will appear here.</span></div>';
+    return;
+  }
+  box.innerHTML = filtered.map((row, index) => {
+    const meta = getCallContactMeta(row);
+    const dir = callRowDirection(row);
+    const type = callRowType(row);
+    const danger = dir === "Missed" ? " missed" : "";
+    const icon = type === "Video call"
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="6" width="12.5" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.8v3a2 2 0 0 1-2.2 2A19.6 19.6 0 0 1 3.2 5.2 2 2 0 0 1 5.2 3h3a2 2 0 0 1 2 1.7c.1.8.3 1.6.6 2.4a2 2 0 0 1-.4 2.1L9.1 10.7a15.4 15.4 0 0 0 4.2 4.2l1.5-1.3a2 2 0 0 1 2.1-.4c.8.3 1.6.5 2.4.6A2 2 0 0 1 22 16.8Z"/></svg>';
+    return `<div class="call-history-page-row${danger}" data-call-row-index="${index}">
+      <span class="call-history-page-avatar">${meta.photoURL ? `<img src="${escapeHtml(meta.photoURL)}" alt="">` : `<span>${escapeHtml((meta.name||"C").slice(0,1).toUpperCase())}</span>`}</span>
+      <span class="call-history-page-copy"><strong>${escapeHtml(meta.name||"CUNNACT user")}</strong><small><span class="call-history-direction ${dir === "Missed" ? "missed" : ""}">${escapeHtml(dir)}</span> · ${escapeHtml(type)}</small></span>
+      <span class="call-history-page-meta"><time>${escapeHtml(callRowTime(row.createdAt))}</time><button type="button" class="call-history-call-btn" data-call-back-index="${index}" aria-label="Call ${escapeHtml(meta.name||"contact")}" title="Call back">${icon}</button></span>
+    </div>`;
+  }).join("");
+  box.querySelectorAll("[data-call-back-index]").forEach(btn => {
+    btn.addEventListener("click", async e => {
+      e.stopPropagation();
+      const idx = Number(btn.dataset.callBackIndex);
+      const row = filtered[idx];
+      if (!row) return;
+      await startCallFromCallRow(row, row.callType === "video" ? "video" : "voice");
+    });
+  });
+}
+
+async function startCallFromConversation(conv, callType="voice") {
+  if (!conv?.id || !currentUser) return;
+  try {
+    await openChatById(conv.id);
+    if (!activeConversationId || activeConversationId !== conv.id || !activeUser) return;
+    await startActiveCall(callType);
+  } catch (error) {
+    console.error("Start call from calls page failed", error);
+    showToast("Could not start the call.", "error");
+  }
+}
+async function startCallFromCallRow(row, callType="voice") {
+  const conv = conversations.find(c => c.id === row?.conversationId);
+  if (!conv) { showToast("This conversation is no longer available.", "error"); return; }
+  await startCallFromConversation(conv, callType);
+}
+
+function renderCallPicker(filter="") {
+  const box = $id("callPickerList");
+  if (!box) return;
+  const term = String(filter||"").trim().toLowerCase();
+  const rows = conversations.filter(c => {
+    const meta = conversationDisplay(c);
+    const hay = `${meta?.name||""} ${meta?.username||""} ${meta?.email||""}`.toLowerCase();
+    return !term || hay.includes(term);
+  }).slice(0, 30);
+  if (!rows.length) { box.innerHTML='<div class="empty-state">No connected contacts found.</div>'; return; }
+  box.innerHTML = rows.map((c,i) => {
+    const meta = conversationDisplay(c);
+    const photo = meta.photoURL || "";
+    const name = meta.name || "Contact";
+    return `<div class="call-picker-row" data-call-picker-index="${i}">
+      <span class="call-picker-avatar">${photo ? `<img src="${escapeHtml(photo)}" alt="">` : `<span>${escapeHtml(name.slice(0,1).toUpperCase())}</span>`}</span>
+      <span class="call-picker-meta"><strong>${escapeHtml(name)}</strong><small>${meta.isGroup ? `${Number(meta.memberCount||c.members?.length||0)} members` : (meta.username ? `@${escapeHtml(meta.username)}` : "Connected contact")}</small></span>
+      <span class="call-picker-actions"><button type="button" data-picker-call="voice" aria-label="Voice call"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.8v3a2 2 0 0 1-2.2 2A19.6 19.6 0 0 1 3.2 5.2 2 2 0 0 1 5.2 3h3a2 2 0 0 1 2 1.7c.1.8.3 1.6.6 2.4a2 2 0 0 1-.4 2.1L9.1 10.7a15.4 15.4 0 0 0 4.2 4.2l1.5-1.3a2 2 0 0 1 2.1-.4c.8.3 1.6.5 2.4.6A2 2 0 0 1 22 16.8Z"/></svg></button><button type="button" data-picker-call="video" aria-label="Video call"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="6" width="12.5" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg></button></span>
+    </div>`;
+  }).join("");
+  box.querySelectorAll(".call-picker-row").forEach((row,index) => {
+    const conv = rows[index];
+    row.querySelectorAll("[data-picker-call]").forEach(btn => btn.addEventListener("click", async e => {
+      e.stopPropagation();
+      closeModal("startCallModal");
+      await startCallFromConversation(conv, btn.dataset.pickerCall);
+    }));
+  });
+}
+function openStartCallPicker() {
+  if (!currentUser) return;
+  openModal("startCallModal");
+  const input = $id("callPickerSearch");
+  if (input) { input.value=""; renderCallPicker(""); setTimeout(()=>input.focus(), 30); }
+}
+
+async function openCallsPage() {
+  const app=$id("app"), base=$id("sidebarDefaultView"), newChat=$id("newChatView"), status=$id("statusView"), channels=$id("channelsView"), statusPanel=$id("statusPanel"), channelsPanel=$id("channelsPanel"), view=$id("callsView"), panel=$id("callsPanel"), chat=document.querySelector(".chat-panel");
+  if(!app||!view||!panel)return;
+  base?.setAttribute("hidden","");newChat?.setAttribute("hidden","");status?.setAttribute("hidden","");channels?.setAttribute("hidden","");statusPanel?.setAttribute("hidden","");channelsPanel?.setAttribute("hidden","");chat?.setAttribute("hidden","");
+  view.hidden=false;panel.hidden=false;
+  app.classList.add("calls-open");app.classList.remove("chat-open","status-open","channels-open");
+  document.querySelectorAll(".nav-rail-btn").forEach(b=>b.classList.remove("active"));
+  $id("navCallsBtn")?.classList.add("active");
+  await loadCallsPageHistory();
+}
+
 /* Static controls */
 function bindStaticControls() {
   if (staticBound) return; staticBound = true;
@@ -443,6 +605,13 @@ function bindStaticControls() {
     await toggleBlockUser(activeUser.uid,!blocked);
     renderProfileDrawer();
   });
+  $id("groupChangesBtn")?.addEventListener("click", () => openGroupChangesModal());
+  $id("groupFavouriteBtn")?.addEventListener("click", async () => { if(!activeUser?.isGroup||!activeConversationId)return; await toggleConversationFavourite(); renderProfileDrawer(); });
+  $id("groupListBtn")?.addEventListener("click", async () => { if(!activeUser?.isGroup)return; await addConversationToList(); });
+  $id("groupExportBtn")?.addEventListener("click", () => { if(activeUser?.isGroup) exportCurrentChat(); });
+  $id("groupClearBtn")?.addEventListener("click", async () => { if(activeUser?.isGroup) await clearChatForMe(); });
+  $id("groupExitBtn")?.addEventListener("click", async () => { if(activeUser?.isGroup) await leaveGroupChat(); });
+  $id("groupReportBtn")?.addEventListener("click", async () => { if(activeUser?.isGroup) await reportActiveGroup(); });
   $id("chatMoreBtn")?.addEventListener("click", (e) => { e.stopPropagation(); if (!activeUser) return; playClick(); renderChatMoreMenu(); toggleDropdown("chatMoreMenu", "chatMoreBtn"); });
   const closeNewChatView = () => {
     const view = $id("newChatView");
@@ -453,7 +622,7 @@ function bindStaticControls() {
   };
   window.closeNewChatView = closeNewChatView;
   const newChat = async () => {
-    playClick();
+    playClick(); closeCallsPage();
     const base = $id("sidebarDefaultView");
     const view = $id("newChatView");
     if (!base || !view) return;
@@ -497,10 +666,20 @@ function bindStaticControls() {
   $id("leaveGroupBtn")?.addEventListener("click", leaveGroupChat);
   $id("requestsBtn")?.addEventListener("click", () => { playClick(); openModal("requestsModal"); });
   $id("navRequestsBtn")?.addEventListener("click", () => { playClick(); openModal("requestsModal"); });
-  $id("navCallsBtn")?.addEventListener("click", () => { playClick(); if (activeConversationId) { openModal("callHistoryModal"); } else { showToast("Open a conversation to view its call history.", "info"); } });
+  $id("navCallsBtn")?.addEventListener("click", () => { playClick(); closeProfileDrawer(); openCallsPage(); });
+  $id("callsStartBtn")?.addEventListener("click", () => { playClick(); openStartCallPicker(); });
+  $id("callsAddBtn")?.addEventListener("click", () => { playClick(); openStartCallPicker(); });
+  $id("callsDialBtn")?.addEventListener("click", () => { playClick(); openStartCallPicker(); });
+  $id("callsNumberBtn")?.addEventListener("click", () => { playClick(); openStartCallPicker(); });
+  $id("callsLinkBtn")?.addEventListener("click", () => { playClick(); showToast("Choose a contact first; the active call can then be shared with its call link.", "info"); openStartCallPicker(); });
+  $id("callsScheduleBtn")?.addEventListener("click", () => { playClick(); showToast("Call scheduling is not enabled in the current CUNNACT backend.", "info"); });
+  $id("callsAddFavouriteBtn")?.addEventListener("click", () => { playClick(); showToast("Select a recent contact, then add favourites from contact settings.", "info"); });
+  $id("callsSearch")?.addEventListener("input", debounce(e => { callsPageSearch=String(e.target.value||""); renderCallsPageHistory(); }, 140));
+  $id("callPickerSearch")?.addEventListener("input", debounce(e => renderCallPicker(e.target.value), 120));
+
   $id("savedBtn")?.addEventListener("click", async () => { playClick(); openModal("savedModal"); await renderSavedMessages(); });
   $id("navSavedBtn")?.addEventListener("click", async () => { playClick(); openModal("savedModal"); await renderSavedMessages(); });
-  $id("navChatsBtn")?.addEventListener("click", () => { playClick(); $id("app")?.classList.remove("chat-open","status-open","channels-open"); $id("statusView")?.setAttribute("hidden", "true"); $id("statusPanel")?.setAttribute("hidden", "true"); $id("channelsView")?.setAttribute("hidden", "true"); $id("channelsPanel")?.setAttribute("hidden", "true"); $id("sidebarDefaultView")?.removeAttribute("hidden"); });
+  $id("navChatsBtn")?.addEventListener("click", () => { playClick(); closeCallsPage(); $id("app")?.classList.remove("chat-open","status-open","channels-open"); $id("statusView")?.setAttribute("hidden", "true"); $id("statusPanel")?.setAttribute("hidden", "true"); $id("channelsView")?.setAttribute("hidden", "true"); $id("channelsPanel")?.setAttribute("hidden", "true"); $id("sidebarDefaultView")?.removeAttribute("hidden"); });
   $id("userSearch")?.addEventListener("input", debounce((e) => { chatSearchTerm = normalizeSearch(e.target.value); renderChatList(); }, 120));
   $id("newChatSearch")?.addEventListener("input", debounce((e) => loadNewChatSearch(e.target.value), 320));
   $id("messageForm")?.addEventListener("submit", handleMessageSubmit);
@@ -517,7 +696,6 @@ function bindStaticControls() {
   $id("editMessageCancelBtn")?.addEventListener("click",cancelEdit);
   $id("editMessageSaveBtn")?.addEventListener("click",saveEdit);
   $id("conversationSearchInput")?.addEventListener("input",debounce(e=>searchCurrentConversation(e.target.value),160));
-  document.querySelectorAll("#emojiPanel button[data-emoji]").forEach(b=>b.addEventListener("click",()=>insertComposerText(b.dataset.emoji)));
   document.querySelectorAll("#stickerPanel button[data-sticker]").forEach(b=>b.addEventListener("click",()=>sendSticker(b.dataset.sticker)));
   $id("attachBtn")?.addEventListener("click", () => { playClick(); toggleComposerPanel("attachmentPanel"); });
   document.querySelectorAll("[data-attach-action]").forEach(btn=>btn.addEventListener("click",()=>{
@@ -1156,6 +1334,41 @@ async function togglePinConversation(conversationId){
 
 function closeChatItemContextMenu(){document.querySelector(".chat-item-context-menu")?.remove();}
 
+async function logGroupEvent(type, details = {}){
+  if(!activeConversationId || !currentUser || !activeUser?.isGroup) return;
+  try{
+    const ref=doc(collection(db,"conversations",activeConversationId,"groupEvents"));
+    await setDoc(ref,{
+      type, actorId:currentUser.uid, actorName:currentUserData?.name||currentUser.displayName||"Member",
+      targetUid:String(details.targetUid||""), targetName:String(details.targetName||""),
+      fromRole:String(details.fromRole||""), toRole:String(details.toRole||""),
+      details:String(details.details||"").slice(0,300), createdAt:serverTimestamp()
+    });
+  }catch(e){ console.warn("Group activity log failed", e); }
+}
+
+async function reportActiveGroup(){
+  if(!activeConversationId||!activeUser?.isGroup||!currentUser)return;
+  const reason=window.prompt("Why are you reporting this group?", "Spam or unwanted content")?.trim();
+  if(!reason)return;
+  try{
+    await setDoc(doc(collection(db,"conversations",activeConversationId,"reports")),{reportedBy:currentUser.uid,type:"group",reason:reason.slice(0,300),createdAt:serverTimestamp(),targetGroup:activeUser.name||"Group"});
+    showToast("Group report submitted","success");
+  }catch(e){console.error("Group report failed",e);showToast(e?.code==="permission-denied"?"Firebase blocked this report. Deploy the latest firestore.rules.":"Could not report this group.","error");}
+}
+
+async function openGroupChangesModal(){
+  if(!activeConversationId||!activeUser?.isGroup)return;
+  const box=$id("groupChangesList"); if(!box)return;
+  box.innerHTML='<div class="empty-state">Loading member changes…</div>';
+  openModal("groupChangesModal");
+  try{
+    const snap=await getDocs(query(collection(db,"conversations",activeConversationId,"groupEvents"),orderBy("createdAt","desc"),limit(50)));
+    if(snap.empty){box.innerHTML='<div class="empty-state">No member changes have been recorded for this group yet.</div>';return;}
+    box.innerHTML=snap.docs.map(d=>{const e=d.data()||{};const when=e.createdAt?.toDate?.();let text=e.details||e.type||"Group updated";if(e.type==="member_added")text=`${e.targetName||"A member"} was added`;else if(e.type==="member_removed")text=`${e.targetName||"A member"} was removed`;else if(e.type==="role_changed")text=`${e.targetName||"A member"} changed from ${e.fromRole||"member"} to ${e.toRole||"member"}`;else if(e.type==="member_left")text=`${e.targetName||e.actorName||"A member"} left the group`;else if(e.type==="group_created")text="Group created";else if(e.type==="group_renamed")text=`Group renamed${e.targetName?` to ${e.targetName}`:""}`;return `<div class="group-change-row"><div class="group-change-icon">${ICONS.profile}</div><div class="group-change-copy"><strong>${escapeHtml(text)}</strong><span>${escapeHtml(e.actorName||"Member")} · ${escapeHtml(when?formatWhen(when):"Recently")}</span></div></div>`;}).join("");
+  }catch(e){console.error("Group changes load failed",e);box.innerHTML='<div class="empty-state">Could not load member changes. Check your Firebase rules.</div>';}
+}
+
 // --- Group chat: create, rename, membership ---
 async function promptRenameGroup(){
   if(!activeConversationId||!activeUser?.isGroup)return;
@@ -1165,6 +1378,7 @@ async function promptRenameGroup(){
     await updateDoc(doc(db,"conversations",activeConversationId),{groupName:name.slice(0,60)});
     activeUser.name=name.slice(0,60);
     refreshChatHeader();renderChatList();renderProfileDrawer();
+    await logGroupEvent("group_renamed",{targetName:name.slice(0,60),details:`Group renamed to ${name.slice(0,60)}`});
     showToast("Group renamed","success");
   }catch(e){console.error("Rename group failed",e);showToast("Could not rename the group.","error");}
 }
@@ -1179,6 +1393,8 @@ async function leaveGroupChat(){
     const remainingAdmins=(c?.groupAdmins||activeUser.admins||[]).filter(uid=>uid!==currentUser.uid);
     const remainingModerators=(c?.groupModerators||activeUser.moderators||[]).filter(uid=>uid!==currentUser.uid);
     const remainingRoles={...(c?.groupRoles||activeUser.roles||{})};delete remainingRoles[currentUser.uid];
+    const leavingName=currentUserData?.name||currentUser.displayName||"Member";
+    await logGroupEvent("member_left",{targetUid:currentUser.uid,targetName:leavingName,details:`${leavingName} left the group`});
     await updateDoc(doc(db,"conversations",activeConversationId),{members:remainingMembers,groupAdmins:remainingAdmins,groupModerators:remainingModerators,groupRoles:remainingRoles});
     activeConversationId=null;activeUser=null;activeConversation=null;$id("app")?.classList.remove("chat-open");
     closeProfileDrawer();renderChatList();
@@ -1227,6 +1443,8 @@ async function createGroup(){
       lastMessage:"",lastMessageType:"text",lastMessageSenderId:"",lastMessageId:"",lastMessageTime:serverTimestamp(),
       unread,pinned:{},hiddenFor:{}
     });
+    // Best-effort initial activity record; the group itself is already committed above.
+    try{await setDoc(doc(ref,"groupEvents","created"),{type:"group_created",actorId:currentUser.uid,actorName:currentUserData?.name||currentUser.displayName||"Member",createdAt:serverTimestamp(),details:"Group created"});}catch(e){console.warn("Initial group event log failed",e);}
     closeModal("newGroupModal");
     showToast("Group created 🎉","success");
     await openChatById(ref.id);
@@ -1252,6 +1470,7 @@ async function addGroupMembers(){
     const newMembers=[...existing,...toAdd];
     const unreadPatch={};toAdd.forEach(uid=>{unreadPatch[`unread.${uid}`]=0;});
     await updateDoc(doc(db,"conversations",activeConversationId),{members:newMembers,groupAdmins:activeUser.admins||[],groupModerators:activeUser.moderators||[],groupRoles:activeUser.roles||{},...unreadPatch});
+    await Promise.all(toAdd.map(uid=>{const u=candidates.find(x=>x.uid===uid);return logGroupEvent("member_added",{targetUid:uid,targetName:u?.name||u?.username||"Member"});}));
     showToast("Members added","success");
     await openChatById(activeConversationId);
   }catch(e){console.error("Add members failed",e);showToast("Could not add members.","error");}
@@ -1795,9 +2014,10 @@ function autoGrowComposer(){const input=$id("messageInput");if(!input)return;inp
 async function setGroupMemberRole(uid, role){
   if(!activeUser?.isGroup||!(activeUser.admins||[]).includes(currentUser.uid)||!uid||uid===currentUser.uid)return;
   const admins=new Set(activeUser.admins||[]);const moderators=new Set(activeUser.moderators||[]);const roles={...(activeUser.roles||{})};
+  const fromRole=roles[uid]||((admins.has(uid))?"admin":(moderators.has(uid)?"moderator":"member"));
   admins.delete(uid);moderators.delete(uid);roles[uid]=role;
   if(role==="admin")admins.add(uid);else if(role==="moderator")moderators.add(uid);
-  try{await updateDoc(doc(db,"conversations",activeConversationId),{groupAdmins:[...admins],groupModerators:[...moderators],groupRoles:roles});await openChatById(activeConversationId);showToast("Member role updated","success");}catch(e){console.error(e);showToast("Could not update member role.","error");}
+  try{await updateDoc(doc(db,"conversations",activeConversationId),{groupAdmins:[...admins],groupModerators:[...moderators],groupRoles:roles}); const target=activeGroupMembers.get(uid)||userListeners.get(uid)?.data||{}; await logGroupEvent("role_changed",{targetUid:uid,targetName:target.name||target.username||"Member",fromRole,toRole:role,details:`${target.name||target.username||"Member"} changed from ${fromRole} to ${role}`}); await openChatById(activeConversationId);showToast("Member role updated","success");}catch(e){console.error(e);showToast("Could not update member role.","error");}
 }
 /* Profile drawer / shared media */
 function openProfileDrawer(){if(!activeUser||activeUser.uid===currentUser?.uid)return;renderProfileDrawer();$id("profileDrawer").hidden=false;$id("app")?.classList.add("drawer-open");}
@@ -1818,7 +2038,7 @@ function renderProfileDrawer(){
     sharedSection?.removeAttribute("hidden");
     editBtn?.setAttribute("hidden","");
     const title=drawer?.querySelector(".profile-drawer-title strong"); if(title) title.textContent="Group info";
-    paintAvatar($id("drawerAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name});
+    paintAvatar($id("drawerAvatar"),{photoURL:activeUser.photoURL||activeUser.groupPhotoURL,name:activeUser.name});
     $id("drawerName").textContent=activeUser.name||"Group";
     $id("drawerUsername").textContent=`${activeUser.memberCount||activeUser.members?.length||0} members`;
     $id("drawerBio").textContent=activeUser.description||"";
@@ -1826,6 +2046,12 @@ function renderProfileDrawer(){
     const statsRow=$id("drawerStatsRow");
     if(statsRow){statsRow.hidden=false;$id("drawerStatMembers").textContent=String(activeUser.memberCount||activeUser.members?.length||0);}
     const isAdmin=(activeUser.admins||[]).includes(currentUser.uid);
+    const isFavourite=!!currentUserSettings?.favoriteConversations?.[activeConversationId];
+    if($id("groupFavouriteLabel")) $id("groupFavouriteLabel").textContent=isFavourite?"Remove from favourites":"Add to favourites";
+    const createdAt=timestampDate(activeConversation?.createdAt||activeUser.createdAt);
+    const creatorUid=activeConversation?.createdBy||activeUser.createdBy;
+    const creator=creatorUid===currentUser.uid?currentUserData:(activeGroupMembers.get(creatorUid)||userListeners.get(creatorUid)?.data||{});
+    if($id("groupCreatedMeta")) $id("groupCreatedMeta").textContent=createdAt?`Group created by ${creator?.name||"a CUNNACT member"}, on ${createdAt.toLocaleDateString()} at ${createdAt.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`:"";
     const section=$id("groupMembersSection");
     if(section){
       section.hidden=false;
@@ -1914,3 +2140,78 @@ function shareCurrentLocation(){if(!activeConversationId||!activeUser||isBlocked
 /* Shared helpers */
 function closeProfileIfDesktop(){if(innerWidth<=1100)closeProfileDrawer();}
 window.addEventListener("resize",closeProfileIfDesktop);
+
+// Rich emoji picker: category tabs, search, and WhatsApp-style footer tabs.
+const EMOJI_CATALOG = {
+  smileys: {
+    label: 'Smileys & People',
+    items: '😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🤩 🥳 😏 😒 😞 😔 😟 😕 🙁 ☹️ 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🤭 🤫 🤥 😶 😐 😑 😬 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 😪 😵 🤐 🤑 🤠 😈 👿 👹 👺 🤡 💩 👻 💀 ☠️ 👽 👾 🤖 🎃 😺 😸 😹 😻 😼 😽 🙀 😿 😾'.split(' ')
+  },
+  people: {
+    label: 'People & Body',
+    items: '👋 🤚 🖐️ ✋ 🖖 👌 🤏 ✌️ 🤞 🫶 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ ✍️ 👏 🙌 👐 🤲 🙏 💪 🖕 👀 👁️ 👄 🫦 🧠 👶 🧒 👦 👧 🧑 👱 👨 👩 🧔 👴 👵 🙍 🙎 🙅 🙆 💁 🙋 🧏 🙌 💇 💆 🚶 🧍 🧎 🏃 💃 🕺 🧖 🏄 🏊 🤽 🚴 🚵 🤸 🤾 🧘 🤳'.split(' ')
+  },
+  animals: {
+    label: 'Animals & Nature',
+    items: '🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🙈 🙉 🙊 🐒 🐔 🐧 🐦 🐤 🐣 🦆 🦅 🦉 🦇 🐺 🐗 🐴 🦄 🐝 🐛 🦋 🐌 🐞 🐜 🕷️ 🦂 🐢 🐍 🦎 🦖 🦕 🐙 🦑 🦀 🐠 🐟 🐡 🐬 🦈 🐳 🐋 🐊 🐅 🐆 🦓 🦍 🐘 🦏 🦛 🐪 🐫 🦒 🦘 🐃 🐂 🐄 🐎 🐖 🐏 🐑 🦙 🐐 🦌 🐕 🐈 🐓 🦃 🕊️ 🦜 🦢 🦩 🐇 🌸 🌹 🌻 🌺 🌷 🌼 🌱 🌲 🌳 🌴 🌵 🍀 🍁 🍂 🍃'.split(' ')
+  },
+  food: {
+    label: 'Food & Drink',
+    items: '🍏 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍈 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🥑 🍆 🥔 🥕 🌽 🌶️ 🫑 🥒 🥬 🥦 🧄 🧅 🍄 🥜 🌰 🍞 🥐 🥖 🥨 🧀 🥚 🍳 🧈 🥞 🧇 🥓 🥩 🍗 🍖 🌭 🍔 🍟 🍕 🥪 🥙 🧆 🌮 🌯 🫔 🥗 🥘 🫕 🍝 🍜 🍲 🍛 🍣 🍱 🥟 🦪 🍤 🍚 🍙 🍘 🍥 🍡 🥠 🥮 🍢 🍧 🍨 🍦 🥧 🧁 🍰 🎂 🍮 🍭 🍬 🍫 🍿 🍩 🍪 ☕ 🫖 🥤 🧋 🧃 🧉 🍺 🍻 🍷 🍸 🍹 🥂 🥃'.split(' ')
+  },
+  travel: {
+    label: 'Travel & Places',
+    items: '🚗 🚕 🚙 🚌 🚎 🏎️ 🚓 🚑 🚒 🚐 🛻 🚚 🚛 🚜 🛵 🏍️ 🚲 🛴 🚨 🚥 🚦 🛣️ 🛤️ ⛽ 🚧 ⚓ ⛵ 🚤 🛥️ 🛳️ 🚢 ✈️ 🛩️ 🛫 🛬 🪂 💺 🚀 🛸 🛰️ 🗺️ 🗿 🗽 🗼 🏰 🏯 🏟️ 🎡 🎢 🎠 ⛱️ 🏖️ 🏝️ 🏜️ 🏕️ ⛰️ 🏔️ 🌋 🗻 🏠 🏡 🏢 🏥 🏦 🏨 🏫 🏪 ⛪ 🕌 🛕 🕍 ⛩️ 🗾 🌅 🌄 🌠 🌆 🌇 🌉 ♨️ 🎑'.split(' ')
+  },
+  objects: {
+    label: 'Objects',
+    items: '⌚ 📱 💻 ⌨️ 🖱️ 🖨️ 🖥️ 📷 📸 📹 🎥 📞 ☎️ 📺 📻 🎙️ 🎧 🎤 🎼 🎹 🥁 🎷 🎺 🎸 🎻 📚 📖 🔖 📰 📝 ✏️ ✒️ 🖊️ 🖋️ ✂️ 📌 📍 📎 🖇️ 📏 📐 🔒 🔓 🔑 🔨 🪛 🔧 🛠️ ⚙️ 🧰 🧲 🔬 🔭 💡 🔦 🕯️ 🧯 🛒 💰 💳 🧾 💎 ⚖️ 🧴 🧷 🧹 🧺 🧻 🪣 🧼 🪥 🧽 🛏️ 🛋️ 🚪 🪑 🚽 🚿 🛁 🎁 🎈 🎉 🪄 🎀 🏆 🥇 🥈 🥉 ⚽ 🏀 🏈 ⚾ 🎾 🏐 🎱 🪀 🧩 🎯 🪁 🎮 🕹️ 🎲 ♟️'.split(' ')
+  },
+  symbols: {
+    label: 'Symbols',
+    items: '❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❤️‍🔥 ❤️‍🩹 💕 💞 💓 💗 💖 💘 💝 💟 ❣️ 💯 💢 💥 💫 💦 💨 🕳️ 💣 💬 👁️‍🗨️ 🗯️ 💭 💤 ☀️ 🌤️ ⛅ 🌥️ 🌦️ ☁️ 🌧️ ⛈️ 🌩️ 🌨️ ❄️ ☃️ 🔥 🌪️ 🌈 ⭐ 🌟 ✨ ⚡ ☄️ 💧 🌊 ✅ ❌ ❗ ❕ ❓ ❔ ‼️ ⁉️ ⚠️ 🚫 ⛔ 🔞 ♻️ ©️ ®️ ™️ 🔴 🟠 🟡 🟢 🔵 🟣 ⚫ ⚪ 🟤'.split(' ')
+  },
+  flags: {
+    label: 'Flags',
+    items: '🏳️ 🏴 🏁 🚩 🏳️‍🌈 🏳️‍⚧️ 🇮🇳 🇺🇸 🇬🇧 🇨🇦 🇦🇺 🇩🇪 🇫🇷 🇮🇹 🇪🇸 🇯🇵 🇰🇷 🇨🇳 🇸🇬 🇦🇪 🇸🇦 🇧🇷 🇳🇵 🇧🇹 🇵🇰 🇱🇰 🇧🇩 🇷🇺 🇺🇦 🇿🇦 🇲🇾 🇮🇩 🇹🇭 🇻🇳 🇵🇭 🇳🇿 🇲🇽 🇦🇷 🇵🇹 🇳🇱 🇸🇪 🇳🇴 🇩🇰 🇫🇮 🇮🇪 🇨🇭 🇦🇹 🇹🇷 🇪🇬 🇮🇱 🇵🇱 🇬🇷 🇭🇺'.split(' ')
+  }
+};
+
+let emojiCategory = 'smileys';
+function renderEmojiPicker(){
+  const grid=$id('emojiGrid');
+  const search=$id('emojiSearchInput');
+  const label=$id('emojiSectionLabel');
+  if(!grid)return;
+  const query=(search?.value||'').trim().toLowerCase();
+  const data=EMOJI_CATALOG[emojiCategory]||EMOJI_CATALOG.smileys;
+  if(label)label.textContent=query?'Search results':data.label;
+  const items=query ? Object.values(EMOJI_CATALOG).flatMap(section=>section.items).filter((v,i,a)=>a.indexOf(v)===i && v.includes(query)) : data.items;
+  grid.innerHTML=items.length?items.map(e=>`<button type="button" class="emoji-choice" data-emoji="${e}" aria-label="${e}">${e}</button>`).join(''):`<div class="emoji-empty">No emoji found</div>`;
+}
+function setEmojiCategory(category){
+  if(!EMOJI_CATALOG[category])return;
+  emojiCategory=category;
+  document.querySelectorAll('.emoji-category-tab').forEach(btn=>btn.classList.toggle('is-active',btn.dataset.emojiCategory===category));
+  if($id('emojiSearchInput'))$id('emojiSearchInput').value='';
+  renderEmojiPicker();
+}
+function initEmojiPicker(){
+  renderEmojiPicker();
+  document.addEventListener('click',e=>{
+    const emoji=e.target.closest?.('#emojiGrid .emoji-choice');
+    if(emoji){insertComposerText(emoji.dataset.emoji||'');return;}
+    const cat=e.target.closest?.('.emoji-category-tab');
+    if(cat){setEmojiCategory(cat.dataset.emojiCategory);return;}
+    const tab=e.target.closest?.('.emoji-footer-tab');
+    if(tab){
+      const type=tab.dataset.pickerTab;
+      document.querySelectorAll('.emoji-footer-tab').forEach(b=>b.classList.toggle('is-active',b===tab));
+      if(type==='gif'){ $id('emojiPanel')?.setAttribute('hidden',''); $id('gifModal') && openModal('gifModal'); return; }
+      if(type==='sticker'){ $id('emojiPanel')?.removeAttribute('hidden'); $id('stickerBtn')?.focus?.(); return; }
+      $id('emojiPanel')?.removeAttribute('hidden');
+    }
+  });
+  $id('emojiSearchInput')?.addEventListener('input',renderEmojiPicker);
+}
+initEmojiPicker();

@@ -335,6 +335,7 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
     list.querySelectorAll("[data-status-owner]").forEach(btn=>btn.addEventListener("click",()=>openStoryViewer(btn.dataset.statusOwner)));
   }
   async function openStatusPage(){
+    window.closeCallsPage?.();
     const app=document.getElementById("app"),base=document.getElementById("sidebarDefaultView"),newChat=document.getElementById("newChatView"),view=document.getElementById("statusView"),chat=document.querySelector(".chat-panel"),panel=document.getElementById("statusPanel");
     if(!app||!view||!chat||!panel)return;
     base?.setAttribute("hidden","true");newChat?.setAttribute("hidden","true");view.hidden=false;chat.hidden=true;panel.hidden=false;app.classList.add("status-open");app.classList.remove("chat-open");
@@ -352,13 +353,14 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
     if(!view)return;view.hidden=true;base?.removeAttribute("hidden");panel?.setAttribute("hidden","");chat?.removeAttribute("hidden");app?.classList.remove("channels-open");
   }
   async function openChannelsPage(){
+    window.closeCallsPage?.();
     const app=$("app"),base=$("sidebarDefaultView"),newChat=$("newChatView"),status=$("statusView"),view=$("channelsView"),chat=document.querySelector(".chat-panel"),statusPanel=$("statusPanel"),panel=$("channelsPanel");
     if(!app||!view||!panel)return;base?.setAttribute("hidden","");newChat?.setAttribute("hidden","");status?.setAttribute("hidden","");view.hidden=false;chat?.setAttribute("hidden","");statusPanel?.setAttribute("hidden","");panel.hidden=false;app.classList.add("channels-open");app.classList.remove("chat-open","status-open");document.querySelectorAll(".nav-rail-btn").forEach(b=>b.classList.remove("active"));document.getElementById("navCommunitiesBtn")?.classList.add("active");try{await fetchChannels();}catch(e){console.warn("Channels load failed",e);renderChannelList($("channelsViewSearch")?.value||"");}
   }
   function bind(){
     if(socialBound)return;socialBound=true;
     $("navStoriesBtn")?.addEventListener("click",()=>{closeChannelsPage();openStatusPage();});$("navCommunitiesBtn")?.addEventListener("click",()=>openChannelsPage());
-    $("navChatsBtn")?.addEventListener("click",()=>{closeStatusPage();closeChannelsPage();});$("navNewChatBtn")?.addEventListener("click",()=>{closeStatusPage();closeChannelsPage();});$("newChatBtn")?.addEventListener("click",()=>{closeStatusPage();closeChannelsPage();});
+    $("navChatsBtn")?.addEventListener("click",()=>{window.closeCallsPage?.();closeStatusPage();closeChannelsPage();});$("navNewChatBtn")?.addEventListener("click",()=>{window.closeCallsPage?.();closeStatusPage();closeChannelsPage();});$("newChatBtn")?.addEventListener("click",()=>{window.closeCallsPage?.();closeStatusPage();closeChannelsPage();});
     $("channelsCreateBtn")?.addEventListener("click",()=>openModal("channelComposerModal"));
     $("channelsViewSearch")?.addEventListener("input",e=>renderChannelList(e.target.value));
     $("channelsMobileBackBtn")?.addEventListener("click",()=>{

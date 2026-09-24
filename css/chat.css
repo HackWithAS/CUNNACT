@@ -353,3 +353,28 @@ html[data-theme="dark"] .chat-header-actions .icon-btn:not(:disabled){
     max-height: calc(100dvh - 86px);
   }
 }
+
+/* WhatsApp-style emoji picker */
+.whatsapp-emoji-panel{width:min(510px,calc(100vw - 28px));height:min(470px,calc(100vh - 120px));padding:0;display:flex;flex-direction:column;overflow:hidden;background:#20272d!important;border-radius:12px!important}
+.whatsapp-emoji-panel[hidden]{display:none!important}
+.emoji-category-tabs{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;padding:8px 10px 7px;border-bottom:1px solid rgba(233,237,239,.08);flex:none}
+.emoji-category-tab,.emoji-footer-tab{border:0!important;background:transparent!important;color:#b9c3c8;border-radius:8px!important;min-height:36px!important;min-width:0!important;padding:4px!important;display:grid;place-items:center;cursor:pointer;font-size:21px!important;line-height:1!important}
+.emoji-category-tab:hover,.emoji-footer-tab:hover{background:#2a3238!important;color:#e9edef}
+.emoji-category-tab.is-active,.emoji-footer-tab.is-active{color:#25d366!important;box-shadow:inset 0 -3px 0 #25d366;border-radius:0!important}
+.emoji-search-wrap{position:relative;display:flex;align-items:center;margin:9px 10px 7px;flex:none}
+.emoji-search-wrap svg{position:absolute;left:14px;width:18px;height:18px;fill:none;stroke:#aeb8bd;stroke-width:1.8;pointer-events:none}
+.emoji-search-wrap input{width:100%;height:40px;border:1px solid #25d366;border-radius:20px;background:#11171c;color:#e9edef;padding:0 14px 0 40px;outline:none;font:inherit;font-size:13px}
+.emoji-section-label{font-size:13px;font-weight:700;color:#d7dfe3;padding:2px 12px 8px;flex:none}
+.emoji-grid{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:2px;padding:0 10px 10px;overflow:auto;min-height:0;flex:1;align-content:start}
+.emoji-grid button{border:0!important;background:transparent!important;border-radius:7px!important;min-height:38px!important;min-width:0!important;padding:2px!important;font-size:27px!important;display:grid!important;place-items:center!important;cursor:pointer}
+.emoji-grid button:hover{background:#2a3238!important;transform:scale(1.08)}
+.emoji-grid::-webkit-scrollbar{width:8px}.emoji-grid::-webkit-scrollbar-thumb{background:#59656b;border-radius:8px}
+.emoji-picker-footer{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;padding:3px 8px 5px;border-top:1px solid rgba(233,237,239,.08);background:#20272d;flex:none}
+.emoji-footer-tab{font-size:20px!important;min-height:38px!important}
+.emoji-footer-tab[data-picker-tab="gif"]{font-size:12px!important;font-weight:800;letter-spacing:.03em}
+.emoji-empty{grid-column:1/-1;padding:35px 12px;text-align:center;color:#aeb8bd;font-size:13px}
+@media(max-width:700px){
+  .whatsapp-emoji-panel{width:min(100vw - 16px,520px);height:min(58vh,440px);max-height:58vh}
+  .emoji-grid{grid-template-columns:repeat(8,minmax(0,1fr));gap:2px}
+  .emoji-grid button{font-size:26px!important}
+}

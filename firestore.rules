@@ -530,6 +530,19 @@ service cloud.firestore {
         allow delete: if isMember(conversationId) && request.auth.uid == resource.data.senderId;
       }
 
+      match /groupEvents/{eventId} {
+        allow read: if signedIn() && isMember(conversationId);
+        allow create: if signedIn()
+          && isMember(conversationId)
+          && request.resource.data.actorId == request.auth.uid
+          && request.resource.data.type in ["group_created","group_renamed","member_added","member_removed","role_changed","member_left"]
+          && request.resource.data.details is string
+          && request.resource.data.details.size() <= 300
+          && request.resource.data.createdAt != null
+          && request.resource.data.keys().hasOnly(["type","actorId","actorName","targetUid","targetName","fromRole","toRole","details","createdAt"]);
+        allow update, delete: if false;
+      }
+
       match /invites/{token} {
         allow read: if signedIn();
         allow create: if signedIn()

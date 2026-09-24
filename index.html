@@ -168,7 +168,7 @@
         <div class="chat-filter-pills" role="tablist" aria-label="Filter chats">
           <button class="filter-pill active" data-chat-filter="all" type="button">All <em id="filterCountAll">0</em></button>
           <button class="filter-pill" data-chat-filter="unread" type="button">Unread <em id="filterCountUnread">0</em></button>
-          <button class="filter-pill" data-chat-filter="groups" type="button">Groups</button>
+          <button class="filter-pill" data-chat-filter="groups" type="button">Groups <em id="filterCountGroups">0</em></button>
           <button class="filter-pill" data-chat-filter="pinned" type="button">Pinned</button>
         </div>
       </div>
@@ -315,6 +315,65 @@
       </div>
     </section>
 
+    <section id="callsView" class="calls-side-view" hidden aria-label="Calls">
+      <header class="calls-side-header">
+        <h2>Calls</h2>
+        <div class="calls-side-actions">
+          <button id="callsDialBtn" class="icon-btn" type="button" aria-label="Call a number" title="Call a number">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 8.5h.01M12 8.5h.01M15.5 8.5h.01M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 15.5h.01M12 15.5h.01M15.5 15.5h.01" stroke-linecap="round"/><path d="M19 5l2-2"/></svg>
+          </button>
+          <button id="callsAddBtn" class="icon-btn" type="button" aria-label="Start a new call" title="Start a new call">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M15.5 13.5a6.2 6.2 0 0 1-2.4 2.2c-3.1-1.5-5.4-3.8-6.9-6.9a6.2 6.2 0 0 1 2.2-2.4l1.2-1.1a1.8 1.8 0 0 1 2.8.7l.9 2.2a1.8 1.8 0 0 1-.4 1.9l-.8.8a9.4 9.4 0 0 0 3.5 3.5l.8-.8a1.8 1.8 0 0 1 1.9-.4l2.2.9a1.8 1.8 0 0 1 .7 2.8l-1.1 1.2"/><path d="M18 4v6M15 7h6"/></svg>
+          </button>
+        </div>
+      </header>
+      <div class="calls-side-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <label class="sr-only" for="callsSearch">Search calls</label>
+        <input id="callsSearch" type="search" placeholder="Search name, number or @username" autocomplete="off">
+      </div>
+      <div class="calls-section-label">Favourites</div>
+      <button id="callsAddFavouriteBtn" class="call-favourite-row" type="button">
+        <span class="call-favourite-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="9" cy="8" r="3"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M17 8v6M14 11h6"/></svg>
+        </span>
+        <span>Add favourite</span>
+      </button>
+      <div class="calls-section-label recent-label">Recent</div>
+      <div id="callsRecentList" class="calls-recent-list">
+        <div class="calls-list-empty">Loading call history…</div>
+      </div>
+    </section>
+
+    <main id="callsPanel" class="calls-main-panel" hidden aria-label="Calls workspace">
+      <div class="calls-main-empty">
+        <div class="calls-main-icon" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="7" y="10" width="30" height="28" rx="8"/><path d="m18 18 11 6-11 6z" fill="currentColor" stroke="none"/></svg>
+        </div>
+        <h2>Voice and video calling</h2>
+        <p>Make calls, share your screen and stay connected with your contacts.</p>
+        <div class="calls-main-actions">
+          <button id="callsStartBtn" type="button" class="call-landing-action">
+            <span class="call-landing-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4" y="6" width="12" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3z"/></svg></span>
+            <span>Start call</span>
+          </button>
+          <button id="callsLinkBtn" type="button" class="call-landing-action">
+            <span class="call-landing-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 15 15 9"/><path d="M7 17H6a4 4 0 0 1 0-8h3M17 7h1a4 4 0 0 1 0 8h-3"/></svg></span>
+            <span>New call link</span>
+          </button>
+          <button id="callsNumberBtn" type="button" class="call-landing-action">
+            <span class="call-landing-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8.5"/><path d="M9 9h.01M12 9h.01M15 9h.01M9 12h.01M12 12h.01M15 12h.01M9 15h.01M12 15h.01M15 15h.01" stroke-linecap="round"/></svg></span>
+            <span>Call a number</span>
+          </button>
+          <button id="callsScheduleBtn" type="button" class="call-landing-action">
+            <span class="call-landing-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14h3M8 17h3M14 14h2M14 17h2"/></svg></span>
+            <span>Schedule call</span>
+          </button>
+        </div>
+        <div class="calls-main-encryption"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> Your calls are protected by CUNNACT security controls.</div>
+      </div>
+    </main>
+
     <main id="channelsPanel" class="channels-main-panel" hidden aria-label="Channel workspace">
       <header class="channels-main-header">
         <div class="channels-main-title-wrap">
@@ -441,8 +500,28 @@
         <button id="locationBtn" type="button" class="composer-icon" disabled aria-label="Share location" title="Share location"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></button>
         <div class="composer-tool-wrap">
           <button id="emojiBtn" type="button" class="composer-icon" disabled aria-label="Emoji" title="Emoji"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M8 10h.01M16 10h.01M8.5 14.5c1.9 2 5.1 2 7 0"/></svg></button>
-          <div id="emojiPanel" class="composer-popover emoji-panel" hidden>
-            <button type="button" data-emoji="😀">😀</button><button type="button" data-emoji="😂">😂</button><button type="button" data-emoji="😍">😍</button><button type="button" data-emoji="🥹">🥹</button><button type="button" data-emoji="😎">😎</button><button type="button" data-emoji="😭">😭</button><button type="button" data-emoji="😡">😡</button><button type="button" data-emoji="🔥">🔥</button><button type="button" data-emoji="❤️">❤️</button><button type="button" data-emoji="👍">👍</button><button type="button" data-emoji="🎉">🎉</button><button type="button" data-emoji="🙏">🙏</button>
+          <div id="emojiPanel" class="composer-popover emoji-panel whatsapp-emoji-panel" hidden aria-label="Emoji picker">
+            <div class="emoji-category-tabs" role="tablist" aria-label="Emoji categories">
+              <button type="button" class="emoji-category-tab is-active" data-emoji-category="smileys" aria-label="Smileys & people" title="Smileys & people">🙂</button>
+              <button type="button" class="emoji-category-tab" data-emoji-category="people" aria-label="People" title="People">🧑</button>
+              <button type="button" class="emoji-category-tab" data-emoji-category="animals" aria-label="Animals & nature" title="Animals & nature">🐻</button>
+              <button type="button" class="emoji-category-tab" data-emoji-category="food" aria-label="Food & drink" title="Food & drink">🍔</button>
+              <button type="button" class="emoji-category-tab" data-emoji-category="travel" aria-label="Travel & places" title="Travel & places">🚗</button>
+              <button type="button" class="emoji-category-tab" data-emoji-category="objects" aria-label="Objects" title="Objects">💡</button>
+              <button type="button" class="emoji-category-tab" data-emoji-category="symbols" aria-label="Symbols" title="Symbols">🔣</button>
+              <button type="button" class="emoji-category-tab" data-emoji-category="flags" aria-label="Flags" title="Flags">🏳️</button>
+            </div>
+            <div class="emoji-search-wrap">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.8"/><path d="m16.2 16.2 4.1 4.1"/></svg>
+              <input id="emojiSearchInput" type="search" placeholder="Search emoji" autocomplete="off" aria-label="Search emoji">
+            </div>
+            <div class="emoji-section-label" id="emojiSectionLabel">Smileys &amp; People</div>
+            <div id="emojiGrid" class="emoji-grid" role="grid" aria-label="Emoji"></div>
+            <div class="emoji-picker-footer" role="tablist" aria-label="Picker type">
+              <button type="button" class="emoji-footer-tab is-active" data-picker-tab="emoji" aria-label="Emoji">☺</button>
+              <button type="button" class="emoji-footer-tab" data-picker-tab="gif" aria-label="GIF">GIF</button>
+              <button type="button" class="emoji-footer-tab" data-picker-tab="sticker" aria-label="Stickers">◫</button>
+            </div>
           </div>
         </div>
         <div class="composer-tool-wrap">
@@ -508,6 +587,16 @@
             <button id="groupSettingsBtn" class="btn btn-soft btn-sm" type="button" hidden>Settings</button>
             <button id="leaveGroupBtn" class="btn btn-soft danger-item btn-sm" type="button" hidden>Leave group</button>
           </div>
+          <div id="groupDrawerActions" class="group-drawer-info-list" role="list">
+            <button id="groupChangesBtn" class="drawer-info-row" type="button"><span class="drawer-info-icon">☷</span><span class="drawer-info-copy"><strong>See member changes</strong></span><span class="drawer-info-chevron">›</span></button>
+            <button id="groupFavouriteBtn" class="drawer-info-row" type="button"><span class="drawer-info-icon">☆</span><span class="drawer-info-copy"><strong id="groupFavouriteLabel">Add to favourites</strong></span><span class="drawer-info-chevron">›</span></button>
+            <button id="groupListBtn" class="drawer-info-row" type="button"><span class="drawer-info-icon">▤</span><span class="drawer-info-copy"><strong>Add to list</strong></span><span class="drawer-info-chevron">›</span></button>
+            <button id="groupExportBtn" class="drawer-info-row" type="button"><span class="drawer-info-icon">⇩</span><span class="drawer-info-copy"><strong>Export chat</strong></span><span class="drawer-info-chevron">›</span></button>
+            <button id="groupClearBtn" class="drawer-info-row drawer-danger-row" type="button"><span class="drawer-info-icon">⊖</span><span class="drawer-info-copy"><strong>Clear chat</strong></span><span class="drawer-info-chevron">›</span></button>
+            <button id="groupExitBtn" class="drawer-info-row drawer-danger-row" type="button"><span class="drawer-info-icon">↪</span><span class="drawer-info-copy"><strong>Exit group</strong></span><span class="drawer-info-chevron">›</span></button>
+            <button id="groupReportBtn" class="drawer-info-row drawer-danger-row" type="button"><span class="drawer-info-icon">⚑</span><span class="drawer-info-copy"><strong>Report group</strong></span><span class="drawer-info-chevron">›</span></button>
+          </div>
+          <div id="groupCreatedMeta" class="group-created-meta"></div>
         </div>
         <div class="drawer-section drawer-shared-section"><span class="eyebrow">SHARED</span><div id="sharedMediaGrid" class="shared-media-grid"><div class="empty-state">Shared images will appear here.</div></div></div>
       </div>
@@ -607,6 +696,17 @@
       </div>
     </div>
 
+    <!-- Group member changes -->
+    <div id="groupChangesModal" class="modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header">
+          <div><span class="eyebrow">GROUP ACTIVITY</span><h2>Member changes</h2><p>Recent membership and role updates for this group.</p></div>
+          <button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+        <div id="groupChangesList" class="group-changes-list"><div class="empty-state">Loading member changes…</div></div>
+      </div>
+    </div>
+
     <!-- Group settings -->
     <div id="groupSettingsModal" class="modal" hidden>
       <div class="modal-content compact-modal">
@@ -650,6 +750,18 @@
       <div class="modal-content compact-modal">
         <div class="modal-header"><div><span class="eyebrow">GROUP TOOL</span><h2>Create event</h2><p>Share a date and details with the group.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
         <div class="group-settings-form"><label>Title<input id="eventTitle" maxlength="180" placeholder="Project meetup"></label><label>Date & time<input id="eventWhen" type="datetime-local"></label><label>Description<textarea id="eventDescription" rows="4" maxlength="600"></textarea></label><div class="confirm-actions"><button type="button" class="btn btn-soft close-modal">Cancel</button><button id="sendGroupEventBtn" type="button" class="btn btn-primary">Share event</button></div></div>
+      </div>
+    </div>
+
+    <!-- Start call picker -->
+    <div id="startCallModal" class="modal" hidden aria-hidden="true">
+      <div class="modal-content call-picker-modal">
+        <div class="modal-header">
+          <div><span class="eyebrow">CALLS</span><h2>Start a call</h2><p>Select a connected contact.</p></div>
+          <button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+        <div class="call-picker-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="callPickerSearch" type="search" placeholder="Search contacts" autocomplete="off"></div>
+        <div id="callPickerList" class="call-picker-list"><div class="empty-state">Loading contacts…</div></div>
       </div>
     </div>
 
