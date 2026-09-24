@@ -65,18 +65,38 @@ export function initSocialFeatures({ getCurrentUser }) {
   }
 
   function renderStoryList() {
-    const box=$("storiesList"); if(!box)return;
-    if(!stories.length){box.innerHTML='<div class="social-empty"><div class="social-empty-icon">✨</div><strong>No active stories</strong><span>Share a photo, video, thought or poll that disappears in 24 hours.</span></div>';return;}
+    const box=$("storiesList");
+    const strip=$("storiesStripDynamic");
+    if(!box && !strip) return;
+    if(!stories.length){
+      if(box) box.innerHTML='<div class="social-empty"><div class="social-empty-icon">✨</div><strong>No active stories</strong><span>Share a photo, video, thought or poll that disappears in 24 hours.</span></div>';
+      if(strip) strip.innerHTML="";
+      return;
+    }
     const grouped=new Map();
     stories.forEach(s=>{if(!grouped.has(s.ownerId))grouped.set(s.ownerId,[]);grouped.get(s.ownerId).push(s);});
-    box.innerHTML=[...grouped.entries()].map(([ownerId,list])=>{
-      const first=list[0],mine=ownerId===user()?.uid,name=mine?"Your story":(first.ownerName||"CUNNACT user");
-      const avatar=first.ownerPhotoURL?`<img src="${escapeHtml(first.ownerPhotoURL)}" alt="">`:`<span>${escapeHtml(name.slice(0,1).toUpperCase())}</span>`;
-      return `<button class="story-card ${list.some(s=>!(s.viewers||[]).includes(user()?.uid))?"unseen":"seen"}" data-story-owner="${escapeHtml(ownerId)}" type="button">
-        <span class="story-avatar">${avatar}</span><span class="story-owner-name">${escapeHtml(name)}</span><small>${list.length} ${list.length===1?"story":"stories"}</small>
-      </button>`;
-    }).join("");
-    box.querySelectorAll("[data-story-owner]").forEach(btn=>btn.addEventListener("click",()=>openStoryViewer(btn.dataset.storyOwner)));
+    if(box){
+      box.innerHTML=[...grouped.entries()].map(([ownerId,list])=>{
+        const first=list[0],mine=ownerId===user()?.uid,name=mine?"Your story":(first.ownerName||"CUNNACT user");
+        const avatar=first.ownerPhotoURL?`<img src="${escapeHtml(first.ownerPhotoURL)}" alt="">`:`<span>${escapeHtml(name.slice(0,1).toUpperCase())}</span>`;
+        return `<button class="story-card ${list.some(s=>!(s.viewers||[]).includes(user()?.uid))?"unseen":"seen"}" data-story-owner="${escapeHtml(ownerId)}" type="button">
+          <span class="story-avatar">${avatar}</span><span class="story-owner-name">${escapeHtml(name)}</span><small>${list.length} ${list.length===1?"story":"stories"}</small>
+        </button>`;
+      }).join("");
+      box.querySelectorAll("[data-story-owner]").forEach(btn=>btn.addEventListener("click",()=>openStoryViewer(btn.dataset.storyOwner)));
+    }
+    if(strip){
+      strip.innerHTML=[...grouped.entries()].filter(([ownerId])=>ownerId!==user()?.uid).slice(0,10).map(([ownerId,list])=>{
+        const first=list[0],name=(first.ownerName||"CUNNACT user");
+        const unseen=list.some(s=>!(s.viewers||[]).includes(user()?.uid));
+        const avatar=first.ownerPhotoURL?`<img src="${escapeHtml(first.ownerPhotoURL)}" alt="">`:`<span>${escapeHtml(name.slice(0,1).toUpperCase())}</span>`;
+        return `<button type="button" class="story-chip" data-story-owner="${escapeHtml(ownerId)}">
+          <span class="story-ring ${unseen?"":"seen"}"><span class="story-ring-inner">${avatar}</span></span>
+          <small>${escapeHtml(name.split(" ")[0])}</small>
+        </button>`;
+      }).join("");
+      strip.querySelectorAll("[data-story-owner]").forEach(btn=>btn.addEventListener("click",()=>openStoryViewer(btn.dataset.storyOwner)));
+    }
   }
 
   async function markStoryViewed(story) {
@@ -227,6 +247,8 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
   function bind(){
     if(socialBound)return;socialBound=true;
     $("navStoriesBtn")?.addEventListener("click",()=>openSocialHub("stories"));$("navCommunitiesBtn")?.addEventListener("click",()=>openSocialHub("communities"));
+    $("storiesViewAllBtn")?.addEventListener("click",()=>openSocialHub("stories"));
+    $("storiesAddBtn")?.addEventListener("click",()=>openModal("storyComposerModal"));
     $("createStoryBtn")?.addEventListener("click",()=>openModal("storyComposerModal"));$("publishStoryBtn")?.addEventListener("click",createStory);$("storyPrivacy")?.addEventListener("change",renderStoryAudiencePicker);$("storyViewerCloseBtn")?.addEventListener("click",()=>closeModal("storyViewerModal"));$("storyPrevBtn")?.addEventListener("click",()=>{if(storyCursor>0){storyCursor--;markStoryViewed(storyCandidates[storyCursor]);renderStoryViewer();}});$("storyNextBtn")?.addEventListener("click",()=>{if(storyCursor<storyCandidates.length-1){storyCursor++;markStoryViewed(storyCandidates[storyCursor]);renderStoryViewer();}});$("storyReplySendBtn")?.addEventListener("click",storyReply);$("storyReactBtn")?.addEventListener("click",()=>storyReact($("storyReactionEmoji")?.value||"❤️"));
     $("createCommunityBtn")?.addEventListener("click",createCommunity);$("createCommunityOpenBtn")?.addEventListener("click",()=>openModal("communityComposerModal"));$("communitySearchInput")?.addEventListener("input",e=>renderCommunityList(e.target.value));$("communitySubgroupBtn")?.addEventListener("click",()=>{openModal("subgroupComposerModal");renderSubgroupPicker();});$("communityJoinRequestsBtn")?.addEventListener("click",openCommunityJoinRequests);$("createSubgroupBtn")?.addEventListener("click",createCommunityGroup);$("communityChannelBtn")?.addEventListener("click",()=>{openModal("channelComposerModal");$("channelCommunityLabel").textContent=activeCommunity?`Inside ${activeCommunity.name}`:"Standalone channel";});
     $("createChannelBtn")?.addEventListener("click",createChannel);$("createChannelBtnTop")?.addEventListener("click",()=>{openModal("channelComposerModal");$("channelCommunityLabel").textContent="Standalone channel";});$("channelSearchInput")?.addEventListener("input",e=>renderChannelList(e.target.value));$("channelPostSendBtn")?.addEventListener("click",createChannelPost);

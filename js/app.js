@@ -306,6 +306,7 @@ onAuthStateChanged(auth, async (user) => {
     startPresence();
     listenMessageRequests(currentUser, (requests) => { updateRequestsBadge(requests.length); renderMessageRequests(requests); }, () => { refreshNewChatRequestButtons(); });
     listenConversations();
+    socialFeatures?.refresh?.();
     const newChatUsername = new URLSearchParams(location.search).get("newChat");
     if (newChatUsername) setTimeout(() => openNewChatWithQuery(newChatUsername), 120);
     const gate = $id("authGate"); if (gate) gate.hidden = true;
@@ -1569,6 +1570,8 @@ function renderProfileDrawer(){
     $id("drawerUsername").textContent=`${activeUser.memberCount||activeUser.members?.length||0} members`;
     $id("drawerBio").textContent=activeUser.description||"";
     $id("drawerViewProfile").hidden=true;
+    const statsRow=$id("drawerStatsRow");
+    if(statsRow){statsRow.hidden=false;$id("drawerStatMembers").textContent=String(activeUser.memberCount||activeUser.members?.length||0);}
     const isAdmin=(activeUser.admins||[]).includes(currentUser.uid);
     const section=$id("groupMembersSection");
     if(section){
@@ -1590,11 +1593,13 @@ function renderProfileDrawer(){
     }
     const grid=$id("sharedMediaGrid");if(!grid)return;
     const images=currentMessages.filter(m=>m.type==="image"&&isTrustedImageUrl(m.imageURL)).slice(-12).reverse();
+    if($id("drawerStatMedia"))$id("drawerStatMedia").textContent=String(images.length);
     grid.innerHTML=images.length?images.map(m=>`<button type="button" class="shared-media-item" data-image="${escapeHtml(m.imageURL)}"><img src="${escapeHtml(imageUrl(m.imageURL,"chat"))}" alt="Shared image" loading="lazy"></button>`).join(""):'<div class="empty-state">No shared images yet.</div>';
     grid.querySelectorAll(".shared-media-item").forEach(b=>b.addEventListener("click",()=>openLightbox(b.dataset.image)));
     return;
   }
   $id("groupMembersSection")?.setAttribute("hidden","");
+  $id("drawerStatsRow")?.setAttribute("hidden","");
   ["groupInviteBtn","groupJoinRequestsBtn","groupSettingsBtn","addGroupMembersBtn","leaveGroupBtn"].forEach(id=>{$id(id)?.setAttribute("hidden","");});
   $id("drawerViewProfile").hidden=false;
   const live=userListeners.get(activeUser.uid)?.data;if(live)activeUser={...activeUser,...live};paintAvatar($id("drawerAvatar"),{photoURL:activeUser.photoURL,name:activeUser.name,email:activeUser.email});$id("drawerName").textContent=activeUser.name||(activeUser.username?`@${activeUser.username}`:"Contact");$id("drawerUsername").textContent=activeUser.username?`@${activeUser.username}`:"";$id("drawerBio").textContent=activeUser.bio||"";const grid=$id("sharedMediaGrid");if(!grid)return;const images=currentMessages.filter(m=>m.type==="image"&&isTrustedImageUrl(m.imageURL)).slice(-12).reverse();if(!images.length){grid.innerHTML='<div class="empty-state">No shared images yet.</div>';return;}grid.innerHTML=images.map(m=>`<button type="button" class="shared-media-item" data-image="${escapeHtml(m.imageURL)}"><img src="${escapeHtml(imageUrl(m.imageURL,"chat"))}" alt="Shared image" loading="lazy"></button>`).join("");grid.querySelectorAll(".shared-media-item").forEach(b=>b.addEventListener("click",()=>openLightbox(b.dataset.image)));}
