@@ -66,14 +66,16 @@
         </button>
         <button class="nav-rail-btn" id="navSavedBtn" type="button" aria-label="Saved messages" title="Saved messages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>
         <button class="nav-rail-btn" id="navStoriesBtn" type="button" aria-label="Stories" title="Stories"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 12h7M12 8.5v7"/></svg></button>
-        <button class="nav-rail-btn" id="navCommunitiesBtn" type="button" aria-label="Communities and channels" title="Communities & channels"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7.5A3.5 3.5 0 0 1 7.5 4h9A3.5 3.5 0 0 1 20 7.5v5A3.5 3.5 0 0 1 16.5 16H11l-4 4v-4.5A3.5 3.5 0 0 1 4 12z"/><path d="M8 9h8M8 12h5"/></svg></button>
+        <button class="nav-rail-btn" id="navCommunitiesBtn" type="button" aria-label="Channels" title="Channels"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="2.2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/></svg></button>
 <button class="nav-rail-btn" id="navNewChatBtn" type="button" aria-label="New chat" title="New chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
       </nav>
       <div class="nav-rail-bottom">
         <button class="nav-rail-btn" id="navThemeBtn" type="button" aria-label="Toggle theme" title="Toggle theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 14.6A8.7 8.7 0 0 1 9.4 3 8.7 8.7 0 1 0 21 14.6Z"/></svg></button>
+        <button class="nav-rail-profile-btn" id="navProfileBtn" type="button" aria-label="Profile and settings" title="Profile and settings"><span class="avatar sm" id="navProfileAvatar"><img alt="" hidden><span class="avatar-fallback"></span></span></button>
       </div>
     </aside>
     <aside class="sidebar" aria-label="CUNNACT navigation">
+      <div id="sidebarDefaultView" class="sidebar-default-view">
       <div class="sidebar-top">
         <a class="brand-lockup brand-wordmark-wrap" href="index.html" aria-label="CUNNACT home">
           <span class="desktop-brand-text"><strong>CUNNACT</strong><span>STAY CONNECTED.</span></span>
@@ -86,22 +88,31 @@
             <button id="accountMenuBtn" class="icon-btn" aria-label="Account menu" aria-expanded="false" title="Account menu">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
             </button>
-            <div id="accountMenu" class="dropdown-menu" hidden>
-              <div class="menu-profile-summary">
-                <span class="avatar sm" id="menuUserAvatar"><img alt="" hidden><span class="avatar-fallback"></span></span>
-                <div><strong id="menuUserName">Account</strong><span id="menuUserEmail"> </span></div>
-              </div>
-              <button id="profileBtn" class="dropdown-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
-                <span>Profile</span>
+            <div id="accountMenu" class="dropdown-menu dashboard-menu" hidden role="menu" aria-label="Chats menu">
+              <button id="dashboardNewGroupBtn" class="dropdown-item" type="button" role="menuitem">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="8.5" cy="8" r="3.2"/><path d="M2.5 20a6 6 0 0 1 12 0"/><path d="M17 7v6M14 10h6"/></svg>
+                <span>New group</span>
               </button>
-<button id="themeToggleBtn" class="dropdown-item" type="button">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-                <span id="themeToggleLabel">Dark mode</span>
+              <button id="dashboardStarredBtn" class="dropdown-item" type="button" role="menuitem">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>
+                <span>Starred messages</span>
               </button>
-              <button id="logoutBtn" class="dropdown-item danger-item">
+              <button id="dashboardSelectChatsBtn" class="dropdown-item" type="button" role="menuitem">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="m8 12 2.3 2.3L16 8.7"/></svg>
+                <span>Select chats</span>
+              </button>
+              <button id="dashboardMarkAllReadBtn" class="dropdown-item" type="button" role="menuitem">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16M4 12h16M4 17h9"/><path d="m17 16 2 2 3-3"/></svg>
+                <span>Mark all as read</span>
+              </button>
+              <div class="menu-divider" aria-hidden="true"></div>
+              <button id="appLockMenuBtn" class="dropdown-item" type="button" role="menuitem">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+                <span>App lock</span>
+              </button>
+              <button id="logoutBtn" class="dropdown-item danger-item" type="button" role="menuitem">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M21 19V5a2 2 0 0 0-2-2h-7"/></svg>
-                <span>Logout</span>
+                <span>Log out</span>
               </button>
             </div>
           </div>
@@ -173,6 +184,16 @@
         </div>
       </div>
 
+      <div id="chatSelectionToolbar" class="chat-selection-toolbar" hidden>
+        <button id="chatSelectionCancelBtn" class="icon-btn" type="button" aria-label="Cancel chat selection" title="Cancel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+        <strong id="chatSelectionCount">0 selected</strong>
+        <button id="chatSelectionMarkReadBtn" class="icon-btn" type="button" aria-label="Mark selected chats as read" title="Mark as read">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="m4 12 4 4L20 4"/><path d="M4 20h16"/></svg>
+        </button>
+      </div>
+
       <div id="chatList" class="chat-list" role="listbox" aria-label="Your conversations">
         <div class="empty-state big">Your inbox is quiet.<br><span>Start a new chat to connect.</span></div>
       </div>
@@ -191,7 +212,139 @@
       </div>
 
       <div class="sidebar-brand-note"><span class="keyboard-hint">Ctrl/⌘ K Search · Ctrl/⌘ N New chat</span><br>CUNNACT by <a href="https://hackwithas.in" target="_blank" rel="noopener noreferrer">HackWithAS</a></div>
+      </div>
+
+      <section id="newChatView" class="new-chat-side-view" hidden aria-label="New chat">
+        <header class="new-chat-side-header">
+          <button id="newChatBackBtn" class="new-chat-back-btn" type="button" aria-label="Back to chats" title="Back to chats">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M15 18 9 12l6-6"/></svg>
+          </button>
+          <h2>New chat</h2>
+          <button id="newChatContactsBtn" class="new-chat-grid-btn" type="button" aria-label="Contacts options" title="Contacts options">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="5" r="1.6"/><circle cx="12" cy="5" r="1.6"/><circle cx="19" cy="5" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/><circle cx="5" cy="19" r="1.6"/><circle cx="12" cy="19" r="1.6"/><circle cx="19" cy="19" r="1.6"/></svg>
+          </button>
+        </header>
+        <div class="new-chat-side-search search-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <label for="newChatSearch" class="sr-only">Search name, number or username</label>
+          <input id="newChatSearch" type="search" placeholder="Search name, number or @username" autocomplete="off">
+        </div>
+        <div class="new-chat-shortcuts" aria-label="New chat shortcuts">
+          <button id="newChatNewGroupBtn" class="new-chat-shortcut" type="button">
+            <span class="new-chat-shortcut-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="8.5" cy="8" r="3"/><path d="M2.5 20a6 6 0 0 1 12 0"/><circle cx="17.5" cy="8.5" r="2.5"/><path d="M15.5 14a5.8 5.8 0 0 1 6 6"/><path d="M18 5v7M14.5 8.5h7"/></svg></span>
+            <span>New group</span>
+          </button>
+          <button id="newChatNewContactBtn" class="new-chat-shortcut" type="button">
+            <span class="new-chat-shortcut-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M18 8v7M14.5 11.5h7"/></svg></span>
+            <span>New contact</span>
+          </button>
+          <button id="newChatNewCommunityBtn" class="new-chat-shortcut" type="button">
+            <span class="new-chat-shortcut-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M2 20a6 6 0 0 1 12 0M10 20a6 6 0 0 1 12 0"/><path d="M12 5v-2M9 4h6"/></svg></span>
+            <span>New community</span>
+          </button>
+        </div>
+        <div id="newChatResults" class="new-chat-results new-chat-side-results">
+          <div class="empty-state">Loading contacts…</div>
+        </div>
+      </section>
     </aside>
+
+    <section id="statusView" class="status-side-view" hidden aria-label="Status">
+      <header class="status-side-header">
+        <h2>Status</h2>
+        <div class="status-side-actions">
+          <button id="statusMoreBtn" class="icon-btn" type="button" aria-label="Status options" title="Status options">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+          </button>
+          <button id="statusAddBtn" class="icon-btn status-add-btn" type="button" aria-label="Add status" title="Add status">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M12 8v8M8 12h8"/></svg>
+          </button>
+          <div id="statusAddMenu" class="status-add-menu" hidden role="menu" aria-label="Create status">
+            <button type="button" data-status-create="media" role="menuitem">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 4.8-4.8 3.3 3.2 2.5-2.5L20 17"/></svg>
+              <span>Photos &amp; videos</span>
+            </button>
+            <button type="button" data-status-create="text" role="menuitem">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 17 9.5-9.5a2.12 2.12 0 0 1 3 3L7 20l-4 1 1-4Z"/><path d="M13 8l3 3"/></svg>
+              <span>Text</span>
+            </button>
+          </div>
+          <div id="statusMoreMenu" class="status-more-menu" hidden role="menu" aria-label="Status options">
+            <button type="button" data-status-action="refresh" role="menuitem">Refresh statuses</button>
+            <button type="button" data-status-action="create" role="menuitem">Create status</button>
+          </div>
+        </div>
+      </header>
+      <button id="myStatusRow" class="my-status-row" type="button">
+        <span class="my-status-avatar-wrap">
+          <span class="avatar" id="statusMyAvatar"><img alt="" hidden><span class="avatar-fallback"></span></span>
+          <span class="my-status-plus">+</span>
+        </span>
+        <span class="my-status-copy"><strong>My status</strong><small>Click to add status update</small></span>
+      </button>
+      <div class="status-section-label">Recent updates</div>
+      <div id="statusUpdatesList" class="status-updates-list">
+        <div class="status-list-empty">Loading statuses…</div>
+      </div>
+    </section>
+
+    <main id="statusPanel" class="status-main-panel" hidden aria-label="Status workspace">
+      <div class="status-main-empty">
+        <div class="status-main-icon" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M24 6a18 18 0 1 0 18 18"/><path d="M24 12a12 12 0 1 0 12 12"/><path d="M24 18a6 6 0 1 0 6 6"/></svg>
+        </div>
+        <h2>Share statuses</h2>
+        <p>Share photos, videos and text that disappear after 24 hours.</p>
+      </div>
+    </main>
+
+    <section id="channelsView" class="channels-side-view" hidden aria-label="Channels">
+      <header class="channels-side-header">
+        <h2>Channels</h2>
+        <button id="channelsCreateBtn" class="icon-btn channels-create-btn" type="button" aria-label="Create channel" title="Create channel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8.7"/><path d="M12 8v8M8 12h8"/></svg>
+        </button>
+      </header>
+      <div class="channels-side-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <label class="sr-only" for="channelsViewSearch">Search channels</label>
+        <input id="channelsViewSearch" type="search" placeholder="Search" autocomplete="off">
+      </div>
+      <div id="channelsViewList" class="channels-side-list">
+        <div class="channels-list-empty">Loading channels…</div>
+      </div>
+    </section>
+
+    <main id="channelsPanel" class="channels-main-panel" hidden aria-label="Channel workspace">
+      <header class="channels-main-header">
+        <div class="channels-main-title-wrap">
+          <button id="channelsMobileBackBtn" class="icon-btn mobile-only" type="button" aria-label="Back to channels">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <span class="channel-main-avatar" id="channelsMainAvatar"><span class="avatar-fallback">#</span></span>
+          <div class="meta">
+            <strong id="channelsMainTitle">Select a channel</strong>
+            <span id="channelsMainMeta">Choose a channel from the left.</span>
+          </div>
+        </div>
+        <div class="channels-main-actions">
+          <button id="channelsMainMuteBtn" class="icon-btn" type="button" aria-label="Mute channel" title="Mute channel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 10v4h3l5 4V6L7 10H4Z"/><path d="m16 9 4 6M20 9l-4 6"/></svg>
+          </button>
+          <button id="channelsMainMoreBtn" class="icon-btn" type="button" aria-label="Channel options" title="Channel options">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+          </button>
+          <div id="channelsMainMoreMenu" class="dropdown-menu channel-more-menu" hidden></div>
+        </div>
+      </header>
+      <section id="channelsMainPosts" class="channels-main-posts">
+        <div class="channels-main-empty">
+          <div class="channels-main-icon" aria-hidden="true">◎</div>
+          <h2>Choose a channel</h2>
+          <p>Follow updates, announcements and creator posts.</p>
+        </div>
+      </section>
+    </main>
 
     <main class="chat-panel">
       <header class="chat-header">
@@ -312,13 +465,35 @@
 
     <aside id="profileDrawer" class="profile-drawer" hidden aria-label="Conversation profile panel">
       <div class="profile-drawer-head">
-        <div><span class="eyebrow">CONTACT</span><h2>Profile</h2></div>
-        <button id="closeProfileDrawer" class="icon-btn" type="button" aria-label="Close profile panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        <button id="closeProfileDrawer" class="icon-btn" type="button" aria-label="Close contact info" title="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        <div class="profile-drawer-title"><strong>Contact info</strong></div>
+        <button id="drawerEditBtn" class="icon-btn" type="button" aria-label="Open profile" title="Open profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button>
       </div>
       <div class="profile-drawer-body">
-        <div class="avatar profile-drawer-avatar" id="drawerAvatar"><img alt="" hidden><span class="avatar-fallback" hidden></span></div>
-        <h3 id="drawerName">Contact</h3><div id="drawerUsername" class="drawer-username"></div><p id="drawerBio"></p>
-        <button id="drawerViewProfile" class="btn btn-primary" type="button">View public profile</button>
+        <div id="drawerContactDetails">
+          <div class="avatar profile-drawer-avatar" id="drawerAvatar"><img alt="" hidden><span class="avatar-fallback" hidden></span></div>
+          <h3 id="drawerName">Contact</h3>
+          <div id="drawerUsername" class="drawer-username"></div>
+          <p id="drawerBio"></p>
+          <div class="drawer-contact-actions" aria-label="Contact actions">
+            <button id="drawerVoiceBtn" type="button" class="drawer-action-btn" aria-label="Voice call"><span class="drawer-action-icon">☎</span><small>Voice</small></button>
+            <button id="drawerVideoBtn" type="button" class="drawer-action-btn" aria-label="Video call"><span class="drawer-action-icon">▣</span><small>Video</small></button>
+            <button id="drawerSearchBtn" type="button" class="drawer-action-btn" aria-label="Search conversation"><span class="drawer-action-icon">⌕</span><small>Search</small></button>
+          </div>
+          <button id="drawerViewProfile" class="drawer-hidden-profile-btn" type="button">View public profile</button>
+
+          <div class="drawer-info-list" role="list">
+            <button id="drawerMediaBtn" class="drawer-info-row" type="button"><span class="drawer-info-icon">▣</span><span class="drawer-info-copy"><strong>Media, links and docs</strong><small><span id="drawerMediaCount">0</span></small></span><span class="drawer-info-chevron">›</span></button>
+            <button id="drawerStarredBtn" class="drawer-info-row" type="button"><span class="drawer-info-icon">☆</span><span class="drawer-info-copy"><strong>Starred messages</strong></span><span class="drawer-info-chevron">›</span></button>
+            <button id="drawerKeptBtn" class="drawer-info-row" type="button"><span class="drawer-info-icon">▢</span><span class="drawer-info-copy"><strong>Kept messages</strong></span><span class="drawer-info-chevron">›</span></button>
+            <button id="drawerNotificationsBtn" class="drawer-info-row" type="button"><span class="drawer-info-icon">♧</span><span class="drawer-info-copy"><strong>Notification settings</strong></span><span class="drawer-info-chevron">›</span></button>
+            <button id="drawerDisappearingBtn" class="drawer-info-row" type="button"><span class="drawer-info-icon">◔</span><span class="drawer-info-copy"><strong>Disappearing messages</strong><small id="drawerDisappearingValue">Off</small></span><span class="drawer-info-chevron">›</span></button>
+            <div class="drawer-info-row drawer-info-static"><span class="drawer-info-icon">◈</span><span class="drawer-info-copy"><strong>Advanced chat privacy</strong><small>Off</small></span></div>
+            <div class="drawer-info-row drawer-info-static"><span class="drawer-info-icon">◇</span><span class="drawer-info-copy"><strong>Encryption</strong><small>Secure connection</small></span></div>
+            <button id="drawerBlockBtn" class="drawer-info-row drawer-danger-row" type="button"><span class="drawer-info-icon">⊘</span><span class="drawer-info-copy"><strong id="drawerBlockLabel">Block</strong><small id="drawerBlockHint">Stop messages and calls</small></span></button>
+          </div>
+        </div>
+
         <div id="drawerStatsRow" class="drawer-stats-row" hidden>
           <div class="stat-card"><strong id="drawerStatMembers">0</strong><span>Members</span></div>
           <div class="stat-card"><strong id="drawerStatMedia">0</strong><span>Shared photos</span></div>
@@ -334,7 +509,7 @@
             <button id="leaveGroupBtn" class="btn btn-soft danger-item btn-sm" type="button" hidden>Leave group</button>
           </div>
         </div>
-        <div class="drawer-section"><span class="eyebrow">SHARED</span><div id="sharedMediaGrid" class="shared-media-grid"><div class="empty-state">Shared images will appear here.</div></div></div>
+        <div class="drawer-section drawer-shared-section"><span class="eyebrow">SHARED</span><div id="sharedMediaGrid" class="shared-media-grid"><div class="empty-state">Shared images will appear here.</div></div></div>
       </div>
     </aside>
     </div>
@@ -357,22 +532,6 @@
         <div id="newGroupMemberPicker" class="new-chat-results group-member-picker"><div class="empty-state">Loading your contacts…</div></div>
         <button id="createGroupBtn" class="btn btn-primary" type="button" style="width:100%;margin-top:14px">Create group</button>
         <p id="newGroupError" class="error" role="alert" style="margin-top:8px"></p>
-      </div>
-    </div>
-
-    <!-- New chat -->
-    <div id="newChatModal" class="modal" hidden>
-      <div class="modal-content new-chat-modal">
-        <div class="modal-header">
-          <div><span class="eyebrow">START SOMETHING NEW</span><h2>New chat</h2><p>Find someone with a CUNNACT ID or email address.</p></div>
-          <button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-        </div>
-        <div class="new-chat-search search-row">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-          <label for="newChatSearch" class="sr-only">Search by email</label>
-          <input id="newChatSearch" type="search" placeholder="@username or someone@example.com" autocomplete="off">
-        </div>
-        <div id="newChatResults" class="new-chat-results"><div class="empty-state">Search for a person to send a request.</div></div>
       </div>
     </div>
 

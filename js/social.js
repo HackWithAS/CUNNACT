@@ -215,10 +215,39 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
   async function fetchChannels(){
     const u=user();if(!u)return;const snaps=[];try{snaps.push(await getDocs(query(collection(db,"channels"),where("privacy","==","public"),limit(80))));}catch{}try{snaps.push(await getDocs(query(collection(db,"channels"),where("subscriberIds","array-contains",u.uid),limit(80))));}catch{}const map=new Map();snaps.flatMap(s=>s.docs).forEach(d=>map.set(d.id,{id:d.id,...d.data()}));channels=[...map.values()].sort((a,b)=>(safeTime(b.createdAt)?.getTime()||0)-(safeTime(a.createdAt)?.getTime()||0));renderChannelList();
   }
+  function channelAvatarHtml(channel){
+    const photo=channel?.photoURL||channel?.imageURL||channel?.avatarURL||"";
+    return photo?`<img src="${escapeHtml(photo)}" alt="">`:`<span>${escapeHtml(String(channel?.name||"C").slice(0,1).toUpperCase())}</span>`;
+  }
+  function bindChannelListInteractions(box){
+    if(!box)return;
+    box.querySelectorAll("[data-channel-open]").forEach(b=>b.addEventListener("click",()=>openChannel(b.dataset.channelOpen)));
+    box.querySelectorAll("[data-channel-follow]").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();followChannel(b.dataset.channelFollow,true)}));
+    box.querySelectorAll("[data-channel-unfollow]").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();followChannel(b.dataset.channelUnfollow,false)}));
+  }
   function renderChannelList(filter=""){
-    const box=$("channelsList");if(!box)return;const term=String(filter||"").trim().toLowerCase();const list=channels.filter(c=>!term||String(c.nameLower||c.name||"").includes(term)||String(c.description||"").toLowerCase().includes(term));if(!list.length){box.innerHTML='<div class="social-empty"><div class="social-empty-icon">📣</div><strong>No channels found</strong><span>Follow a channel or create your own.</span></div>';return;}
-    box.innerHTML=list.map(c=>{const followed=(c.subscriberIds||[]).includes(user()?.uid);const admin=(c.adminIds||[]).includes(user()?.uid);return `<div class="social-list-card"><div class="social-card-main"><div class="social-icon">📣</div><div><strong># ${escapeHtml(c.name||"Channel")}</strong><small>${escapeHtml(c.description||"No description")}</small><small>${Number((c.subscriberIds||[]).length)} followers · ${c.privacy==="public"?"Public":"Private"}</small></div></div><div class="social-card-actions"><button type="button" class="btn btn-soft btn-sm" data-channel-open="${escapeHtml(c.id)}">Open</button>${admin?"":(followed?`<button type="button" class="btn btn-soft btn-sm" data-channel-unfollow="${escapeHtml(c.id)}">Unfollow</button>`:`<button type="button" class="btn btn-primary btn-sm" data-channel-follow="${escapeHtml(c.id)}">Follow</button>`)}</div></div>`;}).join("");
-    box.querySelectorAll("[data-channel-open]").forEach(b=>b.addEventListener("click",()=>openChannel(b.dataset.channelOpen)));box.querySelectorAll("[data-channel-follow]").forEach(b=>b.addEventListener("click",()=>followChannel(b.dataset.channelFollow,true)));box.querySelectorAll("[data-channel-unfollow]").forEach(b=>b.addEventListener("click",()=>followChannel(b.dataset.channelUnfollow,false)));
+    const term=String(filter||"").trim().toLowerCase();
+    const list=channels.filter(c=>!term||String(c.nameLower||c.name||"").toLowerCase().includes(term)||String(c.description||"").toLowerCase().includes(term));
+    const boxes=[$("channelsList"),$("channelsViewList")].filter(Boolean);
+    boxes.forEach(box=>{
+      if(!list.length){box.innerHTML='<div class="channels-list-empty"><strong>No channels found</strong><span>Follow a channel or create your own.</span></div>';return;}
+      const isDedicated=box.id==="channelsViewList";
+      box.innerHTML=list.map(c=>{
+        const followed=(c.subscriberIds||[]).includes(user()?.uid);const admin=(c.adminIds||[]).includes(user()?.uid);
+        const title=escapeHtml(c.name||"Channel");
+        const preview=escapeHtml(String(c.lastMessage||c.latestPost||c.description||"No updates yet"));
+        const count=Number((c.subscriberIds||[]).length);
+        if(isDedicated){
+          return `<button type="button" class="channel-side-row ${activeChannel?.id===c.id?"active":""}" data-channel-open="${escapeHtml(c.id)}">
+            <span class="channel-side-avatar">${channelAvatarHtml(c)}</span>
+            <span class="channel-side-copy"><strong>${title}</strong><small>${preview}</small></span>
+            <span class="channel-side-meta"><time>${safeTime(c.updatedAt||c.createdAt)?escapeHtml(formatTime(safeTime(c.updatedAt||c.createdAt))):""}</time>${Number(c.unreadCount||0)>0?`<b>${Number(c.unreadCount)}</b>`:""}</span>
+          </button>`;
+        }
+        return `<div class="social-list-card"><div class="social-card-main"><div class="social-icon">📣</div><div><strong># ${title}</strong><small>${escapeHtml(c.description||"No description")}</small><small>${count} followers · ${c.privacy==="public"?"Public":"Private"}</small></div></div><div class="social-card-actions"><button type="button" class="btn btn-soft btn-sm" data-channel-open="${escapeHtml(c.id)}">Open</button>${admin?"":(followed?`<button type="button" class="btn btn-soft btn-sm" data-channel-unfollow="${escapeHtml(c.id)}">Unfollow</button>`:`<button type="button" class="btn btn-primary btn-sm" data-channel-follow="${escapeHtml(c.id)}">Follow</button>`)}</div></div>`;
+      }).join("");
+      bindChannelListInteractions(box);
+    });
   }
   async function followChannel(id,follow){const u=user();if(!u)return;try{await updateDoc(doc(db,"channels",id),{subscriberIds:follow?arrayUnion(u.uid):arrayRemove(u.uid),updatedAt:serverTimestamp()});await fetchChannels();showToast(follow?"Channel followed":"Channel unfollowed","success");}catch(e){showToast("Could not update channel follow state.","error");}}
   async function createChannel(){
@@ -230,10 +259,43 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
     return `<article class="channel-post" data-post-id="${escapeHtml(post.id)}"><div class="channel-post-head"><strong>${escapeHtml(post.authorName||"CUNNACT")}</strong><time>${safeTime(post.createdAt)?escapeHtml(formatTime(safeTime(post.createdAt))):""}</time></div><p>${escapeHtml(post.text||"")}</p>${media}${poll}<div class="channel-post-actions"><button type="button" data-post-react="❤️">❤️ ${Number(post.reactionCount||0)}</button><button type="button" data-post-comments>💬 Comments</button></div><div class="channel-comments" hidden></div></article>`;
   }
   async function openChannel(id){
-    try{const snap=await getDoc(doc(db,"channels",id));if(!snap.exists())return;activeChannel={id,...snap.data()};$("channelDetailTitle").textContent=`# ${activeChannel.name||"Channel"}`;$("channelDetailMeta").textContent=`${Number((activeChannel.subscriberIds||[]).length)} followers · ${activeChannel.privacy==="public"?"Public":"Private"}`;$("channelDetailDescription").textContent=activeChannel.description||"";openModal("channelDetailModal");const composer=$("channelAdminComposer");if(composer)composer.hidden=!canPostChannel();await renderChannelPosts();}catch(e){showToast("Could not open channel.","error");}
+    try{
+      const snap=await getDoc(doc(db,"channels",id));
+      if(!snap.exists()){showToast("Channel not found.","error");return;}
+      activeChannel={id,...snap.data()};
+      closeModal("socialHubModal");closeModal("channelDetailModal");closeModal("communityDetailModal");
+      const app=document.getElementById("app"),base=$("sidebarDefaultView"),newChat=$("newChatView"),status=$("statusView"),channelsView=$("channelsView"),chat=document.querySelector(".chat-panel"),statusPanel=$("statusPanel"),channelsPanel=$("channelsPanel");
+      base?.setAttribute("hidden","");newChat?.setAttribute("hidden","");status?.setAttribute("hidden","");channelsView?.removeAttribute("hidden");chat?.setAttribute("hidden","");statusPanel?.setAttribute("hidden","");channelsPanel?.removeAttribute("hidden");
+      app?.classList.add("channels-open");app?.classList.remove("chat-open","status-open");
+      document.querySelectorAll(".nav-rail-btn").forEach(b=>b.classList.remove("active"));document.getElementById("navCommunitiesBtn")?.classList.add("active");
+      $("channelsMainTitle").textContent=activeChannel.name||"Channel";
+      $("channelsMainMeta").textContent=`${Number((activeChannel.subscriberIds||[]).length)} followers`;
+      const avatar=$("channelsMainAvatar");if(avatar)avatar.innerHTML=channelAvatarHtml(activeChannel);
+      renderChannelList($("channelsViewSearch")?.value||"");
+      await renderChannelPosts();
+    }catch(e){console.error(e);showToast("Could not open channel.","error");}
   }
   async function renderChannelPosts(){
-    if(!activeChannel)return;const box=$("channelPostsList");if(!box)return;box.innerHTML='<div class="empty-state">Loading posts…</div>';try{const snap=await getDocs(query(collection(db,"channels",activeChannel.id,"posts"),orderBy("createdAt","desc"),limit(50)));const posts=snap.docs.map(d=>({id:d.id,...d.data()}));box.innerHTML=posts.length?posts.map(renderChannelPost).join(""):'<div class="empty-state">No posts yet.</div>';box.querySelectorAll("[data-post-react]").forEach(b=>b.addEventListener("click",()=>reactToPost(b.closest(".channel-post").dataset.postId,b.dataset.postReact)));box.querySelectorAll("[data-post-comments]").forEach(b=>b.addEventListener("click",()=>togglePostComments(b.closest(".channel-post"))));box.querySelectorAll("[data-channel-vote]").forEach(b=>b.addEventListener("click",()=>voteChannelPost(b.closest(".channel-post").dataset.postId,Number(b.dataset.channelVote))));}catch(e){box.innerHTML='<div class="empty-state">Posts could not be loaded.</div>';}}
+    if(!activeChannel)return;
+    const box=$("channelsMainPosts");if(!box)return;
+    box.innerHTML='<div class="channels-main-empty"><div class="channels-main-spinner">Loading…</div></div>';
+    try{
+      const snap=await getDocs(query(collection(db,"channels",activeChannel.id,"posts"),orderBy("createdAt","desc"),limit(50)));
+      const posts=snap.docs.map(d=>({id:d.id,...d.data()}));
+      const follow=(activeChannel.subscriberIds||[]).includes(user()?.uid),admin=canPostChannel();
+      const intro=`<div class="channel-feed-intro"><span>🔔</span><div><strong>You're viewing ${escapeHtml(activeChannel.name||"this channel")}</strong><small>${Number((activeChannel.subscriberIds||[]).length)} followers${activeChannel.description?` · ${escapeHtml(activeChannel.description)}`:""}</small></div>${follow?`<span class="channel-followed-pill">Following</span>`:`<button type="button" class="btn btn-primary btn-sm" id="channelFeedFollowBtn">Follow</button>`}</div>`;
+      const adminBox=admin?`<div id="channelInlineComposer" class="channel-inline-composer"><textarea id="channelInlinePostText" maxlength="5000" rows="3" placeholder="Write an update for your followers…"></textarea><div><input id="channelInlinePostMedia" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"><button type="button" class="btn btn-primary btn-sm" id="channelInlinePostSend">Publish</button></div></div>`:"";
+      box.innerHTML=`${intro}${adminBox}<div class="channel-post-feed">${posts.length?posts.map(renderChannelPost).join(""):'<div class="channels-list-empty"><strong>No posts yet.</strong><span>New updates from this channel will appear here.</span></div>'}</div>`;
+      box.querySelector("#channelFeedFollowBtn")?.addEventListener("click",()=>followChannel(activeChannel.id,true));
+      box.querySelector("#channelInlinePostSend")?.addEventListener("click",createInlineChannelPost);
+      box.querySelectorAll("[data-post-react]").forEach(b=>b.addEventListener("click",()=>reactToPost(b.closest(".channel-post").dataset.postId,b.dataset.postReact)));
+      box.querySelectorAll("[data-post-comments]").forEach(b=>b.addEventListener("click",()=>togglePostComments(b.closest(".channel-post"))));
+      box.querySelectorAll("[data-channel-vote]").forEach(b=>b.addEventListener("click",()=>voteChannelPost(b.closest(".channel-post").dataset.postId,Number(b.dataset.channelVote))));
+    }catch(e){console.error(e);box.innerHTML='<div class="channels-main-empty"><strong>Posts could not be loaded.</strong><span>Check your connection and try again.</span></div>';}
+  }
+  async function createInlineChannelPost(){
+    if(!activeChannel||!canPostChannel())return;const u=user();const text=$("channelInlinePostText")?.value.trim()||"";const file=$("channelInlinePostMedia")?.files?.[0]||null;if(!text&&!file){showToast("Add text or media.","error");return;}try{let mediaURL="",mediaType="";if(file){const check=validateMediaFile(file);if(!check.ok)throw new UploadError("CHANNEL_MEDIA",check.message||"Invalid media file");mediaURL=await uploadFileToCloudinary(file,{});mediaType=mediaKind(file);}await addDoc(collection(db,"channels",activeChannel.id,"posts"),{authorId:u.uid,authorName:u.displayName||"CUNNACT",type:"post",text:text.slice(0,5000),mediaURL,mediaType,pollQuestion:"",pollOptions:[],pollCounts:{},pollVotes:{},reactionCount:0,createdAt:serverTimestamp()});$("channelInlinePostText").value="";if($("channelInlinePostMedia"))$("channelInlinePostMedia").value="";await renderChannelPosts();showToast("Channel post published","success");}catch(e){console.error(e);showToast(e?.userMessage||"Could not publish the post.","error");}
+  }
   function canPostChannel(){const u=user();return !!(activeChannel&&u&&(activeChannel.adminIds||[]).includes(u.uid));}
   async function createChannelPost(){
     if(!activeChannel||!canPostChannel())return;const u=user();const text=$("channelPostText")?.value.trim()||"";const file=$("channelPostMedia")?.files?.[0]||null;const pollQuestion=$("channelPostPollQuestion")?.value.trim()||"";const pollOptions=($("channelPostPollOptions")?.value||"").split("\n").map(x=>x.trim()).filter(Boolean).slice(0,6);if(!text&&!file&&!pollQuestion){showToast("Add text, media or a poll.","error");return;}if(pollQuestion&&pollOptions.length<2){showToast("Poll needs at least 2 options.","error");return;}try{let mediaURL="",mediaType="";if(file){const check=validateMediaFile(file);if(!check.ok)throw new UploadError("CHANNEL_MEDIA",check.message||"Invalid media file");mediaURL=await uploadFileToCloudinary(file,{});mediaType=mediaKind(file);}const ref=await addDoc(collection(db,"channels",activeChannel.id,"posts"),{authorId:u.uid,authorName:u.displayName||"CUNNACT",type:pollQuestion?"poll":"post",text:text.slice(0,5000),mediaURL,mediaType,pollQuestion:pollQuestion.slice(0,250),pollOptions,pollCounts:{},pollVotes:{},reactionCount:0,createdAt:serverTimestamp()});$("channelPostText").value="";$("channelPostPollQuestion").value="";$("channelPostPollOptions").value="";if($("channelPostMedia"))$("channelPostMedia").value="";await renderChannelPosts();showToast("Channel post published","success");}catch(e){console.error(e);showToast(e?.userMessage||"Could not publish the post.","error");}}
@@ -242,11 +304,77 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
   async function togglePostComments(postEl){const box=postEl?.querySelector(".channel-comments");if(!box||!activeChannel)return;box.hidden=!box.hidden;if(box.hidden)return;const postId=postEl.dataset.postId;try{const snap=await getDocs(query(collection(db,"channels",activeChannel.id,"posts",postId,"comments"),orderBy("createdAt","asc"),limit(50)));box.innerHTML=`${snap.docs.map(d=>{const x=d.data();return `<div class="channel-comment"><strong>${escapeHtml(x.authorName||"User")}</strong><span>${escapeHtml(x.text||"")}</span></div>`;}).join("")}<div class="channel-comment-form"><input type="text" placeholder="Write a comment…" data-comment-input><button type="button" class="btn btn-primary btn-sm" data-comment-send>Send</button></div>`;box.querySelector("[data-comment-send]")?.addEventListener("click",async()=>{const input=box.querySelector("[data-comment-input]"),text=input?.value.trim();if(!text)return;const u=user();try{await addDoc(collection(db,"channels",activeChannel.id,"posts",postId,"comments"),{authorId:u.uid,authorName:u.displayName||"CUNNACT",text:text.slice(0,1000),createdAt:serverTimestamp()});input.value="";await togglePostComments(postEl);togglePostComments(postEl);}catch(e){showToast("Could not add comment.","error");}});
     }catch{box.innerHTML='<div class="empty-state">Comments could not be loaded.</div>';}}
 
+  function syncStatusMyAvatar(){
+    const u=user();
+    const src=document.getElementById("currentUserAvatar");
+    const dst=document.getElementById("statusMyAvatar");
+    if(!dst)return;
+    const dstImg=dst.querySelector("img"),dstFallback=dst.querySelector(".avatar-fallback");
+    const srcImg=src?.querySelector("img"),srcFallback=src?.querySelector(".avatar-fallback");
+    if(dstImg){dstImg.src=srcImg?.src||u?.photoURL||"";dstImg.hidden=!(srcImg&&!srcImg.hidden)||!dstImg.src;}
+    if(dstFallback){dstFallback.textContent=srcFallback?.textContent||(u?.displayName||"C").slice(0,2).toUpperCase();dstFallback.hidden=!!(srcImg&&!srcImg.hidden);}
+  }
+  function renderStatusPage(){
+    const list=$("statusUpdatesList");
+    const main=$("statusPanel");
+    if(!list||!main)return;
+    syncStatusMyAvatar();
+    const grouped=new Map();
+    stories.filter(s=>s.ownerId!==user()?.uid).forEach(story=>{if(!grouped.has(story.ownerId))grouped.set(story.ownerId,[]);grouped.get(story.ownerId).push(story);});
+    if(!grouped.size){list.innerHTML='<div class="status-list-empty"><strong>No recent updates</strong><span>New status updates from your contacts will appear here.</span></div>';return;}
+    list.innerHTML=[...grouped.entries()].map(([ownerId,items])=>{
+      const first=items[0],name=first.ownerName||"CUNNACT user",unseen=items.some(x=>!(x.viewers||[]).includes(user()?.uid));
+      const avatar=first.ownerPhotoURL?`<img src="${escapeHtml(first.ownerPhotoURL)}" alt="">`:`<span>${escapeHtml(name.slice(0,1).toUpperCase())}</span>`;
+      const when=safeTime(first.createdAt);
+      const label=when?`Today at ${formatTime(when)}`:"Recent update";
+      return `<button type="button" class="status-update-row ${unseen?"unseen":"seen"}" data-status-owner="${escapeHtml(ownerId)}">
+        <span class="status-avatar-ring ${unseen?"unseen":"seen"}"><span class="status-avatar-inner">${avatar}</span></span>
+        <span class="status-update-copy"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(label)}</small></span>
+      </button>`;
+    }).join("");
+    list.querySelectorAll("[data-status-owner]").forEach(btn=>btn.addEventListener("click",()=>openStoryViewer(btn.dataset.statusOwner)));
+  }
+  async function openStatusPage(){
+    const app=document.getElementById("app"),base=document.getElementById("sidebarDefaultView"),newChat=document.getElementById("newChatView"),view=document.getElementById("statusView"),chat=document.querySelector(".chat-panel"),panel=document.getElementById("statusPanel");
+    if(!app||!view||!chat||!panel)return;
+    base?.setAttribute("hidden","true");newChat?.setAttribute("hidden","true");view.hidden=false;chat.hidden=true;panel.hidden=false;app.classList.add("status-open");app.classList.remove("chat-open");
+    document.querySelectorAll(".nav-rail-btn").forEach(b=>b.classList.remove("active"));document.getElementById("navStoriesBtn")?.classList.add("active");
+    try{await fetchStories();renderStatusPage();}catch(e){console.warn("Status load failed",e);renderStatusPage();}
+  }
+  function closeStatusPage(){
+    const app=document.getElementById("app"),base=document.getElementById("sidebarDefaultView"),view=document.getElementById("statusView"),chat=document.querySelector(".chat-panel"),panel=document.getElementById("statusPanel");
+    if(!view)return;view.hidden=true;base?.removeAttribute("hidden");chat?.removeAttribute("hidden");if(panel)panel.hidden=true;app?.classList.remove("status-open");
+  }
   function openSocialTab(tab){document.querySelectorAll(".social-tab").forEach(b=>b.classList.toggle("active",b.dataset.socialTab===tab));document.querySelectorAll(".social-panel").forEach(p=>p.hidden=p.dataset.socialPanel!==tab);if(tab==="stories")fetchStories().then(renderStoryList);if(tab==="communities")fetchCommunities();if(tab==="channels")fetchChannels();}
   function openSocialHub(tab="stories"){openModal("socialHubModal");openSocialTab(tab);}
+  function closeChannelsPage(){
+    const app=$("app"),base=$("sidebarDefaultView"),view=$("channelsView"),panel=$("channelsPanel"),chat=document.querySelector(".chat-panel");
+    if(!view)return;view.hidden=true;base?.removeAttribute("hidden");panel?.setAttribute("hidden","");chat?.removeAttribute("hidden");app?.classList.remove("channels-open");
+  }
+  async function openChannelsPage(){
+    const app=$("app"),base=$("sidebarDefaultView"),newChat=$("newChatView"),status=$("statusView"),view=$("channelsView"),chat=document.querySelector(".chat-panel"),statusPanel=$("statusPanel"),panel=$("channelsPanel");
+    if(!app||!view||!panel)return;base?.setAttribute("hidden","");newChat?.setAttribute("hidden","");status?.setAttribute("hidden","");view.hidden=false;chat?.setAttribute("hidden","");statusPanel?.setAttribute("hidden","");panel.hidden=false;app.classList.add("channels-open");app.classList.remove("chat-open","status-open");document.querySelectorAll(".nav-rail-btn").forEach(b=>b.classList.remove("active"));document.getElementById("navCommunitiesBtn")?.classList.add("active");try{await fetchChannels();}catch(e){console.warn("Channels load failed",e);renderChannelList($("channelsViewSearch")?.value||"");}
+  }
   function bind(){
     if(socialBound)return;socialBound=true;
-    $("navStoriesBtn")?.addEventListener("click",()=>openSocialHub("stories"));$("navCommunitiesBtn")?.addEventListener("click",()=>openSocialHub("communities"));
+    $("navStoriesBtn")?.addEventListener("click",()=>{closeChannelsPage();openStatusPage();});$("navCommunitiesBtn")?.addEventListener("click",()=>openChannelsPage());
+    $("navChatsBtn")?.addEventListener("click",()=>{closeStatusPage();closeChannelsPage();});$("navNewChatBtn")?.addEventListener("click",()=>{closeStatusPage();closeChannelsPage();});$("newChatBtn")?.addEventListener("click",()=>{closeStatusPage();closeChannelsPage();});
+    $("channelsCreateBtn")?.addEventListener("click",()=>openModal("channelComposerModal"));
+    $("channelsViewSearch")?.addEventListener("input",e=>renderChannelList(e.target.value));
+    $("channelsMobileBackBtn")?.addEventListener("click",()=>{
+      if(window.innerWidth<=820){
+        const app=$("app"),view=$("channelsView"),panel=$("channelsPanel"),chat=document.querySelector(".chat-panel");
+        activeChannel=null;view?.removeAttribute("hidden");panel?.setAttribute("hidden","");chat?.setAttribute("hidden","");app?.classList.remove("channels-open","chat-open","status-open");
+      } else { closeChannelsPage(); }
+    });
+    $("channelsMainMoreBtn")?.addEventListener("click",e=>{e.stopPropagation();const m=$("channelsMainMoreMenu");if(!m)return;const followed=(activeChannel?.subscriberIds||[]).includes(user()?.uid);m.innerHTML=`<button type="button" class="dropdown-item" data-channel-action="info"><span>Channel info</span></button>${followed?`<button type="button" class="dropdown-item" data-channel-action="unfollow"><span>Unfollow channel</span></button>`:`<button type="button" class="dropdown-item" data-channel-action="follow"><span>Follow channel</span></button>`}`;m.hidden=!m.hidden;m.querySelector('[data-channel-action="follow"]')?.addEventListener("click",()=>followChannel(activeChannel.id,true));m.querySelector('[data-channel-action="unfollow"]')?.addEventListener("click",()=>followChannel(activeChannel.id,false));m.querySelector('[data-channel-action="info"]')?.addEventListener("click",()=>showToast(activeChannel?.description||"No channel description.","info"));});
+    document.addEventListener("click",e=>{if(!e.target.closest(".channels-main-actions"))$("channelsMainMoreMenu")?.setAttribute("hidden","");});
+    $("statusAddBtn")?.addEventListener("click",e=>{e.stopPropagation();$("statusMoreMenu")?.setAttribute("hidden","");const m=$("statusAddMenu");if(m)m.hidden=!m.hidden;});
+    $("myStatusRow")?.addEventListener("click",()=>{$("statusAddBtn")?.click();});
+    $("statusMoreBtn")?.addEventListener("click",e=>{e.stopPropagation();$("statusAddMenu")?.setAttribute("hidden","");const m=$("statusMoreMenu");if(m)m.hidden=!m.hidden;});
+    document.querySelectorAll("[data-status-create]").forEach(b=>b.addEventListener("click",()=>{const mode=b.dataset.statusCreate;$("statusAddMenu")?.setAttribute("hidden","");openModal("storyComposerModal");setTimeout(()=>{if(mode==="media")$("storyMediaInput")?.focus();else $("storyTextInput")?.focus();},40);}));
+    document.querySelectorAll("[data-status-action]").forEach(b=>b.addEventListener("click",async()=>{const action=b.dataset.statusAction;$("statusMoreMenu")?.setAttribute("hidden","");if(action==="refresh"){await fetchStories();renderStatusPage();showToast("Statuses refreshed","success");}else{$("statusAddBtn")?.click();}}));
+    document.addEventListener("click",e=>{if(!e.target.closest(".status-side-actions")){$("statusAddMenu")?.setAttribute("hidden","");$("statusMoreMenu")?.setAttribute("hidden","");}});
     $("storiesViewAllBtn")?.addEventListener("click",()=>openSocialHub("stories"));
     $("storiesAddBtn")?.addEventListener("click",()=>openModal("storyComposerModal"));
     $("createStoryBtn")?.addEventListener("click",()=>openModal("storyComposerModal"));$("publishStoryBtn")?.addEventListener("click",createStory);$("storyPrivacy")?.addEventListener("change",renderStoryAudiencePicker);$("storyViewerCloseBtn")?.addEventListener("click",()=>closeModal("storyViewerModal"));$("storyPrevBtn")?.addEventListener("click",()=>{if(storyCursor>0){storyCursor--;markStoryViewed(storyCandidates[storyCursor]);renderStoryViewer();}});$("storyNextBtn")?.addEventListener("click",()=>{if(storyCursor<storyCandidates.length-1){storyCursor++;markStoryViewed(storyCandidates[storyCursor]);renderStoryViewer();}});$("storyReplySendBtn")?.addEventListener("click",storyReply);$("storyReactBtn")?.addEventListener("click",()=>storyReact($("storyReactionEmoji")?.value||"❤️"));
@@ -256,5 +384,5 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
     document.querySelectorAll("[data-social-open]").forEach(b=>b.addEventListener("click",()=>openSocialHub(b.dataset.socialOpen)));
   }
   bind();
-  return { refresh:()=>{fetchStories().then(renderStoryList);fetchCommunities();fetchChannels();}, openCommunity, openChannel, destroy:()=>{storyUnsub?.();communityUnsub?.();channelUnsub?.();} };
+  return { refresh:()=>{fetchStories().then(renderStoryList);fetchCommunities();fetchChannels();}, openStatusPage, closeStatusPage, openChannelsPage, closeChannelsPage, openCommunity, openChannel, destroy:()=>{storyUnsub?.();communityUnsub?.();channelUnsub?.();} };
 }
