@@ -80,3 +80,13 @@ The identity uses:
 - Dark Slate `#0F172A`
 
 The frontend Firebase configuration contains only browser-safe Firebase web-app identifiers. Never add Firebase Admin credentials or the Cloudinary API Secret to this project.
+
+
+### Cloudinary delete cleanup
+Set the Cloudinary API credentials as Firebase Functions secrets before deploying the updated functions:
+
+```bash
+firebase functions:secrets:set CLOUDINARY_API_KEY
+firebase functions:secrets:set CLOUDINARY_API_SECRET
+firebase deploy --only functions
+```

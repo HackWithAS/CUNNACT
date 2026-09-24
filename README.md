@@ -122,3 +122,14 @@ This deliverable includes the implemented messaging foundation from earlier phas
 - Scheduled server cleanup for expired stories via Cloud Functions.
 
 Earlier authentication, requests, messaging, groups, calls and Cloudinary features remain in the same codebase. Live Firebase/Cloudinary behavior still requires deployment and testing against the project's services.
+
+
+### Cloudinary cleanup on delete
+
+Message media uploaded to CUNNACT is deleted server-side from Cloudinary when the sender deletes the message for everyone. The cleanup function uses Firebase Functions secrets and never exposes the Cloudinary API secret to the browser. Configure the secrets before deploying functions:
+
+```bash
+firebase functions:secrets:set CLOUDINARY_API_KEY
+firebase functions:secrets:set CLOUDINARY_API_SECRET
+firebase deploy --only functions
+```

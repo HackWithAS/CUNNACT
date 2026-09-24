@@ -111,18 +111,80 @@ $("backToChat")?.addEventListener("click",()=>location.href="index.html");$("can
 
 
 async function refreshSecurityUI(){
-  const state=$("mfaState");const btn=$("mfaPrimaryBtn");
-  if(state&&auth.currentUser){
-    const enrolled=multiFactor(auth.currentUser).enrolledFactors||[];
-    state.textContent=enrolled.length?`${enrolled.length} second factor${enrolled.length>1?"s":""} enabled`:`Not enabled`;
-    if(btn)btn.textContent=enrolled.length?"Manage 2-step verification":"Enable 2-step verification";
-    btn?.classList.toggle("btn-soft",!!enrolled.length);
+  const state = $("mfaState");
+  const btn = $("mfaPrimaryBtn");
+
+  if(state && auth.currentUser){
+    const enrolled = multiFactor(auth.currentUser).enrolledFactors || [];
+    state.textContent = enrolled.length
+      ? `${enrolled.length} second factor${enrolled.length > 1 ? "s" : ""} enabled`
+      : "Not enabled";
+    if(btn) btn.textContent = enrolled.length ? "Manage 2-step verification" : "Enable 2-step verification";
+    btn?.classList.toggle("btn-soft", !!enrolled.length);
   }
-  const devicesBox=$("deviceSessionsList"); const eventsBox=$("securityEventsList"); if(!devicesBox||!currentUser)return;
-  devicesBox.innerHTML='<div class="empty-state">Loading devices…</div>';
-  try{const devices=await listDevices(currentUser);if(!devices.length){devicesBox.innerHTML='<div class="empty-state">No active sessions found.</div>';}else{devicesBox.innerHTML=devices.map(d=>`<div class="device-row"><div><strong>${String(d.label||"CUNNACT device")}</strong><small>${d.current?"This device · ":""}${d.active===false?"Signed out":"Active"}</small></div>${d.id!==getDeviceSessionId()&&d.active!==false?`<button type="button" class="btn btn-soft btn-sm" data-revoke-device="${d.id}">Sign out</button>`:"<span class="device-current">✓</span>"}</div>`).join('');devicesBox.querySelectorAll('[data-revoke-device]').forEach(b=>b.addEventListener('click',async()=>{await revokeDevice(currentUser,b.dataset.revokeDevice);refreshSecurityUI();showToast("Device signed out","success");}));}}catch{devicesBox.innerHTML='<div class="empty-state">Could not load sessions.</div>';}
-  if(eventsBox){eventsBox.innerHTML='<div class="empty-state">Loading activity…</div>';try{const snap=await getDocs(query(collection(db,"securityEvents"),where("userId","==",currentUser.uid),orderBy("createdAt","desc"),limit(20)));eventsBox.innerHTML=snap.empty?'<div class="empty-state">No security activity yet.</div>':snap.docs.map(d=>{const x=d.data();const when=x.createdAt?.toDate?.();return `<div class="device-row"><div><strong>${String(x.type||"Security event").replace(/_/g," ")}</strong><small>${when?when.toLocaleString():"Recently"} · ${String(x.details||"").slice(0,120)}</small></div></div>`}).join("");}catch{eventsBox.innerHTML='<div class="empty-state">Could not load security activity.</div>';}}
+
+  const devicesBox = $("deviceSessionsList");
+  const eventsBox = $("securityEventsList");
+  if(!devicesBox || !currentUser) return;
+
+  devicesBox.innerHTML = '<div class="empty-state">Loading devices…</div>';
+  try{
+    const devices = await listDevices(currentUser);
+    if(!devices.length){
+      devicesBox.innerHTML = '<div class="empty-state">No active sessions found.</div>';
+    }else{
+      devicesBox.innerHTML = devices.map((d) => {
+        const label = String(d.label || "CUNNACT device");
+        const stateText = `${d.current ? "This device · " : ""}${d.active === false ? "Signed out" : "Active"}`;
+        const sessionId = String(d.id || "");
+        const currentSessionId = String(getDeviceSessionId() || "");
+        const action = sessionId !== currentSessionId && d.active !== false
+          ? `<button type="button" class="btn btn-soft btn-sm" data-revoke-device="${sessionId}">Sign out</button>`
+          : '<span class="device-current">✓</span>';
+        return `<div class="device-row"><div><strong>${label}</strong><small>${stateText}</small></div>${action}</div>`;
+      }).join("");
+
+      devicesBox.querySelectorAll("[data-revoke-device]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          try{
+            await revokeDevice(currentUser, button.dataset.revokeDevice);
+            await refreshSecurityUI();
+            showToast("Device signed out", "success");
+          }catch(err){
+            console.error("Device revoke failed", err);
+            showToast("Could not sign out that device", "error");
+          }
+        });
+      });
+    }
+  }catch(err){
+    console.error("Device list failed", err);
+    devicesBox.innerHTML = '<div class="empty-state">Could not load sessions.</div>';
+  }
+
+  if(eventsBox){
+    eventsBox.innerHTML = '<div class="empty-state">Loading activity…</div>';
+    try{
+      const snap = await getDocs(query(
+        collection(db, "securityEvents"),
+        where("userId", "==", currentUser.uid),
+        orderBy("createdAt", "desc"),
+        limit(20)
+      ));
+      eventsBox.innerHTML = snap.empty
+        ? '<div class="empty-state">No security activity yet.</div>'
+        : snap.docs.map((d) => {
+            const x = d.data();
+            const when = x.createdAt?.toDate?.();
+            return `<div class="device-row"><div><strong>${String(x.type || "Security event").replace(/_/g, " ")}</strong><small>${when ? when.toLocaleString() : "Recently"} · ${String(x.details || "").slice(0, 120)}</small></div></div>`;
+          }).join("");
+    }catch(err){
+      console.error("Security events load failed", err);
+      eventsBox.innerHTML = '<div class="empty-state">Could not load security activity.</div>';
+    }
+  }
 }
+
 async function enrollMfa(){
   const user=auth.currentUser;if(!user)return;
   try{

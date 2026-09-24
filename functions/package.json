@@ -1,6 +1,6 @@
 {
   "name": "cunnact-functions",
-  "description": "CUNNACT push-notification Cloud Function (new message -> FCM)",
+  "description": "CUNNACT Firebase Functions (notifications and message-media cleanup)",
   "engines": { "node": "20" },
   "main": "index.js",
   "dependencies": {

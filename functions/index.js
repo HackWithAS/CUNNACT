@@ -14,10 +14,88 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const crypto = require("crypto");
+const { defineSecret } = require("firebase-functions/params");
 
 initializeApp();
 const db = getFirestore();
 const messaging = getMessaging();
+
+const CLOUDINARY_API_KEY = defineSecret("CLOUDINARY_API_KEY");
+const CLOUDINARY_API_SECRET = defineSecret("CLOUDINARY_API_SECRET");
+const CLOUDINARY_CLOUD_NAME = "qfw2dy0h";
+
+function cloudinaryAssetFromMessage(message) {
+  const storedId = String(message?.cloudinaryPublicId || "").trim();
+  if (storedId) {
+    return {
+      publicId: storedId,
+      resourceType: String(message?.cloudinaryResourceType || "image"),
+      deliveryType: String(message?.cloudinaryDeliveryType || "upload"),
+      sourceUrl: String(message?.mediaURL || message?.imageURL || "")
+    };
+  }
+  const url = String(message?.mediaURL || message?.imageURL || "");
+  if (!url || !url.includes(`res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/`)) return null;
+  try {
+    const u = new URL(url);
+    const m = u.pathname.match(new RegExp(`^/${CLOUDINARY_CLOUD_NAME}/([^/]+)/upload/(.*)$`));
+    if (!m) return null;
+    const resourceType = m[1] || "image";
+    const parts = m[2].split("/").filter(Boolean);
+    if (parts[0] && /^v\d+$/.test(parts[0])) parts.shift();
+    if (!parts.length) return null;
+    let publicId = parts.join("/");
+    if (resourceType !== "raw") publicId = publicId.replace(/\.[^.\/]+$/, "");
+    return { publicId, resourceType, deliveryType: "upload", sourceUrl: url };
+  } catch (_) { return null; }
+}
+
+async function hasLiveReferenceToAsset(asset, deletedMessagePath) {
+  const searches = [];
+  if (asset?.publicId) searches.push(db.collectionGroup("messages").where("cloudinaryPublicId", "==", asset.publicId).limit(20));
+  if (asset?.sourceUrl) {
+    searches.push(db.collectionGroup("messages").where("mediaURL", "==", asset.sourceUrl).limit(20));
+    searches.push(db.collectionGroup("messages").where("imageURL", "==", asset.sourceUrl).limit(20));
+  }
+  for (const q of searches) {
+    try {
+      const snap = await q.get();
+      const live = snap.docs.some(d => {
+        if (d.ref.path === deletedMessagePath) return false;
+        const data = d.data() || {};
+        return !data.deletedAt;
+      });
+      if (live) return true;
+    } catch (e) {
+      console.warn("Cloudinary reference check skipped", e?.message || e);
+    }
+  }
+  return false;
+}
+
+async function destroyCloudinaryAsset(asset) {
+  const apiKey = CLOUDINARY_API_KEY.value();
+  const apiSecret = CLOUDINARY_API_SECRET.value();
+  if (!apiKey || !apiSecret || !asset?.publicId) throw new Error("Cloudinary destroy credentials are not configured.");
+  const timestamp = Math.floor(Date.now() / 1000);
+  const toSign = `public_id=${asset.publicId}&timestamp=${timestamp}`;
+  const signature = crypto.createHash("sha1").update(toSign + apiSecret).digest("hex");
+  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${asset.resourceType || "image"}/destroy`;
+  const body = new URLSearchParams({
+    public_id: asset.publicId,
+    timestamp: String(timestamp),
+    api_key: apiKey,
+    signature,
+    type: asset.deliveryType || "upload",
+    invalidate: "true"
+  });
+  const response = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(`Cloudinary destroy HTTP ${response.status}: ${JSON.stringify(result)}`);
+  if (!['ok','not found'].includes(String(result?.result || '').toLowerCase())) throw new Error(`Cloudinary destroy failed: ${JSON.stringify(result)}`);
+  return result;
+}
 
 exports.onNewMessage = onDocumentCreated(
   "conversations/{conversationId}/messages/{messageId}",
@@ -66,6 +144,38 @@ exports.onNewMessage = onDocumentCreated(
       await Promise.all(
         members.map((uid) => db.doc(`users/${uid}`).update({ fcmTokens: FieldValue.arrayRemove(...stale) }).catch(() => {}))
       );
+    }
+  }
+);
+
+
+// Remove the Cloudinary asset when a message is deleted for everyone.
+// The trigger runs server-side so the API secret never reaches the browser.
+exports.cleanupDeletedMessageMedia = onDocumentUpdated(
+  { document: "conversations/{conversationId}/messages/{messageId}", secrets: [CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET] },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+    if (before.deletedAt || !after.deletedAt) return;
+
+    const asset = cloudinaryAssetFromMessage(before);
+    if (!asset?.publicId) return;
+
+    const deletedPath = event.data.after.ref.path;
+    const liveReference = await hasLiveReferenceToAsset(asset, deletedPath);
+    if (liveReference) {
+      console.log("Keeping Cloudinary asset because another live message references it", asset.publicId);
+      return;
+    }
+
+    try {
+      await destroyCloudinaryAsset(asset);
+      console.log("Deleted Cloudinary asset for deleted message", asset.publicId);
+    } catch (error) {
+      // Do not fail the Firestore update; the message is already marked deleted.
+      // A later manual cleanup can retry using the stored metadata.
+      console.error("Cloudinary message-media cleanup failed", error);
     }
   }
 );

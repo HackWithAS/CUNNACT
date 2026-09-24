@@ -114,7 +114,7 @@ export async function validateMediaFile(file) {
  * Uploads an image to Cloudinary with the unsigned preset and resolves with its `secure_url`.
  * opts.onProgress(0..1) reports real upload progress; opts.signal (AbortSignal) cancels it.
  */
-export async function uploadImageToCloudinary(file, { onProgress, signal } = {}) {
+export async function uploadImageToCloudinary(file, { onProgress, signal, returnMetadata = false } = {}) {
   await validateImageFile(file);
   if (signal?.aborted) throw new UploadError("aborted", "");
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -140,7 +140,7 @@ export async function uploadImageToCloudinary(file, { onProgress, signal } = {})
       const ok = xhr.status >= 200 && xhr.status < 300;
       if (ok && body && isTrustedImageUrl(body.secure_url)) {
         onProgress?.(1);
-        resolve(body.secure_url);
+        resolve(returnMetadata ? { url: body.secure_url, publicId: body.public_id || "", resourceType: body.resource_type || "image", deliveryType: body.type || "upload", format: body.format || "" } : body.secure_url);
       } else {
         fail(ok ? "response" : "http", `HTTP ${xhr.status}`);
       }
@@ -153,7 +153,7 @@ export async function uploadImageToCloudinary(file, { onProgress, signal } = {})
   });
 }
 
-export async function uploadFileToCloudinary(file, { onProgress, signal } = {}) {
+export async function uploadFileToCloudinary(file, { onProgress, signal, returnMetadata = false } = {}) {
   if (!file) throw new UploadError("none", "Please select a file.");
   if (!file.size) throw new UploadError("type", "The selected file is empty.");
   if (file.size > 25 * 1024 * 1024) throw new UploadError("size", "File must be smaller than 25 MB.");
@@ -172,7 +172,7 @@ export async function uploadFileToCloudinary(file, { onProgress, signal } = {}) 
       let body = null; try { body = JSON.parse(xhr.responseText); } catch {}
       const ok = xhr.status >= 200 && xhr.status < 300;
       const url = body?.secure_url;
-      if (ok && isTrustedCloudinaryUrl(url)) { onProgress?.(1); resolve(url); } else fail(ok ? "response" : "http", `HTTP ${xhr.status}`);
+      if (ok && isTrustedCloudinaryUrl(url)) { onProgress?.(1); resolve(returnMetadata ? { url, publicId: body?.public_id || "", resourceType: body?.resource_type || "image", deliveryType: body?.type || "upload", format: body?.format || "" } : url); } else fail(ok ? "response" : "http", `HTTP ${xhr.status}`);
     };
     xhr.onerror = () => fail("network", "network error");
     xhr.ontimeout = () => fail("timeout", "timeout");
