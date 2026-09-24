@@ -25,7 +25,6 @@ let currentUserData = {};
 let currentBlockedUsers = new Set();
 let activeUser = null;
 let activeConversationId = null;
-let pendingQuickAction = null;
 let activeConversation = null;
 let activeGroupMembers = new Map();
 let unsubscribeMessages = null;
@@ -419,9 +418,6 @@ function bindStaticControls() {
     renderConnectedContacts();
     requestAnimationFrame(()=> $id("newChatSearch")?.focus());
   };
-  $id("welcomeAddContactBtn")?.addEventListener("click", () => newChat());
-  $id("welcomeSendDocBtn")?.addEventListener("click", () => { pendingQuickAction = "document"; showToast("Choose a contact to send a document to.", "info"); newChat(); });
-  $id("welcomeSearchBtn")?.addEventListener("click", () => { playClick(); $id("globalSearchBtn")?.click(); });
   // Desktop (>820px): "New chat" opens a 2-item menu (Message someone / Create
   // group) instead of jumping straight into the new-chat modal. Mobile is
   // untouched -- below 821px this menu is hidden by CSS and newChatBtn falls
@@ -762,7 +758,6 @@ async function openChatById(conversationId,hintedUid=null){
     $id("app")?.classList.add("chat-open");clearImagePreview();clearReply();$id("chatMoreBtn").disabled=false;$id("chatPopoutBtn")?.removeAttribute("disabled");$id("chatMoreBtn")?.setAttribute("aria-hidden","false");refreshChatHeader();setComposerState();renderProfileDrawer();renderChatList();
     await updateDoc(doc(db,"conversations",conversationId),{[`unread.${currentUser.uid}`]:0}).catch(()=>{});
     listenMessages();listenTyping();
-    if(pendingQuickAction==="document"){pendingQuickAction=null;setTimeout(()=>$id("fileInput")?.click(),300);}
   }catch(e){console.error("Open chat failed",e);showToast(e?.code==="permission-denied"?"You don't have access to this chat.":"Could not open this chat.","error");}
 }
 function refreshChatHeader(){
