@@ -749,3 +749,18 @@ body{background:var(--bg);}
   .chat-panel > #messageForm{min-height:68px!important;}
   .chat-panel > .messages{min-height:0!important;}
 }
+
+/* CUNNACT: user-requested dashboard declutter (keep DOM/hooks, remove these controls from UI) */
+.current-user-card,
+#chatsActiveCount,
+#globalSearchBtn,
+.stories-strip,
+#navSavedBtn,
+#groupCallBtn,
+#gifBtn,
+#contactBtn,
+#locationBtn,
+#emojiBtn,
+#stickerBtn {
+  display: none !important;
+}
