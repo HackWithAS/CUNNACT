@@ -1226,7 +1226,7 @@ function exportCurrentChat(){
   if(!activeConversationId||!activeUser)return;
   const title=activeUser.name||"CUNNACT chat";
   const lines=currentMessages.map(m=>{const sender=m.senderId===currentUser?.uid?"You":(activeGroupMembers.get(m.senderId)?.name||userListeners.get(m.senderId)?.data?.name||activeUser.name||"User");const when=m.createdAt?.toDate?.()?formatTime(m.createdAt.toDate()):"";const text=m.type==="image"?"[Photo]":m.type==="video"?"[Video]":m.type==="audio"?"[Audio]":m.type==="document"?`[Document: ${m.fileName||"file"}]`:(m.text||"[Message]");return `[${when}] ${sender}: ${text}`;});
-  const blob=new Blob([[`CUNNACT chat export — ${title}\n\n`,...lines.join("\n")],{type:"text/plain;charset=utf-8"});
+  const blob=new Blob([`CUNNACT chat export — ${title}\n\n`,...lines.join("\n")],{type:"text/plain;charset=utf-8"});
   const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`CUNNACT-${title.replace(/[^a-z0-9-_]+/gi,"-").replace(/^-|-$/g,"")||"chat"}.txt`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);showToast("Chat exported","success");
 }
 
