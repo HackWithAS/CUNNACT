@@ -59,8 +59,6 @@ let newChatRenderToken = 0;
 let voiceChunks = [];
 let callLinkConsumed = false;
 let readObserver = null;
-let queuedReadIds = new Set();
-let readFlushTimer = null;
 let deliveredFlushTimer = null;
 let activeUnreadClearTimer = null;
 const previewSyncInFlight = new Set();
@@ -140,7 +138,7 @@ async function setOwnPresence(online, { force = false } = {}) {
   }
   if (stateChanged) lastPresenceOnlineState = online;
   try {
-    await updateDoc(doc(db, "users", currentUser.uid), ownPresencePayload(online));
+    await setDoc(doc(db, "users", currentUser.uid), ownPresencePayload(online), { merge: true });
     lastPresenceWriteAt = Date.now();
     if (online) {
       ownHeartbeatAt = lastPresenceWriteAt;
@@ -266,85 +264,83 @@ applyTheme(localStorage.getItem("cunnact_theme") || "light", false);
 onAuthStateChanged(auth, async (user) => {
   if (!user) { location.replace("login.html"); return; }
   if (!user.emailVerified) { currentUser = user; showVerifyGate(user); return; }
+
   currentUser = user;
+  const ref = doc(db, "users", user.uid);
+
+  // Firestore can reject optional bootstrap reads when the project quota is
+  // exhausted. Do not trap an already-authenticated user on the landing/auth gate.
+  let snap = null;
   try {
-    const ref = doc(db, "users", user.uid);
-    const snap = await getDoc(ref);
-    currentUserData = snap.exists() ? snap.data() : {};
-    const settingsSnap = await getDoc(doc(db, "userSettings", user.uid)).catch(() => null);
-    const accountSettings = settingsSnap?.exists?.() ? settingsSnap.data() : {};
-    const theme = accountSettings.theme || localStorage.getItem("cunnact_theme") || "light";
-    applyTheme(theme, false);
-    if (typeof accountSettings.soundEnabled === "boolean") {
-      const { setSoundEnabled } = await import("./sound.js");
-      setSoundEnabled(accountSettings.soundEnabled);
-    }
-    try {
+    snap = await getDoc(ref);
+  } catch (profileReadError) {
+    console.warn("Profile bootstrap read skipped:", profileReadError);
+  }
+  currentUserData = snap?.exists?.() ? snap.data() : {};
+
+  const settingsSnap = await getDoc(doc(db, "userSettings", user.uid)).catch(() => null);
+  const accountSettings = settingsSnap?.exists?.() ? settingsSnap.data() : {};
+  const theme = accountSettings.theme || localStorage.getItem("cunnact_theme") || "light";
+  applyTheme(theme, false);
+  if (typeof accountSettings.soundEnabled === "boolean") {
+    const { setSoundEnabled } = await import("./sound.js");
+    setSoundEnabled(accountSettings.soundEnabled);
+  }
+
+  // Keep the user document healthy without making a full profile write on every page load.
+  // Presence uses a merge write, so a missing legacy user document can be recreated safely.
+  try {
+    if (!snap?.exists?.()) {
       await setDoc(ref, {
         uid: user.uid,
-        name: currentUserData.name || user.displayName || user.email || "User",
-        email: currentUserData.email || user.email || "",
-        emailLower: String(currentUserData.email || user.email || "").toLowerCase(),
-        photoURL: currentUserData.photoURL || user.photoURL || "",
-        bio: currentUserData.bio || "",
-        username: currentUserData.username || "",
-        usernameLower: currentUserData.usernameLower || "",
-        retentionMode: currentUserData.retentionMode || "24hours",
-        theme,
-        hideLastSeen: currentUserData.hideLastSeen === true,
-        showReadReceipts: currentUserData.showReadReceipts !== false,
-        showTypingIndicators: currentUserData.showTypingIndicators !== false,
-        profileVisibility: currentUserData.profileVisibility || "public",
-        discoverable: currentUserData.discoverable !== false,
-        isOnline: true,
-        lastHeartbeat: serverTimestamp()
+        name: user.displayName || user.email || "User",
+        email: user.email || "",
+        emailLower: String(user.email || "").toLowerCase(),
+        photoURL: user.photoURL || "",
+        bio: "",
+        username: "",
+        usernameLower: ""
       }, { merge: true });
-    } catch (presenceSyncError) {
-      // Do not block the entire app from booting when a non-critical profile/presence
-      // write is rejected (for example by an exhausted Firestore write quota).
-      console.warn("Startup profile/presence sync skipped", presenceSyncError);
+      currentUserData = { ...currentUserData, uid:user.uid, name:user.displayName||user.email||"User", email:user.email||"", emailLower:String(user.email||"").toLowerCase(), photoURL:user.photoURL||"" };
     }
-    lastPresenceOnlineState = true;
-    lastPresenceWriteAt = Date.now();
-    ownHeartbeatAt = lastPresenceWriteAt;
-    currentUserData = { ...currentUserData, isOnline: true, lastHeartbeat: new Date(ownHeartbeatAt) };
-    await ensurePublicProfile();
-    await loadRetentionMode(user.uid);
-    await loadBlockedUsers();
-    await loadSecuritySettings();
-    try {
-      const sid=await registerDeviceSession(currentUser,{label:location.hostname.includes("vercel.app")?"CUNNACT Web":"CUNNACT Web"});
-      securitySessionUnsub=listenCurrentDevice(currentUser,()=>{showToast("This CUNNACT session was signed out from another device.","info");signOut(auth);});
-      if(sid) await writeSecurityEvent(currentUser,{type:"session_started",deviceId:sid,details:"New CUNNACT session opened"});
-    } catch(e){ console.warn("Security session setup failed",e); }
-    hydrateCurrentUserUI();
-    bindStaticControls();
-    globalSearch = initGlobalSearch({
-      getCurrentUser:()=>currentUser,
-      getConversations:()=>conversations,
-      getUserById:(uid)=>userListeners.get(uid)?.data || null,
-      onOpenChat:async(id,uid,messageId)=>{if(id)await openChatById(id,uid);if(messageId)setTimeout(()=>scrollToMessage(messageId),350);},
-      onOpenProfile:(u)=>{ if(u?.uid===currentUser.uid) location.href="profile.html"; else if(u?.username) location.href=`/u/${encodeURIComponent(u.username)}`; },
-      onOpenSocial:(kind,data)=>{ if(kind==="community") socialFeatures?.openCommunity?.(data?.id); else if(kind==="channel") socialFeatures?.openChannel?.(data?.id); else socialFeatures?.refresh?.(); }
-    });
-    if(isAppLockEnabled(currentUserSettings)){appLockUnlocked=false;showAppLock();}
-    startPresence();
-    listenMessageRequests(currentUser, (requests) => { updateRequestsBadge(requests.length); renderMessageRequests(requests); }, () => { refreshNewChatRequestButtons(); });
-    listenConversations();
-    socialFeatures?.refresh?.();
-    const newChatUsername = new URLSearchParams(location.search).get("newChat");
-    if (newChatUsername) setTimeout(() => openNewChatWithQuery(newChatUsername), 120);
-    const gate = $id("authGate"); if (gate) gate.hidden = true;
-    maybeOpenConversationFromUrl();
-  } catch (error) {
-    console.error("CUNNACT startup failed:", error);
-    const gate = $id("authGate");
-    if (gate) {
-      gate.hidden = false;
-      gate.innerHTML = `<div class="auth-gate-card"><strong>Couldn’t load CUNNACT</strong><span>${escapeHtml(error?.code || "Startup error")}</span><button id="retryBtn" class="btn btn-primary">Refresh</button></div>`;
-      $id("retryBtn")?.addEventListener("click", () => location.reload());
-    }
+  } catch (profileCreateError) {
+    console.warn("User profile bootstrap write skipped:", profileCreateError);
   }
+
+  lastPresenceOnlineState = true;
+  lastPresenceWriteAt = 0;
+  ownHeartbeatAt = Date.now();
+
+  // These are non-critical services. A quota/rules/network error must not prevent the dashboard shell from opening.
+  await ensurePublicProfile().catch(e => console.warn("Public profile sync skipped:", e));
+  await loadRetentionMode(user.uid).catch(() => {});
+  await loadBlockedUsers().catch(() => {});
+  await loadSecuritySettings().catch(() => {});
+  try {
+    const sid=await registerDeviceSession(currentUser,{label:location.hostname.includes("vercel.app")?"CUNNACT Web":"CUNNACT Web"});
+    securitySessionUnsub=listenCurrentDevice(currentUser,()=>{showToast("This CUNNACT session was signed out from another device.","info");signOut(auth);});
+    if(sid) await writeSecurityEvent(currentUser,{type:"session_started",deviceId:sid,details:"New CUNNACT session opened"});
+  } catch(e){ console.warn("Security session setup failed",e); }
+
+  hydrateCurrentUserUI();
+  bindStaticControls();
+  globalSearch = initGlobalSearch({
+    getCurrentUser:()=>currentUser,
+    getConversations:()=>conversations,
+    getUserById:(uid)=>userListeners.get(uid)?.data || null,
+    onOpenChat:async(id,uid,messageId)=>{if(id)await openChatById(id,uid);if(messageId)setTimeout(()=>scrollToMessage(messageId),350);},
+    onOpenProfile:(u)=>{ if(u?.uid===currentUser.uid) location.href="profile.html"; else if(u?.username) location.href=`/u/${encodeURIComponent(u.username)}`; },
+    onOpenSocial:(kind,data)=>{ if(kind==="community") socialFeatures?.openCommunity?.(data?.id); else if(kind==="channel") socialFeatures?.openChannel?.(data?.id); else socialFeatures?.refresh?.(); }
+  });
+  if(isAppLockEnabled(currentUserSettings)){appLockUnlocked=false;showAppLock();}
+  startPresence();
+  listenMessageRequests(currentUser, (requests) => { updateRequestsBadge(requests.length); renderMessageRequests(requests); }, () => { refreshNewChatRequestButtons(); });
+  listenConversations();
+  socialFeatures?.refresh?.();
+  const newChatUsername = new URLSearchParams(location.search).get("newChat");
+  if (newChatUsername) setTimeout(() => openNewChatWithQuery(newChatUsername), 120);
+  const gate = $id("authGate"); if (gate) gate.hidden = true;
+  maybeOpenConversationFromUrl();
 });
 function showVerifyGate(user){
   const gate=$id("authGate"); if(!gate) return;
@@ -410,7 +406,7 @@ document.addEventListener("visibilitychange", () => {
   if (!currentUser) return;
   setOwnPresence(document.visibilityState === "visible");
   if (document.visibilityState === "visible") {
-    flushQueuedReads();
+    if (pendingReceiptMode) void flushConversationReceipts();
     refreshPresenceUI();
     if (activeConversationId) cleanupExpiredMessages(db, activeConversationId, currentMessages, currentUser.uid, updateDoc).catch(() => {});
   }
@@ -1615,7 +1611,8 @@ async function toggleBlockUser(uid,shouldBlock){try{const ref=doc(db,"users",cur
 /* Typing */
 function listenTyping(){unsubscribeTyping?.();if(!activeConversationId||currentUserData.showTypingIndicators===false)return;const dots='<i></i><i></i><i></i> ';unsubscribeTyping=onSnapshot(collection(db,"conversations",activeConversationId,"typing"),snap=>{const el=$id("chatTyping");if(!el)return;if(activeUser?.isGroup){const typers=snap.docs.filter(d=>d.id!==currentUser.uid&&d.data()?.typing===true).map(d=>(activeGroupMembers.get(d.id)?.name||"Someone").split(" ")[0]);el.hidden=!typers.length;if(typers.length)el.innerHTML=dots+escapeHtml(`${typers.slice(0,2).join(", ")}${typers.length>1?" are":" is"} typing…`);return;}const other=activeUser?.uid;const state=snap.docs.some(d=>d.id===other&&d.data()?.typing===true);el.hidden=!state;el.innerHTML=dots+"typing…";},()=>{const el=$id("chatTyping");if(el)el.hidden=true;});}
 let lastTypingWriteState=false;
-const sendTypingState=debounce(async(typing)=>{if(!activeConversationId||!currentUser||currentUserData.showTypingIndicators===false)return;const ref=doc(db,"conversations",activeConversationId,"typing",currentUser.uid);try{if(typing){if(lastTypingWriteState)return;await setDoc(ref,{uid:currentUser.uid,typing:true,updatedAt:serverTimestamp()},{merge:true});lastTypingWriteState=true;}else{if(!lastTypingWriteState)return;await deleteDoc(ref);lastTypingWriteState=false;}}catch(e){}},900);
+let typingWriteSuppressedUntil=0;
+const sendTypingState=debounce(async(typing)=>{if(!activeConversationId||!currentUser||currentUserData.showTypingIndicators===false)return;if(Date.now()<typingWriteSuppressedUntil)return;const ref=doc(db,"conversations",activeConversationId,"typing",currentUser.uid);try{if(typing){if(lastTypingWriteState)return;await setDoc(ref,{uid:currentUser.uid,typing:true,updatedAt:serverTimestamp()},{merge:true});lastTypingWriteState=true;}else{if(!lastTypingWriteState)return;await deleteDoc(ref);lastTypingWriteState=false;}}catch(e){if(e?.code==="resource-exhausted")typingWriteSuppressedUntil=Date.now()+15000;}},900);
 function handleTypingInput(){const typing=!!$id("messageInput")?.value.trim();clearTimeout(window.__cunnactTypingTimer);if(typing){sendTypingState(true);window.__cunnactTypingTimer=setTimeout(()=>sendTypingState(false),2500);}else sendTypingState(false);}
 function stopTyping(){clearTimeout(window.__cunnactTypingTimer);const conversationId=activeConversationId;if(lastTypingWriteState&&conversationId&&currentUser){deleteDoc(doc(db,"conversations",conversationId,"typing",currentUser.uid)).catch(()=>{});lastTypingWriteState=false;}}
 
@@ -1944,7 +1941,6 @@ async function flushConversationReceipts(){
 function queueDeliveredForIncoming(messages){ queueConversationReceipts(messages,{readVisible:false}); }
 function queueRead(messageId){
   const m=activeMessageMap.get(messageId);
-  if(currentUserData.showReadReceipts===false)return;
   if(!m||m.receiverId!==currentUser?.uid||isDeletedForUser(m,currentUser.uid))return;
   queueConversationReceipts([m],{readVisible:true});
 }
