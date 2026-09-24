@@ -308,6 +308,20 @@ service cloud.firestore {
         )
         ||
         (
+          // Read cursor — a member may advance only their own readAt entry.
+          request.resource.data.members == resource.data.members
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["readAt"])
+          && request.resource.data.get("readAt", {}).diff(resource.data.get("readAt", {})).affectedKeys().hasOnly([request.auth.uid])
+        )
+        ||
+        (
+          // Delivery cursor — a member may advance only their own deliveredAt entry.
+          request.resource.data.members == resource.data.members
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["deliveredAt"])
+          && request.resource.data.get("deliveredAt", {}).diff(resource.data.get("deliveredAt", {})).affectedKeys().hasOnly([request.auth.uid])
+        )
+        ||
+        (
           // Group admin renames the group or changes its photo.
           resource.data.type == "group"
           && request.auth.uid in resource.data.groupAdmins

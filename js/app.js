@@ -66,8 +66,11 @@ let activeUnreadClearTimer = null;
 const previewSyncInFlight = new Set();
 const queuedDeliveredIds = new Set();
 let ownHeartbeatAt = 0;
+let lastPresenceWriteAt = 0;
+let lastPresenceOnlineState = null;
 const localHiddenLatest = new Set();
-const ONLINE_WINDOW_MS = 90 * 1000;
+const PRESENCE_HEARTBEAT_MS = 5 * 60 * 1000;
+const ONLINE_WINDOW_MS = 6 * 60 * 1000;
 const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
 
 const callController = createCallController({
@@ -126,15 +129,24 @@ function setStatusDot(el, online) { el?.classList.toggle("online", !!online); }
 function ownPresencePayload(online) {
   return online ? { isOnline: true, lastHeartbeat: serverTimestamp() } : { isOnline: false, lastSeen: serverTimestamp() };
 }
-async function setOwnPresence(online) {
+async function setOwnPresence(online, { force = false } = {}) {
   if (!currentUser) return;
+  const now = Date.now();
+  const stateChanged = lastPresenceOnlineState !== online;
+  if (!force && !stateChanged && (now - lastPresenceWriteAt) < PRESENCE_HEARTBEAT_MS) {
+    if (online) ownHeartbeatAt = now;
+    refreshPresenceUI();
+    return;
+  }
+  if (stateChanged) lastPresenceOnlineState = online;
   try {
     await updateDoc(doc(db, "users", currentUser.uid), ownPresencePayload(online));
+    lastPresenceWriteAt = Date.now();
     if (online) {
-      ownHeartbeatAt = Date.now();
+      ownHeartbeatAt = lastPresenceWriteAt;
       currentUserData = { ...currentUserData, isOnline: true, lastHeartbeat: new Date(ownHeartbeatAt) };
     } else {
-      currentUserData = { ...currentUserData, isOnline: false, lastSeen: new Date() };
+      currentUserData = { ...currentUserData, isOnline: false, lastSeen: new Date(lastPresenceWriteAt) };
     }
     refreshPresenceUI();
   } catch (e) { console.warn("Presence update failed", e); }
@@ -151,10 +163,10 @@ function startPresence() {
   clearInterval(presenceHeartbeat);
   clearInterval(presenceUiTimer);
   ownHeartbeatAt = Date.now();
-  setOwnPresence(true);
+  setOwnPresence(true, { force: true });
   presenceHeartbeat = setInterval(() => {
     if (document.visibilityState === "visible" && navigator.onLine !== false) setOwnPresence(true);
-  }, 30000);
+  }, PRESENCE_HEARTBEAT_MS);
   presenceUiTimer = setInterval(refreshPresenceUI, 15000);
 }
 
@@ -267,26 +279,35 @@ onAuthStateChanged(auth, async (user) => {
       const { setSoundEnabled } = await import("./sound.js");
       setSoundEnabled(accountSettings.soundEnabled);
     }
-    await setDoc(ref, {
-      uid: user.uid,
-      name: currentUserData.name || user.displayName || user.email || "User",
-      email: currentUserData.email || user.email || "",
-      emailLower: String(currentUserData.email || user.email || "").toLowerCase(),
-      photoURL: currentUserData.photoURL || user.photoURL || "",
-      bio: currentUserData.bio || "",
-      username: currentUserData.username || "",
-      usernameLower: currentUserData.usernameLower || "",
-      retentionMode: currentUserData.retentionMode || "24hours",
-      theme,
-      hideLastSeen: currentUserData.hideLastSeen === true,
-      showReadReceipts: currentUserData.showReadReceipts !== false,
-      showTypingIndicators: currentUserData.showTypingIndicators !== false,
-      profileVisibility: currentUserData.profileVisibility || "public",
-      discoverable: currentUserData.discoverable !== false,
-      isOnline: true,
-      lastHeartbeat: serverTimestamp()
-    }, { merge: true });
-    currentUserData = { ...currentUserData, isOnline: true, lastHeartbeat: new Date() };
+    try {
+      await setDoc(ref, {
+        uid: user.uid,
+        name: currentUserData.name || user.displayName || user.email || "User",
+        email: currentUserData.email || user.email || "",
+        emailLower: String(currentUserData.email || user.email || "").toLowerCase(),
+        photoURL: currentUserData.photoURL || user.photoURL || "",
+        bio: currentUserData.bio || "",
+        username: currentUserData.username || "",
+        usernameLower: currentUserData.usernameLower || "",
+        retentionMode: currentUserData.retentionMode || "24hours",
+        theme,
+        hideLastSeen: currentUserData.hideLastSeen === true,
+        showReadReceipts: currentUserData.showReadReceipts !== false,
+        showTypingIndicators: currentUserData.showTypingIndicators !== false,
+        profileVisibility: currentUserData.profileVisibility || "public",
+        discoverable: currentUserData.discoverable !== false,
+        isOnline: true,
+        lastHeartbeat: serverTimestamp()
+      }, { merge: true });
+    } catch (presenceSyncError) {
+      // Do not block the entire app from booting when a non-critical profile/presence
+      // write is rejected (for example by an exhausted Firestore write quota).
+      console.warn("Startup profile/presence sync skipped", presenceSyncError);
+    }
+    lastPresenceOnlineState = true;
+    lastPresenceWriteAt = Date.now();
+    ownHeartbeatAt = lastPresenceWriteAt;
+    currentUserData = { ...currentUserData, isOnline: true, lastHeartbeat: new Date(ownHeartbeatAt) };
     await ensurePublicProfile();
     await loadRetentionMode(user.uid);
     await loadBlockedUsers();
@@ -396,7 +417,7 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pagehide", () => { securitySessionUnsub?.(); clearInterval(deviceTouchTimer); clearInterval(presenceHeartbeat); clearInterval(presenceUiTimer); setOwnPresence(false); });
 window.addEventListener("beforeunload", () => { if (currentUser) setOwnPresence(false); });
-window.addEventListener("online", () => { if (currentUser && document.visibilityState === "visible") setOwnPresence(true); });
+window.addEventListener("online", () => { if (currentUser && document.visibilityState === "visible") setOwnPresence(true, { force: true }); });
 window.addEventListener("offline", () => { if (currentUser) { currentUserData = { ...currentUserData, isOnline:false }; refreshPresenceUI(); } });
 
 /* Calls page — dedicated WhatsApp-style calls workspace */
@@ -951,35 +972,17 @@ function openNewChatWithQuery(value){
 }
 
 /* Conversations */
-function scheduleActiveChatUnreadClear(){
-  clearTimeout(activeUnreadClearTimer);
-  if(!currentUser||!activeConversationId||document.visibilityState!=="visible")return;
-  activeUnreadClearTimer=setTimeout(async()=>{
-    if(!currentUser||!activeConversationId||document.visibilityState!=="visible")return;
-    const c=conversations.find(x=>x.id===activeConversationId);
-    if(!c||!Number(c.unread?.[currentUser.uid]||0))return;
-    // Clear a burst of incoming messages with one write instead of one write per message.
-    c.unread={...(c.unread||{}),[currentUser.uid]:0};
-    renderChatList();
-    try{await updateDoc(doc(db,"conversations",activeConversationId),{[`unread.${currentUser.uid}`]:0});}
-    catch(e){
-      // Let the conversation listener retry naturally if the backend rejects the write.
-      console.warn("Active-chat unread clear failed",e);
-    }
-  },220);
-}
-
 function listenConversations(){
   unsubscribeConversations?.();
   const q=query(collection(db,"conversations"),where("members","array-contains",currentUser.uid),limit(100));
   unsubscribeConversations=onSnapshot(q,(snap)=>{
     conversations=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.lastMessageTime?.toMillis?.()??b.createdAt?.toMillis?.()??0)-(a.lastMessageTime?.toMillis?.()??a.createdAt?.toMillis?.()??0));
+    if(activeConversationId){ const latestActive=conversations.find(c=>c.id===activeConversationId); if(latestActive){ activeConversation={...activeConversation,...latestActive}; refreshOutgoingDeliveryUI(); } }
     const activeUids=new Set(conversations.map(otherUid).filter(Boolean));
     for(const [uid,entry] of userListeners){ if(!activeUids.has(uid) && uid!==activeUser?.uid){ entry.unsub?.(); userListeners.delete(uid); } }
     conversations.forEach(c=>ensureUserListener(otherUid(c)));
     callController.syncConversationListeners(conversations);
     renderChatList();
-    scheduleActiveChatUnreadClear();
     if (!callLinkConsumed) { callLinkConsumed = true; callController.consumeCallLink().catch(() => {}); consumeGroupInviteLink().catch(() => {}); }
   },e=>{console.error(e);$id("chatList").innerHTML='<div class="empty-state">Chats could not be loaded.<br><span>Check your Firebase connection and rules.</span></div>';});
 }
@@ -1059,6 +1062,12 @@ async function openChatById(conversationId,hintedUid=null){
   const convLocked=!!currentUserSettings?.lockedChats?.[conversationId]; if(convLocked && !(await requireAppUnlock())) return;
   if(!currentUser||!conversationId)return;
   try{
+    if(activeConversationId && activeConversationId!==conversationId){
+      const previousId=activeConversationId;
+      const previousLocal=conversations.find(c=>c.id===previousId);
+      if(previousLocal) previousLocal.unread={...(previousLocal.unread||{}),[currentUser.uid]:0};
+      updateDoc(doc(db,"conversations",previousId),{[`unread.${currentUser.uid}`]:0}).catch(()=>{});
+    }
     const snap=await getDoc(doc(db,"conversations",conversationId));if(!snap.exists()){showToast("Conversation is not available yet.","info");return;}
     const data=snap.data(),members=data.members||[];if(!members.includes(currentUser.uid)){showToast("You don't have access to this conversation.","error");return;}
     closeMessageActionMenus();stopTyping();unsubscribeTyping?.();unsubscribeTyping=null;unsubscribeMessages?.();unsubscribeMessages=null;cleanupInterval?.();cleanupInterval=null;
@@ -1086,7 +1095,6 @@ async function openChatById(conversationId,hintedUid=null){
     const localConv=conversations.find(c=>c.id===conversationId);
     if(localConv){localConv.unread={...(localConv.unread||{}),[currentUser.uid]:0};}
     renderProfileDrawer();renderChatList();
-    scheduleActiveChatUnreadClear();
     await updateDoc(doc(db,"conversations",conversationId),{[`unread.${currentUser.uid}`]:0}).catch(()=>{});
     listenMessages();listenTyping();
   }catch(e){console.error("Open chat failed",e);showToast(e?.code==="permission-denied"?"You don't have access to this chat.":"Could not open this chat.","error");}
@@ -1257,7 +1265,9 @@ function exportCurrentChat(){
 }
 
 function closeActiveChat(){
-  closeMessageActionMenus();clearImagePreview();clearReply();stopTyping();unsubscribeTyping?.();unsubscribeTyping=null;unsubscribeMessages?.();unsubscribeMessages=null;activeConversationId=null;activeConversation=null;activeUser=null;activeGroupMembers=new Map();currentMessages=[];activeMessageMap=new Map();$id("app")?.classList.remove("chat-open");$id("chatMoreBtn")?.setAttribute("disabled","");$id("chatPopoutBtn")?.setAttribute("disabled","");setComposerState();renderChatList();renderProfileDrawer();
+  const previousId=activeConversationId;
+  if(previousId&&currentUser){ updateDoc(doc(db,"conversations",previousId),{[`unread.${currentUser.uid}`]:0}).catch(()=>{}); }
+  closeMessageActionMenus();clearImagePreview();clearReply();stopTyping();unsubscribeTyping?.();unsubscribeTyping=null;unsubscribeMessages?.();unsubscribeMessages=null;clearTimeout(receiptWriteTimer);pendingReceiptMode=null;activeConversationId=null;activeConversation=null;activeUser=null;activeGroupMembers=new Map();currentMessages=[];activeMessageMap=new Map();$id("app")?.classList.remove("chat-open");$id("chatMoreBtn")?.setAttribute("disabled","");$id("chatPopoutBtn")?.setAttribute("disabled","");setComposerState();renderChatList();renderProfileDrawer();
 }
 
 function sendChatCallLink(){
@@ -1668,12 +1678,13 @@ function listenMessages(){
       }
 
       const incomingAdded=changes.some(c=>c.type==="added"&&c.doc.data()?.senderId!==currentUser.uid&&beforeCount>0);
-      if(incomingAdded&&document.visibilityState==="visible"){playReceive();scheduleActiveChatUnreadClear();}
+      if(incomingAdded&&document.visibilityState==="visible"){playReceive();}
       const selfAdded=changes.some(c=>c.type==="added"&&c.doc.data()?.senderId===currentUser.uid);
       if(selfAdded||wasAtBottom||beforeCount===0)requestAnimationFrame(()=>{box.scrollTop=box.scrollHeight;});
 
       queueDeliveredForIncoming(currentMessages);
       if(document.visibilityState==="visible")observeVisibleIncoming();
+      if(document.visibilityState==="visible")queueConversationReceipts(currentMessages,{readVisible:true});
       cleanupExpiredMessages(db,activeConversationId,currentMessages,currentUser.uid,updateDoc).catch(()=>{});
 
       // Only reconcile the conversation preview when the newest message actually changed.
@@ -1822,7 +1833,18 @@ function updateMessageElement(el,message){
   if(meta&&outgoing){const status=meta.querySelector(".delivery-check")||document.createElement("span");status.className="delivery-check";setDeliveryIcon(status,message);if(!status.parentNode)meta.appendChild(status);}
   renderReactionChips(el,message);const saved=isSavedByUser(message,currentUser.uid);const oldMark=el.querySelector(".bookmark-icon");if(saved&&!oldMark){const mark=document.createElement("span");mark.className="bookmark-icon";mark.innerHTML=ICONS.bookmark;el.appendChild(mark);}if(!saved&&oldMark)oldMark.remove();
 }
-function setDeliveryIcon(status,message){const delivered=currentUserData.showReadReceipts===false?false:!!message.deliveredBy?.[activeUser?.uid],read=currentUserData.showReadReceipts===false?false:!!message.readBy?.[activeUser?.uid];status.classList.toggle("read",read);status.innerHTML=read?ICONS.check+ICONS.check:delivered?ICONS.check+ICONS.check:ICONS.check;}
+function setDeliveryIcon(status,message){
+  const recipientUid=activeUser?.uid;
+  const messageTime=timestampDate(message.createdAt)?.getTime()||0;
+  const deliveredAt=recipientUid?timestampDate(activeConversation?.deliveredAt?.[recipientUid])?.getTime()||0:0;
+  const readAt=recipientUid?timestampDate(activeConversation?.readAt?.[recipientUid])?.getTime()||0:0;
+  const legacyDelivered=recipientUid?!!message.deliveredBy?.[recipientUid]:false;
+  const legacyRead=recipientUid?!!message.readBy?.[recipientUid]:false;
+  const delivered=legacyDelivered || (messageTime>0 && deliveredAt>=messageTime);
+  const read=currentUserData.showReadReceipts!==false && (legacyRead || (messageTime>0 && readAt>=messageTime));
+  status.classList.toggle("read",read);
+  status.innerHTML=read?ICONS.check+ICONS.check:delivered?ICONS.check+ICONS.check:ICONS.check;
+}
 function renderReactionChips(el,message){let wrap=el.querySelector(".message-reactions"),entries=Object.entries(message.reactions||{}).filter(([,v])=>v);if(!entries.length){wrap?.remove();return;}if(!wrap){wrap=document.createElement("div");wrap.className="message-reactions";el.appendChild(wrap);}const counts=new Map();entries.forEach(([uid,emoji])=>counts.set(emoji,(counts.get(emoji)||0)+1));wrap.innerHTML="";counts.forEach((count,emoji)=>{const b=document.createElement("button");b.type="button";b.className="reaction-chip";b.textContent=`${emoji}${count>1?` ${count}`:""}`;b.addEventListener("click",()=>toggleReaction(message.id,emoji,el));wrap.appendChild(b);});}
 function showMessageActions(messageEl,message,isOutgoing,anchor){
   closeMessageActionMenus();
@@ -1873,30 +1895,66 @@ async function voteInPoll(messageId, optionIndex){
   try{await runTransaction(db,async tx=>{const snap=await tx.get(ref);if(!snap.exists()||snap.data()?.type!=="poll")throw new Error("POLL_NOT_FOUND");const data=snap.data();const votes={...(data.pollVotes||{})};votes[currentUser.uid]=Number(optionIndex);tx.update(ref,{pollVotes:votes});});showToast("Vote saved","success");}catch(e){console.error(e);showToast("Could not save your vote.","error");}
 }
 
-/* Delivery receipts */
-function queueDeliveredForIncoming(messages){
-  if(!currentUser||!messages?.length)return;
-  messages.forEach(m=>{
-    if(m.senderId!==currentUser.uid && m.receiverId===currentUser.uid && !m.deliveredBy?.[currentUser.uid] && !isDeletedForUser(m,currentUser.uid)) queuedDeliveredIds.add(m.id);
-  });
-  clearTimeout(deliveredFlushTimer);
-  deliveredFlushTimer=setTimeout(flushDelivered,180);
+/* Delivery / read receipts
+ * Optimized to one conversation-level cursor per burst instead of one Firestore
+ * write per message. Legacy message-level receipt fields remain supported for old data. */
+let receiptWriteTimer = null;
+let pendingReceiptMode = null;
+let lastReceiptConversationId = null;
+let lastReceiptMessageTime = 0;
+let lastReceiptWriteAt = 0;
+const RECEIPT_MIN_INTERVAL_MS = 10000;
+function newestIncomingMessage(messages){
+  return (messages||[]).filter(m=>m.senderId!==currentUser?.uid && m.receiverId===currentUser?.uid && !isDeletedForUser(m,currentUser.uid))
+    .sort((a,b)=>(timestampDate(b.createdAt)?.getTime()||0)-(timestampDate(a.createdAt)?.getTime()||0))[0] || null;
 }
-async function flushDelivered(){
-  if(!activeConversationId||!currentUser||!queuedDeliveredIds.size)return;
-  const ids=[...queuedDeliveredIds].slice(0,450);
-  ids.forEach(id=>queuedDeliveredIds.delete(id));
+function queueConversationReceipts(messages, {readVisible=false}={}){
+  if(!currentUser||!activeConversationId||!messages?.length)return;
+  const latest=newestIncomingMessage(messages);
+  if(!latest)return;
+  const latestTime=timestampDate(latest.createdAt)?.getTime()||Date.now();
+  if(activeConversationId!==lastReceiptConversationId){
+    lastReceiptConversationId=activeConversationId;
+    lastReceiptMessageTime=0;
+    lastReceiptWriteAt=0;
+  }
+  if(latestTime>lastReceiptMessageTime || pendingReceiptMode===null){
+    lastReceiptMessageTime=Math.max(lastReceiptMessageTime,latestTime);
+    pendingReceiptMode=readVisible && currentUserData.showReadReceipts!==false ? "read" : "delivered";
+    clearTimeout(receiptWriteTimer);
+    const wait=Math.max(700, RECEIPT_MIN_INTERVAL_MS-(Date.now()-lastReceiptWriteAt));
+    receiptWriteTimer=setTimeout(flushConversationReceipts,wait);
+  }
+}
+async function flushConversationReceipts(){
+  const conversationId=lastReceiptConversationId;
+  const mode=pendingReceiptMode;
+  receiptWriteTimer=null;
+  pendingReceiptMode=null;
+  if(!conversationId||conversationId!==activeConversationId||!currentUser)return;
+  const payload={ [`deliveredAt.${currentUser.uid}`]: serverTimestamp() };
+  if(mode==="read" && currentUserData.showReadReceipts!==false) payload[`readAt.${currentUser.uid}`]=serverTimestamp();
   try{
-    const batch=writeBatch(db);
-    ids.forEach(id=>batch.update(doc(db,"conversations",activeConversationId,"messages",id),{[`deliveredBy.${currentUser.uid}`]:serverTimestamp()}));
-    await batch.commit();
-  }catch(e){ids.forEach(id=>queuedDeliveredIds.add(id));console.warn("Delivery batch failed",e);}
+    await updateDoc(doc(db,"conversations",conversationId),payload);
+    lastReceiptWriteAt=Date.now();
+    activeConversation={...(activeConversation||{}),deliveredAt:{...(activeConversation?.deliveredAt||{}),[currentUser.uid]:new Date()},...(mode==="read"?{readAt:{...(activeConversation?.readAt||{}),[currentUser.uid]:new Date()}}:{})};
+    refreshOutgoingDeliveryUI();
+  }catch(e){ console.warn("Conversation receipt update failed",e); }
 }
-
-/* Read receipts */
-function queueRead(messageId){const m=activeMessageMap.get(messageId);if(currentUserData.showReadReceipts===false)return;if(!m||m.receiverId!==currentUser.uid||m.readBy?.[currentUser.uid]||isDeletedForUser(m,currentUser.uid))return;queuedReadIds.add(messageId);clearTimeout(readFlushTimer);readFlushTimer=setTimeout(flushQueuedReads,220);}
-async function flushQueuedReads(){if(!activeConversationId||!currentUser||!queuedReadIds.size)return;const ids=[...queuedReadIds].slice(0,450);ids.forEach(id=>queuedReadIds.delete(id));try{const batch=writeBatch(db);ids.forEach(id=>batch.update(doc(db,"conversations",activeConversationId,"messages",id),{[`readBy.${currentUser.uid}`]:serverTimestamp()}));await batch.commit();}catch(e){ids.forEach(id=>queuedReadIds.add(id));console.warn("Read batch failed",e);}}
-function observeVisibleIncoming(){document.querySelectorAll("#messages .message").forEach(el=>{const m=activeMessageMap.get(el.dataset.messageId);if(m?.receiverId===currentUser.uid)readObserver?.observe(el);});}
+function queueDeliveredForIncoming(messages){ queueConversationReceipts(messages,{readVisible:false}); }
+function queueRead(messageId){
+  const m=activeMessageMap.get(messageId);
+  if(currentUserData.showReadReceipts===false)return;
+  if(!m||m.receiverId!==currentUser?.uid||isDeletedForUser(m,currentUser.uid))return;
+  queueConversationReceipts([m],{readVisible:true});
+}
+function observeVisibleIncoming(){ document.querySelectorAll("#messages .message").forEach(el=>{ const m=activeMessageMap.get(el.dataset.messageId); if(m?.receiverId===currentUser.uid) readObserver?.observe(el); }); }
+function refreshOutgoingDeliveryUI(){
+  document.querySelectorAll("#messages .message.outgoing").forEach(el=>{
+    const m=el._message; const status=el.querySelector(".delivery-check");
+    if(m&&status)setDeliveryIcon(status,m);
+  });
+}
 function scrollToMessage(id){const el=$id("messages")?.querySelector(`.message[data-message-id="${CSS.escape(id)}"]`);if(el){el.scrollIntoView({block:"center",behavior:"smooth"});el.classList.add("flash-message");setTimeout(()=>el.classList.remove("flash-message"),700);}}
 
 /* Reply / composer */
