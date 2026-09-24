@@ -16,12 +16,5 @@ self.addEventListener("fetch", event => {
     const copy = response.clone();
     caches.open(CACHE).then(cache => cache.put(event.request, copy)).catch(() => {});
     return response;
-  }).catch(() => caches.match(event.request).then(hit => {
-    if (hit) return hit;
-    // Only substitute the app shell for page navigations. Falling back to
-    // index.html for a failed image/CSS/JS request used to render broken
-    // HTML in place of that asset instead of just letting it 404.
-    if (event.request.mode === "navigate") return caches.match("/index.html");
-    return Response.error();
-  })));
+  }).catch(() => caches.match(event.request).then(hit => hit || caches.match("/index.html"))));
 });
