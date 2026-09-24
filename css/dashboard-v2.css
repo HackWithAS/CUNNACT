@@ -699,3 +699,53 @@ body{background:var(--bg);}
 
 /* Keep the rail visible at desktop even though the earlier redesign rules hid it. */
 @media(min-width:821px){.nav-rail{display:flex!important}.sidebar{display:flex!important}.chat-panel{display:block!important}.app-shell{grid-template-columns:var(--cunnact-rail) minmax(350px,var(--cunnact-chatlist)) minmax(0,1fr)!important;}}
+
+/* ============================================================
+   CUNNACT FINAL LAYOUT LOCK — DO NOT LET CHAT COMPOSER FLOAT
+   The conversation workspace is a strict vertical grid. The
+   composer is ALWAYS the last row, regardless of message count,
+   previews, replies, selection mode or empty-chat state.
+   ============================================================ */
+.chat-panel{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  grid-template-rows:auto minmax(0,1fr) auto auto auto auto auto!important;
+  grid-template-areas:
+    "chat-header"
+    "chat-messages"
+    "blocked"
+    "media-preview"
+    "reply"
+    "selection"
+    "composer"!important;
+  min-width:0!important;
+  min-height:0!important;
+  height:100dvh!important;
+  overflow:hidden!important;
+}
+.chat-panel > .chat-header{grid-area:chat-header!important;min-width:0!important;}
+.chat-panel > .messages{grid-area:chat-messages!important;min-width:0!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;}
+.chat-panel > #blockedNotice{grid-area:blocked!important;min-width:0!important;}
+.chat-panel > #imagePreviewBar{grid-area:media-preview!important;min-width:0!important;}
+.chat-panel > #replyBar{grid-area:reply!important;min-width:0!important;}
+.chat-panel > #selectionToolbar{grid-area:selection!important;min-width:0!important;}
+.chat-panel > #messageForm{grid-area:composer!important;min-width:0!important;width:100%!important;box-sizing:border-box!important;position:relative!important;z-index:20!important;}
+.chat-panel > .messages + .blocked-notice[hidden],
+.chat-panel > #imagePreviewBar[hidden],
+.chat-panel > #replyBar[hidden],
+.chat-panel > #selectionToolbar[hidden]{display:none!important;}
+
+/* Keep the desktop navigation rail + chat-list sidebar visible on normal desktop/tablet widths. */
+@media(min-width:821px){
+  .app-shell{grid-template-columns:var(--cunnact-rail,68px) minmax(350px,var(--cunnact-chatlist,408px)) minmax(0,1fr)!important;}
+  .nav-rail{display:flex!important;grid-column:1!important;grid-row:1!important;}
+  .sidebar{display:flex!important;grid-column:2!important;grid-row:1!important;}
+  .chat-panel{display:grid!important;grid-column:3!important;grid-row:1!important;height:100dvh!important;}
+}
+
+/* At mobile widths the rail becomes the bottom navigation; chat composer still stays pinned. */
+@media(max-width:820px){
+  .chat-panel{grid-template-rows:auto minmax(0,1fr) auto auto auto auto auto!important;height:calc(100dvh - 62px)!important;}
+  .chat-panel > #messageForm{min-height:68px!important;}
+  .chat-panel > .messages{min-height:0!important;}
+}
