@@ -1,0 +1,61 @@
+[debug] [2026-09-24T01:59:15.905Z] ----------------------------------------------------------------------
+[debug] [2026-09-24T01:59:15.914Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ayush\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only firestore:rules firestore:indexes
+[debug] [2026-09-24T01:59:15.914Z] CLI Version:   15.30.2
+[debug] [2026-09-24T01:59:15.914Z] Platform:      win32
+[debug] [2026-09-24T01:59:15.914Z] Node Version:  v24.15.0
+[debug] [2026-09-24T01:59:15.914Z] Detected Agent: unknown
+[debug] [2026-09-24T01:59:15.914Z] Time:          Thu Sep 24 2026 07:29:15 GMT+0530 (India Standard Time)
+[debug] [2026-09-24T01:59:15.914Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-09-24T01:59:18.001Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-09-24T01:59:18.002Z] > authorizing via signed-in user (ayushssharmaa@gmail.com)
+[debug] [2026-09-24T01:59:18.002Z] [iam] checking project cunnact for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-09-24T01:59:18.046Z] Checked if tokens are valid: false, expires at: 1790197517225
+[debug] [2026-09-24T01:59:18.046Z] Checked if tokens are valid: false, expires at: 1790197517225
+[debug] [2026-09-24T01:59:18.047Z] > refreshing access token with scopes: []
+[debug] [2026-09-24T01:59:18.052Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-09-24T01:59:18.052Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-09-24T01:59:18.437Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-09-24T01:59:18.438Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-09-24T01:59:18.453Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/cunnact:testIamPermissions [none]
+[debug] [2026-09-24T01:59:18.454Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/cunnact:testIamPermissions  x-goog-user-project=cunnact
+[debug] [2026-09-24T01:59:18.454Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/cunnact:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-09-24T01:59:20.030Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/cunnact:testIamPermissions 200
+[debug] [2026-09-24T01:59:20.030Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/cunnact:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[info] 
+[info] === Deploying to 'cunnact'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-09-24T01:59:20.039Z] Checked if tokens are valid: true, expires at: 1790218757438
+[debug] [2026-09-24T01:59:20.039Z] Checked if tokens are valid: true, expires at: 1790218757438
+[debug] [2026-09-24T01:59:20.039Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/cunnact/databases/(default) [none]
+[debug] [2026-09-24T01:59:20.377Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/cunnact/databases/(default) 200
+[debug] [2026-09-24T01:59:20.377Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/cunnact/databases/(default) {"name":"projects/cunnact/databases/(default)","uid":"d7798f19-4aa5-433f-bbae-76385192ed61","createTime":"2026-09-21T14:21:11.940205Z","updateTime":"2026-09-21T14:21:11.940205Z","locationId":"asia-south2","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2026-09-24T00:59:21.069501Z","appEngineIntegrationMode":"DISABLED","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"realtimeUpdatesMode":"REALTIME_UPDATES_MODE_ENABLED","enhancedTextSearchQueryMode":"ENHANCED_QUERY_MODE_ENABLED","etag":"IOr7/JWPhpcDMMawjvyVgJcD"}
+[info] i  firestore: reading indexes from firestore.indexes.json... 
+[info] i  cloud.firestore: checking firestore.rules for compilation errors... 
+[debug] [2026-09-24T01:59:20.385Z] Checked if tokens are valid: true, expires at: 1790218757438
+[debug] [2026-09-24T01:59:20.385Z] Checked if tokens are valid: true, expires at: 1790218757438
+[debug] [2026-09-24T01:59:20.386Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/cunnact:test [none]
+[debug] [2026-09-24T01:59:20.386Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/cunnact:test [omitted]
+[debug] [2026-09-24T01:59:22.351Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/cunnact:test 200
+[debug] [2026-09-24T01:59:22.351Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/cunnact:test {"issues":[{"sourcePosition":{"fileName":"firestore.rules","line":483,"column":31,"currentOffset":26955,"endOffset":26957},"description":"Incorrect number of arguments supplied to function: get.","severity":"WARNING"},{"sourcePosition":{"fileName":"firestore.rules","line":483,"column":88,"currentOffset":27012,"endOffset":27014},"description":"Incorrect number of arguments supplied to function: get.","severity":"WARNING"}]}
+[warn] !  [W] 483:31 - Incorrect number of arguments supplied to function: get. 
+[warn] !  [W] 483:88 - Incorrect number of arguments supplied to function: get. 
+[info] +  cloud.firestore: rules file firestore.rules compiled successfully 
+[debug] [2026-09-24T01:59:22.354Z] Checked if tokens are valid: true, expires at: 1790218757438
+[debug] [2026-09-24T01:59:22.354Z] Checked if tokens are valid: true, expires at: 1790218757438
+[debug] [2026-09-24T01:59:22.354Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/cunnact/releases pageSize=10&pageToken=
+[debug] [2026-09-24T01:59:24.324Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/cunnact/releases 200
+[debug] [2026-09-24T01:59:24.324Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/cunnact/releases {"releases":[{"name":"projects/cunnact/releases/cloud.firestore","rulesetName":"projects/cunnact/rulesets/30b4ad85-8b27-43bb-934f-b09847d29700","createTime":"2026-09-21T14:21:14.688352Z","updateTime":"2026-09-23T20:05:26.628507Z"}]}
+[debug] [2026-09-24T01:59:24.325Z] Checked if tokens are valid: true, expires at: 1790218757438
+[debug] [2026-09-24T01:59:24.325Z] Checked if tokens are valid: true, expires at: 1790218757438
+[debug] [2026-09-24T01:59:24.325Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/cunnact/rulesets/30b4ad85-8b27-43bb-934f-b09847d29700 [none]
+[debug] [2026-09-24T01:59:25.740Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/cunnact/rulesets/30b4ad85-8b27-43bb-934f-b09847d29700 200
+[debug] [2026-09-24T01:59:25.741Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/cunnact/rulesets/30b4ad85-8b27-43bb-934f-b09847d29700 [omitted]
+[info] i  firestore: latest version of firestore.rules already up to date, skipping upload... 
+[info] i  firestore: deploying indexes... 
+[debug] [2026-09-24T01:59:25.743Z] Checked if tokens are valid: true, expires at: 1790218757438
+[debug] [2026-09-24T01:59:25.744Z] Checked if tokens are valid: true, expires at: 1790218757438
+[debug] [2026-09-24T01:59:25.744Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/cunnact/databases/(default)/collectionGroups/-/indexes [none]
