@@ -59,6 +59,7 @@
       <a class="nav-logo" href="index.html" aria-label="CUNNACT home"><img src="assets/brand/cunnact-icon.svg" alt="CUNNACT" loading="eager"></a>
       <nav class="nav-rail-links">
         <button class="nav-rail-btn active" id="navChatsBtn" type="button" aria-label="Chats" title="Chats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.4c-1.3 0-2.5-.3-3.6-.9L4 20l1.4-3.7A7.3 7.3 0 0 1 4.5 12 7.5 7.5 0 0 1 12 4.5c4.1 0 7.5 3.1 8 7Z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/></svg></button>
+        <button class="nav-rail-btn" id="navCallsBtn" type="button" aria-label="Calls" title="Calls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.9v3a2 2 0 0 1-2.18 2A19.8 19.8 0 0 1 3.1 5.18 2 2 0 0 1 5.1 3h3a2 2 0 0 1 2 1.72c.12.9.33 1.78.63 2.62a2 2 0 0 1-.45 2.11L9 10.73a16 16 0 0 0 4.27 4.27l1.28-1.28a2 2 0 0 1 2.11-.45c.84.3 1.72.51 2.62.63A2 2 0 0 1 22 16.9Z"/></svg></button>
         <button class="nav-rail-btn" id="navRequestsBtn" type="button" aria-label="Message requests" title="Requests">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span id="navRequestsBadge" class="rail-badge" hidden>0</span>
@@ -212,10 +213,10 @@
           <button id="chatSearchBtn" class="icon-btn" aria-label="Search conversation" title="Search conversation" disabled>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
           </button>
-          <button id="chatPopoutBtn" class="icon-btn desktop-only" aria-label="Open chat in a new window" title="Pop out chat" disabled>↗</button>
-          <button id="chatVoiceCallBtn" class="icon-btn" aria-label="Voice call" title="Voice call" hidden>📞</button>
-          <button id="chatVideoCallBtn" class="icon-btn" aria-label="Video call" title="Video call" hidden>🎥</button>
-          <button id="groupCallBtn" class="icon-btn" aria-label="Start group call" title="Start group call" hidden>👥</button>
+          <button id="chatPopoutBtn" class="icon-btn desktop-only" aria-label="Open chat in a new window" title="Pop out chat" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 4h6v6M20 4l-9 9"/><path d="M19 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg></button>
+          <button id="chatVoiceCallBtn" class="icon-btn" aria-label="Voice call" title="Voice call" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M22 16.9v3a2 2 0 0 1-2.18 2A19.8 19.8 0 0 1 3.1 5.18 2 2 0 0 1 5.1 3h3a2 2 0 0 1 2 1.72c.12.9.33 1.78.63 2.62a2 2 0 0 1-.45 2.11L9 10.73a16 16 0 0 0 4.27 4.27l1.28-1.28a2 2 0 0 1 2.11-.45c.84.3 1.72.51 2.62.63A2 2 0 0 1 22 16.9Z"/></svg></button>
+          <button id="chatVideoCallBtn" class="icon-btn" aria-label="Video call" title="Video call" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3Z"/></svg></button>
+          <button id="groupCallBtn" class="icon-btn" aria-label="Start group call" title="Start group call" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="9" cy="8" r="3"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="8.5" r="2.5"/><path d="M15.5 13.5A6 6 0 0 1 21 20"/></svg></button>
           <button id="chatMoreBtn" class="icon-btn" aria-label="Conversation options" aria-expanded="false" title="Conversation options" disabled>
             <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
           </button>
@@ -269,22 +270,37 @@
         <button id="attachBtn" type="button" class="composer-icon" disabled aria-label="Share media or file" title="Share media or file">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21.4 11.6 12 21a6 6 0 0 1-8.5-8.5l9.9-9.9a4 4 0 0 1 5.7 5.7L9.2 18.2a2 2 0 0 1-2.8-2.8l9.2-9.2"/></svg>
         </button>
-        <button id="gifBtn" type="button" class="composer-icon" disabled aria-label="Send a GIF" title="GIF">GIF</button>
-        <button id="contactBtn" type="button" class="composer-icon" disabled aria-label="Share a contact" title="Share contact">👤</button>
-        <button id="locationBtn" type="button" class="composer-icon" disabled aria-label="Share location" title="Share location">📍</button>
+        <div class="composer-tool-wrap attachment-tool-wrap">
+          <div id="attachmentPanel" class="composer-popover attachment-panel" hidden>
+            <button type="button" data-attach-action="document"><span class="attach-icon doc">▤</span><span>Document</span></button>
+            <button type="button" data-attach-action="media"><span class="attach-icon media">▣</span><span>Photos & videos</span></button>
+            <button type="button" data-attach-action="camera"><span class="attach-icon camera">◉</span><span>Camera</span></button>
+            <button type="button" data-attach-action="audio"><span class="attach-icon audio">◉</span><span>Audio</span></button>
+            <button type="button" data-attach-action="contact"><span class="attach-icon contact">●</span><span>Contact</span></button>
+            <button type="button" data-attach-action="location"><span class="attach-icon location">⌖</span><span>Location</span></button>
+            <button type="button" data-attach-action="poll"><span class="attach-icon poll">≡</span><span>Poll</span></button>
+            <button type="button" data-attach-action="event"><span class="attach-icon event">▦</span><span>Event</span></button>
+            <button type="button" data-attach-action="sticker"><span class="attach-icon sticker">✦</span><span>New sticker</span></button>
+          </div>
+        </div>
+        <button id="gifBtn" type="button" class="composer-icon text-icon" disabled aria-label="Send a GIF" title="GIF">GIF</button>
+        <button id="contactBtn" type="button" class="composer-icon" disabled aria-label="Share a contact" title="Share contact"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="9" cy="8" r="3"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 11v6M14 14h6"/></svg></button>
+        <button id="locationBtn" type="button" class="composer-icon" disabled aria-label="Share location" title="Share location"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></button>
         <div class="composer-tool-wrap">
-          <button id="emojiBtn" type="button" class="composer-icon" disabled aria-label="Emoji" title="Emoji">😊</button>
+          <button id="emojiBtn" type="button" class="composer-icon" disabled aria-label="Emoji" title="Emoji"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M8 10h.01M16 10h.01M8.5 14.5c1.9 2 5.1 2 7 0"/></svg></button>
           <div id="emojiPanel" class="composer-popover emoji-panel" hidden>
             <button type="button" data-emoji="😀">😀</button><button type="button" data-emoji="😂">😂</button><button type="button" data-emoji="😍">😍</button><button type="button" data-emoji="🥹">🥹</button><button type="button" data-emoji="😎">😎</button><button type="button" data-emoji="😭">😭</button><button type="button" data-emoji="😡">😡</button><button type="button" data-emoji="🔥">🔥</button><button type="button" data-emoji="❤️">❤️</button><button type="button" data-emoji="👍">👍</button><button type="button" data-emoji="🎉">🎉</button><button type="button" data-emoji="🙏">🙏</button>
           </div>
         </div>
         <div class="composer-tool-wrap">
-          <button id="stickerBtn" type="button" class="composer-icon" disabled aria-label="Stickers" title="Stickers">✨</button>
+          <button id="stickerBtn" type="button" class="composer-icon" disabled aria-label="Stickers" title="Stickers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 13.5V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h6.5L20 13.5Z"/><path d="M14 20v-5a2 2 0 0 1 2-2h4"/></svg></button>
           <div id="stickerPanel" class="composer-popover sticker-panel" hidden>
             <button type="button" data-sticker="😂">😂</button><button type="button" data-sticker="❤️">❤️</button><button type="button" data-sticker="🔥">🔥</button><button type="button" data-sticker="😭">😭</button><button type="button" data-sticker="😎">😎</button><button type="button" data-sticker="👏">👏</button><button type="button" data-sticker="👍">👍</button><button type="button" data-sticker="🎉">🎉</button>
           </div>
         </div>
-        <button id="voiceNoteBtn" type="button" class="composer-icon" disabled aria-label="Record voice note" title="Voice note">🎤</button>
+        <button id="pollBtn" type="button" class="composer-icon feature-trigger" hidden aria-label="Create poll" title="Poll">▤</button>
+        <button id="eventBtn" type="button" class="composer-icon feature-trigger" hidden aria-label="Create event" title="Event">▦</button>
+        <button id="voiceNoteBtn" type="button" class="composer-icon" disabled aria-label="Record voice note" title="Voice note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg></button>
         <label for="messageInput" class="sr-only">Type a message</label>
         <textarea id="messageInput" rows="1" autocomplete="off" placeholder="Write a message…" disabled></textarea>
         <span class="composer-hint">Enter to send</span>

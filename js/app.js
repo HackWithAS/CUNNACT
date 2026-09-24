@@ -452,6 +452,7 @@ function bindStaticControls() {
   $id("leaveGroupBtn")?.addEventListener("click", leaveGroupChat);
   $id("requestsBtn")?.addEventListener("click", () => { playClick(); openModal("requestsModal"); });
   $id("navRequestsBtn")?.addEventListener("click", () => { playClick(); openModal("requestsModal"); });
+  $id("navCallsBtn")?.addEventListener("click", () => { playClick(); if (activeConversationId) { openModal("callHistoryModal"); } else { showToast("Open a conversation to view its call history.", "info"); } });
   $id("savedBtn")?.addEventListener("click", async () => { playClick(); openModal("savedModal"); await renderSavedMessages(); });
   $id("navSavedBtn")?.addEventListener("click", async () => { playClick(); openModal("savedModal"); await renderSavedMessages(); });
   $id("navChatsBtn")?.addEventListener("click", () => { playClick(); $id("app")?.classList.remove("chat-open"); });
@@ -473,7 +474,24 @@ function bindStaticControls() {
   $id("conversationSearchInput")?.addEventListener("input",debounce(e=>searchCurrentConversation(e.target.value),160));
   document.querySelectorAll("#emojiPanel button[data-emoji]").forEach(b=>b.addEventListener("click",()=>insertComposerText(b.dataset.emoji)));
   document.querySelectorAll("#stickerPanel button[data-sticker]").forEach(b=>b.addEventListener("click",()=>sendSticker(b.dataset.sticker)));
-  $id("attachBtn")?.addEventListener("click", () => { playClick(); $id("fileInput")?.click(); });
+  $id("attachBtn")?.addEventListener("click", () => { playClick(); toggleComposerPanel("attachmentPanel"); });
+  document.querySelectorAll("[data-attach-action]").forEach(btn=>btn.addEventListener("click",()=>{
+    const action=btn.dataset.attachAction; const input=$id("fileInput"); const panel=$id("attachmentPanel"); if(panel)panel.hidden=true;
+    if(action==="contact") return $id("contactBtn")?.click();
+    if(action==="location") return $id("locationBtn")?.click();
+    if(action==="poll") return $id("pollBtn")?.click();
+    if(action==="event") return $id("eventBtn")?.click();
+    if(action==="sticker") return $id("stickerBtn")?.click();
+    if(!input)return;
+    const originalAccept=input.getAttribute("accept")||"";
+    if(action==="document") input.setAttribute("accept","application/pdf,text/plain,.zip,.doc,.docx,.xls,.xlsx,.ppt,.pptx");
+    else if(action==="audio") input.setAttribute("accept","audio/*");
+    else if(action==="camera") { input.setAttribute("accept","image/*,video/*"); input.setAttribute("capture","environment"); }
+    else input.setAttribute("accept","image/*,video/*");
+    input.click();
+    const restore=()=>{input.setAttribute("accept",originalAccept);input.removeAttribute("capture");input.removeEventListener("change",restore);};
+    input.addEventListener("change",restore,{once:true});
+  }));
   $id("fileInput")?.addEventListener("change", handleMediaSelection);
   $id("imagePreviewCancel")?.addEventListener("click", cancelImagePreview);
   $id("imagePreviewSend")?.addEventListener("click", sendPendingMedia);
