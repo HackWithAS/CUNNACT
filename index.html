@@ -426,12 +426,12 @@
           </div>
         </div>
         <div class="chat-header-actions">
+          <button id="chatVoiceCallBtn" class="icon-btn" aria-label="Voice call" title="Voice call" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M22 16.9v3a2 2 0 0 1-2.18 2A19.8 19.8 0 0 1 3.1 5.18 2 2 0 0 1 5.1 3h3a2 2 0 0 1 2 1.72c.12.9.33 1.78.63 2.62a2 2 0 0 1-.45 2.11L9 10.73a16 16 0 0 0 4.27 4.27l1.28-1.28a2 2 0 0 0 2.11-.45c.84.3 1.72.51 2.62.63A2 2 0 0 1 22 16.9Z"/></svg></button>
+          <button id="chatVideoCallBtn" class="icon-btn" aria-label="Video call" title="Video call" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3Z"/></svg></button>
           <button id="chatSearchBtn" class="icon-btn" aria-label="Search conversation" title="Search conversation" disabled>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
           </button>
           <button id="chatPopoutBtn" class="icon-btn desktop-only" aria-label="Open chat in a new window" title="Pop out chat" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 4h6v6M20 4l-9 9"/><path d="M19 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg></button>
-          <button id="chatVoiceCallBtn" class="icon-btn" aria-label="Voice call" title="Voice call" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M22 16.9v3a2 2 0 0 1-2.18 2A19.8 19.8 0 0 1 3.1 5.18 2 2 0 0 1 5.1 3h3a2 2 0 0 1 2 1.72c.12.9.33 1.78.63 2.62a2 2 0 0 1-.45 2.11L9 10.73a16 16 0 0 0 4.27 4.27l1.28-1.28a2 2 0 0 1 2.11-.45c.84.3 1.72.51 2.62.63A2 2 0 0 1 22 16.9Z"/></svg></button>
-          <button id="chatVideoCallBtn" class="icon-btn" aria-label="Video call" title="Video call" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3Z"/></svg></button>
           <button id="groupCallBtn" class="icon-btn" aria-label="Start group call" title="Start group call" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="9" cy="8" r="3"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="8.5" r="2.5"/><path d="M15.5 13.5A6 6 0 0 1 21 20"/></svg></button>
           <button id="chatMoreBtn" class="icon-btn" aria-label="Conversation options" aria-expanded="false" title="Conversation options" disabled>
             <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
@@ -761,7 +761,7 @@
     <div id="startCallModal" class="modal" hidden aria-hidden="true">
       <div class="modal-content call-picker-modal">
         <div class="modal-header">
-          <div><span class="eyebrow">CALLS</span><h2>Start a call</h2><p>Select a connected contact.</p></div>
+          <div><span class="eyebrow">CALLS</span><h2>Start a call</h2><p>Pick a contact and tap voice or video — they will be called directly.</p></div>
           <button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </div>
         <div class="call-picker-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="callPickerSearch" type="search" placeholder="Search contacts" autocomplete="off"></div>
@@ -772,17 +772,40 @@
     <!-- Incoming call -->
     <div id="incomingCallModal" class="modal" hidden>
       <div class="modal-content compact-modal incoming-call-card">
-        <div class="call-orb">📞</div><span class="eyebrow">INCOMING CALL</span><h2 id="incomingCallTitle">Incoming call</h2><p id="incomingCallType">Incoming voice call</p>
-        <div class="confirm-actions"><button id="incomingCallDeclineBtn" type="button" class="btn btn-soft danger-item">Decline</button><button id="incomingCallAcceptBtn" type="button" class="btn btn-primary">Accept</button></div>
+        <span class="call-incoming-avatar" id="incomingCallAvatar"><span class="avatar-fallback">C</span></span>
+        <span class="eyebrow">INCOMING CALL</span>
+        <h2 id="incomingCallTitle">Incoming call</h2>
+        <p id="incomingCallType">Incoming voice call</p>
+        <div class="incoming-call-status"><span class="call-pulse"></span> CUNNACT is ringing</div>
+        <div class="confirm-actions incoming-call-actions"><button id="incomingCallDeclineBtn" type="button" class="btn btn-soft danger-item">Decline</button><button id="incomingCallAcceptBtn" type="button" class="btn btn-primary">Accept</button></div>
       </div>
     </div>
 
     <!-- Active call -->
     <div id="activeCallModal" class="modal" hidden>
       <div class="modal-content call-modal-content">
-        <div class="call-header"><div><span class="eyebrow">CUNNACT CALL</span><h2 id="activeCallTitle">Call</h2><p id="activeCallStatus">Connecting…</p></div><button id="callShareLinkBtn" type="button" class="btn btn-soft btn-sm">Share link</button></div>
-        <div id="callStage" class="call-stage"><video id="localCallVideo" class="local-call-video" autoplay playsinline muted hidden></video><div id="remoteCallVideos" class="remote-call-videos"></div><span id="callReactionStatus" class="call-reaction-status" aria-live="polite"></span></div>
-        <div class="call-controls"><button id="callMuteBtn" type="button" class="call-control">Mute</button><button id="callVideoBtn" type="button" class="call-control">Camera</button><button id="callScreenShareBtn" type="button" class="call-control">Share screen</button><button id="callReactBtn" type="button" class="call-control">React</button><button id="callRaiseHandBtn" type="button" class="call-control">Raise hand</button><button id="callPipBtn" type="button" class="call-control">PiP</button><button id="callEndBtn" type="button" class="call-control end-call">Leave call</button></div>
+        <div class="call-header">
+          <div class="call-header-person">
+            <span class="call-active-avatar" id="activeCallAvatar"><span class="avatar-fallback">C</span></span>
+            <div><span class="eyebrow">CUNNACT CALL</span><h2 id="activeCallTitle">Call</h2><p id="activeCallStatus">Calling…</p></div>
+          </div>
+          <div class="call-header-actions"><span id="callDuration" class="call-duration">00:00</span><button id="callShareLinkBtn" type="button" class="btn btn-soft btn-sm">Share link</button></div>
+        </div>
+        <div id="callStage" class="call-stage">
+          <div id="callStagePlaceholder" class="call-stage-placeholder"><span class="call-stage-avatar" id="callStageAvatar"><span class="avatar-fallback">C</span></span><strong id="callStageName">Calling…</strong><small id="callStageHint">Waiting for the other person to answer</small></div>
+          <video id="localCallVideo" class="local-call-video" autoplay playsinline muted hidden></video>
+          <div id="remoteCallVideos" class="remote-call-videos"></div>
+          <span id="callReactionStatus" class="call-reaction-status" aria-live="polite"></span>
+        </div>
+        <div class="call-controls call-controls-primary">
+          <button id="callMuteBtn" type="button" class="call-control call-control-circle" aria-label="Mute microphone"><span class="call-control-icon">⌕</span><span class="call-control-label">Mute</span></button>
+          <button id="callVideoBtn" type="button" class="call-control call-control-circle" aria-label="Turn camera on or off"><span class="call-control-icon">▣</span><span class="call-control-label">Camera</span></button>
+          <button id="callScreenShareBtn" type="button" class="call-control call-control-circle" aria-label="Share screen"><span class="call-control-icon">↗</span><span class="call-control-label">Share</span></button>
+          <button id="callReactBtn" type="button" class="call-control call-control-circle" aria-label="Send reaction"><span class="call-control-icon">☺</span><span class="call-control-label">React</span></button>
+          <button id="callRaiseHandBtn" type="button" class="call-control call-control-circle" aria-label="Raise hand"><span class="call-control-icon">☝</span><span class="call-control-label">Hand</span></button>
+          <button id="callPipBtn" type="button" class="call-control call-control-circle" aria-label="Picture in picture"><span class="call-control-icon">▢</span><span class="call-control-label">PiP</span></button>
+          <button id="callEndBtn" type="button" class="call-control call-control-circle end-call" aria-label="End call"><span class="call-control-icon">✕</span><span class="call-control-label">End</span></button>
+        </div>
       </div>
     </div>
 

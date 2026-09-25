@@ -15,12 +15,14 @@ const RTC_CONFIG = {
 const safeJson = (value) => value ? (value.sdp ? { type: value.type, sdp: value.sdp } : (value.candidate ? { candidate: value.candidate, sdpMid: value.sdpMid ?? null, sdpMLineIndex: value.sdpMLineIndex ?? null, usernameFragment: value.usernameFragment ?? null } : value)) : value;
 const pairKey = (a, b) => [a, b].sort().join("__");
 
-export function createCallController({ getCurrentUser, getConversations, getActiveConversation, getActiveUser }) {
+export function createCallController({ getCurrentUser, getConversations, getActiveConversation, getActiveUser, getUserById }) {
   const state = {
     listeners: new Map(),
     current: null,
     incoming: null,
-    callHistoryConversationId: null
+    callHistoryConversationId: null,
+    ringTimer: null,
+    durationTimer: null
   };
 
   function user() { return getCurrentUser?.(); }
@@ -52,24 +54,86 @@ export function createCallController({ getCurrentUser, getConversations, getActi
     const status = document.getElementById("activeCallStatus");
     const shareBtn = document.getElementById("callShareLinkBtn");
     const endBtn = document.getElementById("callEndBtn");
-    if (title) title.textContent = currentCallTitle(call);
-    if (status) status.textContent = mode === "connecting" ? "Connecting…" : mode === "ringing" ? "Incoming call" : "Connected";
+    const stageName = document.getElementById("callStageName");
+    const stageHint = document.getElementById("callStageHint");
+    const typeLabel = document.getElementById("callStageHint");
+    const peer = getPeerForCall(call);
+    if (title) title.textContent = currentCallTitle(call) || peer.name;
+    fillCallAvatar("activeCallAvatar", peer, currentCallTitle(call) || peer.name);
+    fillCallAvatar("callStageAvatar", peer, currentCallTitle(call) || peer.name);
+    const text = mode === "connecting" ? "Getting ready…" : mode === "ringing" ? "Calling…" : mode === "declined" ? "Declined" : "Connected";
+    if (status) status.textContent = text;
+    if (stageName) stageName.textContent = currentCallTitle(call);
+    if (stageHint) stageHint.textContent = mode === "ringing" ? "Waiting for the other person to answer" : mode === "active" ? (call?.callType === "video" ? "Video call" : "Voice call") : "Connecting your call";
     if (shareBtn && state.current?.callId) shareBtn.hidden = false;
-    if (endBtn) endBtn.textContent = state.current?.isInitiator ? "End call" : "Leave call";
+    if (endBtn) { endBtn.setAttribute("aria-label", state.current?.isInitiator ? "End call" : "Leave call"); const label=endBtn.querySelector?.(".call-control-label"); if(label) label.textContent=state.current?.isInitiator ? "End" : "Leave"; else endBtn.textContent = state.current?.isInitiator ? "End call" : "Leave call"; }
+    if (typeLabel && call?.callType === "voice") typeLabel.dataset.callMode = "voice";
+  }
+
+  function stopDurationTimer() {
+    if (state.durationTimer) clearInterval(state.durationTimer);
+    state.durationTimer = null;
+    const el = document.getElementById("callDuration");
+    if (el) el.textContent = "00:00";
+  }
+
+  function startDurationTimer() {
+    stopDurationTimer();
+    const startedAt = Date.now();
+    state.current && (state.current.connectedAt = startedAt);
+    const tick = () => {
+      const seconds = Math.max(0, Math.floor((Date.now()-startedAt)/1000));
+      const el = document.getElementById("callDuration");
+      if (el) el.textContent = `${String(Math.floor(seconds/60)).padStart(2,"0")}:${String(seconds%60).padStart(2,"0")}`;
+    };
+    tick();
+    state.durationTimer = setInterval(tick, 1000);
+  }
+
+  function clearRingTimer() {
+    if (state.ringTimer) clearTimeout(state.ringTimer);
+    state.ringTimer = null;
+  }
+
+  function fillCallAvatar(elementId, data, fallbackName) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    el.replaceChildren();
+    if (data?.photoURL) {
+      const img = document.createElement("img"); img.src=data.photoURL; img.alt=""; img.loading="eager"; el.appendChild(img);
+    } else {
+      const span=document.createElement("span"); span.className="avatar-fallback"; span.textContent=(fallbackName||data?.name||"C").trim().slice(0,1).toUpperCase(); el.appendChild(span);
+    }
+  }
+
+  function getPeerForCall(call) {
+    const current = user();
+    const conv = getConversations?.().find(c => c.id === call?.conversationId);
+    if (conv?.type === "group") {
+      const initiator = call?.initiatorId ? getUserById?.(call.initiatorId) : null;
+      return { name: initiator?.name || call?.title || conv.groupName || "Group call", username: initiator?.username || "", photoURL: initiator?.photoURL || conv.groupPhotoURL || "" };
+    }
+    const peerId = call?.participantIds?.find(uid => uid !== current?.uid);
+    const peer = peerId ? getUserById?.(peerId) : null;
+    const liveActive = getActiveUser?.();
+    if (liveActive && liveActive.uid !== current?.uid && (!peerId || liveActive.uid === peerId)) {
+      return { name: liveActive.name, username: liveActive.username || "", photoURL: liveActive.photoURL || "" };
+    }
+    return { name: peer?.name || call?.title || "CUNNACT user", username: peer?.username || "", photoURL: peer?.photoURL || "" };
   }
 
   function showIncoming(call) {
     if (!user() || state.current || state.incoming?.callId === call.id) return;
-    const isGroup = call.type === "group";
-    const callerId = call.initiatorId;
-    const caller = activeUser()?.uid === callerId ? activeUser() : null;
-    document.getElementById("incomingCallTitle").textContent = isGroup ? (call.title || "Group call") : (caller?.name || "Incoming call");
+    const peer = getPeerForCall(call);
+    const title = call?.type === "group" ? (call.title || peer.name || "Group call") : (peer.name || call.title || "Incoming call");
+    document.getElementById("incomingCallTitle").textContent = title;
     document.getElementById("incomingCallType").textContent = call.callType === "video" ? "Incoming video call" : "Incoming voice call";
+    fillCallAvatar("incomingCallAvatar", peer, title);
     state.incoming = call;
     openModal("incomingCallModal");
     try {
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-        new Notification("CUNNACT call", { body: `${currentCallTitle(call)} is ringing.` });
+        new Notification("CUNNACT call", { body: `${title} is calling you.` });
       }
     } catch {}
   }
@@ -99,6 +163,7 @@ export function createCallController({ getCurrentUser, getConversations, getActi
     }
     const video = wrap.querySelector("video");
     if (video && video.srcObject !== stream) video.srcObject = stream;
+    document.getElementById("callStagePlaceholder")?.setAttribute("hidden", "true");
   }
 
   async function getMedia(callType) {
@@ -194,7 +259,7 @@ export function createCallController({ getCurrentUser, getConversations, getActi
     for (const remoteUid of remotes) await ensurePeer(session, remoteUid);
   }
 
-  async function joinCall(call, { isInitiator = false } = {}) {
+  async function joinCall(call, { isInitiator = false, preloadedStream = null } = {}) {
     if (!user() || !call?.id) return false;
     if (state.current) {
       showToast("You're already in a call.", "info");
@@ -219,7 +284,8 @@ export function createCallController({ getCurrentUser, getConversations, getActi
         peers: new Map(),
         localStream: null,
         call,
-        callDocUnsub: null
+        callDocUnsub: null,
+        connectedAt: null
       };
       state.incoming = null;
       state.current.callDocUnsub = onSnapshot(doc(db, "conversations", call.conversationId, "calls", call.id), snap => {
@@ -230,21 +296,46 @@ export function createCallController({ getCurrentUser, getConversations, getActi
         const reactionEl = document.getElementById("callReactionStatus");
         if (reactionEl) reactionEl.textContent = reaction ? `${reaction}` : "";
         const handEl = document.getElementById("callRaiseHandBtn");
-        if (handEl) handEl.textContent = (latest.raisedHands || []).includes(user().uid) ? "Lower hand" : "Raise hand";
+        if (handEl) { const label=handEl.querySelector?.(".call-control-label"); const active=(latest.raisedHands || []).includes(user().uid); if(label) label.textContent = active ? "Lower" : "Hand"; else handEl.textContent = active ? "Lower hand" : "Raise hand"; }
+        if (latest.status === "active" && !state.current.connectedAt) {
+          setCallUi(latest, "active");
+          startDurationTimer();
+          document.getElementById("callStageHint")?.replaceChildren(document.createTextNode(latest.callType === "video" ? "Video call" : "Voice call"));
+        }
+        if (latest.status === "declined") {
+          setCallUi(latest, "declined");
+          showToast("The call was declined.", "info");
+          setTimeout(() => cleanupCall(false).catch(() => {}), 450);
+        }
         if (latest.status === "ended" && state.current) cleanupCall(false).catch(() => {});
       }, () => {});
       closeModal("incomingCallModal");
       openModal("activeCallModal");
       setCallUi(call, "connecting");
-      await startLocalMedia(state.current);
+      if (preloadedStream) {
+        state.current.localStream = preloadedStream;
+        const localVideo = document.getElementById("localCallVideo");
+        if (localVideo) { localVideo.srcObject = preloadedStream; localVideo.hidden = state.current.callType !== "video"; }
+      } else {
+        await startLocalMedia(state.current);
+      }
       await updateDoc(doc(db, "conversations", call.conversationId, "calls", call.id), {
-        status: "active",
+        status: isInitiator ? "ringing" : "active",
         joinedParticipantIds: arrayUnion(user().uid),
         activeParticipantIds: arrayUnion(user().uid),
         updatedAt: serverTimestamp()
       });
       await connectPeers(state.current);
-      setCallUi(call, "active");
+      setCallUi(call, isInitiator ? "ringing" : "active");
+      if (!isInitiator) startDurationTimer();
+      if (isInitiator) {
+        clearRingTimer();
+        state.ringTimer = setTimeout(() => {
+          if (state.current?.callId !== call.id) return;
+          showToast("No answer. You can call again later.", "info");
+          cleanupCall(true).catch(() => {});
+        }, 60000);
+      }
       return true;
     } catch (error) {
       console.error("Call join failed", error);
@@ -271,6 +362,14 @@ export function createCallController({ getCurrentUser, getConversations, getActi
       showToast("Add another participant before starting a call.", "info");
       return false;
     }
+    let preloadedStream = null;
+    try {
+      preloadedStream = await getMedia(callType);
+    } catch (mediaError) {
+      const msg = mediaError?.name === "NotAllowedError" ? `Allow microphone${callType === "video" ? " and camera" : ""} access to place this call.` : "Your browser could not access the required call device.";
+      showToast(msg, "error");
+      return false;
+    }
     const ref = doc(collection(db, "conversations", conversationId, "calls"));
     const call = {
       conversationId,
@@ -287,8 +386,9 @@ export function createCallController({ getCurrentUser, getConversations, getActi
     };
     try {
       await setDoc(ref, call);
-      return joinCall({ id: ref.id, ...call, createdAt: new Date() }, { isInitiator: true });
+      return joinCall({ id: ref.id, ...call, createdAt: new Date() }, { isInitiator: true, preloadedStream });
     } catch (error) {
+      preloadedStream?.getTracks?.().forEach(track => track.stop());
       console.error("Call start failed", error);
       showToast(error?.code === "permission-denied" ? "Firebase blocked call creation. Deploy the latest firestore.rules." : "Could not start the call.", "error");
       return false;
@@ -312,6 +412,8 @@ export function createCallController({ getCurrentUser, getConversations, getActi
   async function cleanupCall(endWholeCall = true) {
     const session = state.current;
     if (!session) return;
+    clearRingTimer();
+    stopDurationTimer();
     session.callDocUnsub?.();
     for (const record of session.peers.values()) {
       record.peerUnsub?.();
@@ -357,7 +459,7 @@ export function createCallController({ getCurrentUser, getConversations, getActi
     if (!track) return;
     track.enabled = !track.enabled;
     const btn = document.getElementById("callVideoBtn");
-    if (btn) { btn.textContent = track.enabled ? "Camera" : "Camera off"; btn.classList.toggle("is-off", !track.enabled); }
+    if (btn) { const label=btn.querySelector?.(".call-control-label"); if(label) label.textContent = track.enabled ? "Camera" : "Camera off"; else btn.textContent = track.enabled ? "Camera" : "Camera off"; btn.classList.toggle("is-off", !track.enabled); }
   }
 
   async function toggleScreenShare() {
@@ -429,6 +531,10 @@ export function createCallController({ getCurrentUser, getConversations, getActi
           if (!change.doc.exists() || !["added", "modified"].includes(change.type)) return;
           const call = { id: change.doc.id, ...change.doc.data() };
           if (!call.participantIds?.includes(user()?.uid)) return;
+          if (state.incoming?.callId === call.id && !["ringing", "active"].includes(call.status)) {
+            state.incoming = null;
+            closeModal("incomingCallModal");
+          }
           if (["ringing", "active"].includes(call.status) && call.initiatorId !== user()?.uid && !state.current && !state.incoming) showIncoming(call);
         });
       }, () => {});

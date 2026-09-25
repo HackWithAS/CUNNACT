@@ -75,7 +75,8 @@ const callController = createCallController({
   getCurrentUser: () => currentUser,
   getConversations: () => conversations,
   getActiveConversation: () => activeConversation,
-  getActiveUser: () => activeUser
+  getActiveUser: () => activeUser,
+  getUserById: (uid) => userListeners.get(uid)?.data || null
 });
 
 const socialFeatures = initSocialFeatures({ getCurrentUser: () => currentUser });
@@ -432,6 +433,7 @@ window.closeCallsPage = closeCallsPage;
 
 function callRowDirection(call) {
   if (call?.status === "declined" || call?.status === "missed") return "Missed";
+  if (call?.status === "ended" && call?.initiatorId !== currentUser?.uid && Number(call?.joinedParticipantIds?.length || 0) <= 1) return "Missed";
   return call?.initiatorId === currentUser?.uid ? "Outgoing" : "Incoming";
 }
 function callRowType(call) {
@@ -512,6 +514,16 @@ function renderCallsPageHistory() {
       await startCallFromCallRow(row, row.callType === "video" ? "video" : "voice");
     });
   });
+  box.querySelectorAll("[data-call-row-index]").forEach(rowEl => {
+    rowEl.addEventListener("click", async e => {
+      if (e.target.closest?.("[data-call-back-index]")) return;
+      const idx = Number(rowEl.dataset.callRowIndex);
+      const row = filtered[idx];
+      if (!row) return;
+      const conv = conversations.find(c => c.id === row.conversationId);
+      if (conv) { playClick(); await openChatById(conv.id); }
+    });
+  });
 }
 
 async function startCallFromConversation(conv, callType="voice") {
@@ -571,6 +583,7 @@ async function openCallsPage() {
   const app=$id("app"), base=$id("sidebarDefaultView"), newChat=$id("newChatView"), status=$id("statusView"), channels=$id("channelsView"), statusPanel=$id("statusPanel"), channelsPanel=$id("channelsPanel"), view=$id("callsView"), panel=$id("callsPanel"), chat=document.querySelector(".chat-panel");
   if(!app||!view||!panel)return;
   base?.setAttribute("hidden","");newChat?.setAttribute("hidden","");status?.setAttribute("hidden","");channels?.setAttribute("hidden","");statusPanel?.setAttribute("hidden","");channelsPanel?.setAttribute("hidden","");chat?.setAttribute("hidden","");
+  // The Calls page owns the second grid column on desktop and the single content column on mobile.
   view.hidden=false;panel.hidden=false;
   app.classList.add("calls-open");app.classList.remove("chat-open","status-open","channels-open");
   document.querySelectorAll(".nav-rail-btn").forEach(b=>b.classList.remove("active"));
