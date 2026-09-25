@@ -64,7 +64,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="2.2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/></svg>
         </button>
         <button class="nav-rail-btn" id="navSavedBtn" type="button" aria-label="Saved messages" title="Saved messages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>
-        <button class="nav-rail-btn" id="navStoriesBtn" type="button" aria-label="Stories" title="Stories"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 12h7M12 8.5v7"/></svg></button>
+        <button class="nav-rail-btn" id="navStoriesBtn" type="button" aria-label="Trace" title="Trace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 12h7M12 8.5v7"/></svg></button>
         <button class="nav-rail-btn" id="navCommunitiesBtn" type="button" aria-label="Channels" title="Channels" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="2.2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/></svg></button>
 <button class="nav-rail-btn" id="navNewChatBtn" type="button" aria-label="New chat" title="New chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
       </nav>
@@ -253,17 +253,17 @@
       </section>
     </aside>
 
-    <section id="statusView" class="status-side-view" hidden aria-label="Status">
+    <section id="statusView" class="status-side-view" hidden aria-label="Trace">
       <header class="status-side-header">
-        <h2>Status</h2>
+        <h2>Trace</h2>
         <div class="status-side-actions">
-          <button id="statusMoreBtn" class="icon-btn" type="button" aria-label="Status options" title="Status options">
+          <button id="statusMoreBtn" class="icon-btn" type="button" aria-label="Trace options" title="Trace options">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
           </button>
-          <button id="statusAddBtn" class="icon-btn status-add-btn" type="button" aria-label="Add status" title="Add status">
+          <button id="statusAddBtn" class="icon-btn status-add-btn" type="button" aria-label="Leave a trace" title="Leave a trace">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M12 8v8M8 12h8"/></svg>
           </button>
-          <div id="statusAddMenu" class="status-add-menu" hidden role="menu" aria-label="Create status">
+          <div id="statusAddMenu" class="status-add-menu" hidden role="menu" aria-label="Leave a trace">
             <button type="button" data-status-create="media" role="menuitem">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 4.8-4.8 3.3 3.2 2.5-2.5L20 17"/></svg>
               <span>Photos &amp; videos</span>
@@ -273,9 +273,9 @@
               <span>Text</span>
             </button>
           </div>
-          <div id="statusMoreMenu" class="status-more-menu" hidden role="menu" aria-label="Status options">
-            <button type="button" data-status-action="refresh" role="menuitem">Refresh statuses</button>
-            <button type="button" data-status-action="create" role="menuitem">Create status</button>
+          <div id="statusMoreMenu" class="status-more-menu" hidden role="menu" aria-label="Trace options">
+            <button type="button" data-status-action="refresh" role="menuitem">Refresh traces</button>
+            <button type="button" data-status-action="privacy" role="menuitem">Trace privacy</button>
           </div>
         </div>
       </header>
@@ -284,24 +284,23 @@
           <span class="avatar" id="statusMyAvatar"><img alt="" hidden><span class="avatar-fallback"></span></span>
           <span class="my-status-plus">+</span>
         </span>
-        <span class="my-status-copy"><strong>My status</strong><small>Click to add status update</small></span>
+        <span class="my-status-copy"><strong>My trace</strong><small>Tap to leave a trace</small></span>
       </button>
-      <div class="status-section-label">Recent updates</div>
+      <div class="status-section-label">Recent traces</div>
       <div id="statusUpdatesList" class="status-updates-list">
-        <div class="status-list-empty">Loading statuses…</div>
+        <div class="status-list-empty">Loading traces…</div>
       </div>
     </section>
 
-    <main id="statusPanel" class="status-main-panel" hidden aria-label="Status workspace">
+    <main id="statusPanel" class="status-main-panel" hidden aria-label="Trace workspace">
       <div class="status-main-empty">
         <div class="status-main-icon" aria-hidden="true">
           <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M24 6a18 18 0 1 0 18 18"/><path d="M24 12a12 12 0 1 0 12 12"/><path d="M24 18a6 6 0 1 0 6 6"/></svg>
         </div>
-        <h2>Share statuses</h2>
+        <h2>Leave a trace</h2>
         <p>Share photos, videos and text that disappear after 24 hours.</p>
       </div>
     </main>
-
     <section id="channelsView" class="channels-side-view" hidden aria-label="Channels">
       <header class="channels-side-header">
         <h2>Channels</h2>
@@ -822,16 +821,16 @@
     <div id="socialHubModal" class="modal" hidden aria-hidden="true">
       <div class="modal-content social-hub-modal">
         <div class="modal-header">
-          <div><span class="eyebrow">CUNNACT SOCIAL</span><h2>Stories & discovery</h2><p>Share for 24 hours or explore communities and channels.</p></div>
+          <div><span class="eyebrow">CUNNACT SOCIAL</span><h2>Trace & discovery</h2><p>Leave a trace for 24 hours or explore communities and channels.</p></div>
           <button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
         <div class="social-tabs" role="tablist">
-          <button class="social-tab active" type="button" data-social-tab="stories">Stories</button>
+          <button class="social-tab active" type="button" data-social-tab="stories">Trace</button>
           <button class="social-tab" type="button" data-social-tab="communities">Communities</button>
           <button class="social-tab" type="button" data-social-tab="channels">Channels</button>
         </div>
         <section class="social-panel" data-social-panel="stories">
-          <div class="social-panel-head"><div><strong>24-hour stories</strong><span>Photos, videos, text, stickers, links and polls.</span></div><button id="createStoryBtn" type="button" class="btn btn-primary btn-sm">+ Create story</button></div>
+          <div class="social-panel-head"><div><strong>24-hour traces</strong><span>Photos, videos, text, stickers, links and polls.</span></div><button id="createStoryBtn" type="button" class="btn btn-primary btn-sm">+ Leave a trace</button></div>
           <div id="storiesList" class="stories-grid"><div class="empty-state">Loading stories…</div></div>
         </section>
         <section class="social-panel" data-social-panel="communities" hidden>
@@ -847,29 +846,88 @@
       </div>
     </div>
 
-    <!-- Story composer -->
-    <div id="storyComposerModal" class="modal" hidden aria-hidden="true">
-      <div class="modal-content compact-modal social-compose-modal">
-        <div class="modal-header"><div><span class="eyebrow">STORY</span><h2>Create story</h2><p>Your story disappears after 24 hours.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-        <div class="social-compose-grid">
-          <label>Text<textarea id="storyTextInput" rows="4" maxlength="2000" placeholder="Share something…"></textarea></label>
-          <label>Photo or video<input id="storyMediaInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"></label>
-          <div class="form-two"><label>Privacy<select id="storyPrivacy"><option value="public">Public</option><option value="closeFriends">Close friends</option><option value="custom">Selected people</option></select></label><label>Sticker<input id="storyStickerInput" maxlength="120" placeholder="✨ optional"></label></div>
-          <label>Link<input id="storyLinkInput" type="url" placeholder="https://example.com"></label>
-          <div id="storyAudiencePickerWrap" hidden><div class="eyebrow">AUDIENCE</div><div id="storyAudiencePicker" class="checkbox-list"><div class="empty-state">Choose selected people.</div></div></div>
-          <label>Poll question<input id="storyPollQuestion" maxlength="250" placeholder="Ask something (optional)"></label>
-          <label>Poll options<textarea id="storyPollOptions" rows="4" placeholder="One option per line"></textarea></label>
+    <!-- Trace composer -->
+    <div id="storyComposerModal" class="modal trace-composer-modal" hidden aria-hidden="true">
+      <div class="trace-composer-shell" data-trace-bg="0">
+        <div class="trace-composer-topbar">
+          <button id="traceComposerCloseBtn" class="trace-icon-btn close-modal" type="button" aria-label="Close trace composer" title="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+          <div class="trace-composer-title"><span>TRACE</span><strong>Leave a trace</strong></div>
+          <div class="trace-composer-tools">
+            <button id="traceEmojiBtn" class="trace-icon-btn" type="button" aria-label="Add emoji" title="Emoji"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M8.2 10h.01M15.8 10h.01M8.5 14.2c1 1.3 2.2 1.9 3.5 1.9s2.5-.6 3.5-1.9"/></svg></button>
+            <button id="traceTextStyleBtn" class="trace-icon-btn" type="button" aria-label="Text style" title="Text style"><span>Aa</span></button>
+            <button id="tracePaletteBtn" class="trace-icon-btn" type="button" aria-label="Change background" title="Change background"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a9 9 0 0 0 0 18h.9a2 2 0 0 0 0-4H12a2 2 0 0 1 0-4h4.2A4.8 4.8 0 0 0 21 8.2 5.2 5.2 0 0 0 15.8 3H12Z"/><circle cx="7.5" cy="9" r=".8" fill="currentColor"/><circle cx="10" cy="6.8" r=".8" fill="currentColor"/><circle cx="14" cy="6.7" r=".8" fill="currentColor"/></svg></button>
+          </div>
         </div>
-        <button id="publishStoryBtn" type="button" class="btn btn-primary" style="width:100%;margin-top:14px">Publish story</button>
+        <div class="trace-emoji-panel" id="traceEmojiPanel" hidden>
+          <button type="button" data-trace-emoji="❤️">❤️</button><button type="button" data-trace-emoji="😂">😂</button><button type="button" data-trace-emoji="😍">😍</button><button type="button" data-trace-emoji="🔥">🔥</button><button type="button" data-trace-emoji="✨">✨</button><button type="button" data-trace-emoji="🥳">🥳</button><button type="button" data-trace-emoji="😎">😎</button><button type="button" data-trace-emoji="🙏">🙏</button><button type="button" data-trace-emoji="💙">💙</button><button type="button" data-trace-emoji="🤝">🤝</button>
+        </div>
+        <div class="trace-canvas" id="traceCanvas">
+          <div id="traceMediaPreview" class="trace-media-preview" hidden></div>
+          <textarea id="storyTextInput" class="trace-text-input" rows="4" maxlength="2000" placeholder="Type a trace…" aria-label="Trace text"></textarea>
+        </div>
+        <div id="traceToolsPanel" class="trace-tools-panel" hidden>
+          <div class="trace-tool-field"><label for="storyStickerInput">Sticker</label><input id="storyStickerInput" maxlength="120" placeholder="✨ optional"></div>
+          <div class="trace-tool-field"><label for="storyLinkInput">Link</label><input id="storyLinkInput" type="url" placeholder="https://example.com"></div>
+          <div class="trace-tool-field"><label for="storyPollQuestion">Poll</label><input id="storyPollQuestion" maxlength="250" placeholder="Ask a question (optional)"></div>
+          <div class="trace-tool-field"><label for="storyPollOptions">Poll options</label><textarea id="storyPollOptions" rows="3" placeholder="One option per line"></textarea></div>
+        </div>
+        <input id="storyMediaInput" class="trace-media-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime">
+        <select id="storyPrivacy" class="trace-privacy-select" aria-label="Trace privacy"><option value="public">Public</option><option value="closeFriends">Close friends</option><option value="custom">Selected people</option></select>
+        <div class="trace-bottom-bar">
+          <div class="trace-bottom-left">
+            <button id="traceAudienceBtn" class="trace-audience-btn" type="button" aria-label="Trace audience" title="Trace audience"><span class="trace-audience-icon">◉</span><span id="traceAudienceLabel">Public</span></button>
+            <button id="traceMoreBtn" class="trace-bottom-icon" type="button" aria-label="More trace options" title="More options">⋯</button>
+          </div>
+          <div class="trace-bottom-right">
+            <button id="traceMediaBtn" class="trace-bottom-icon" type="button" aria-label="Add photo or video" title="Add photo or video"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 4.8-4.8 3.3 3.2 2.5-2.5L20 17"/></svg></button>
+            <button id="publishStoryBtn" type="button" class="trace-send-btn" aria-label="Share trace" title="Share trace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 14-7-4 14-3-5-7-2Z"/><path d="m12 14 5-9"/></svg></button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Story viewer -->
-    <div id="storyViewerModal" class="modal" hidden aria-hidden="true">
-      <div class="modal-content story-viewer-modal">
-        <div class="modal-header"><div><span class="eyebrow">STORY</span><h2 id="storyViewerTitle">Story</h2><p id="storyViewerMeta"></p></div><button id="storyViewerCloseBtn" class="icon-btn" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-        <div id="storyViewerBody" class="story-viewer-body"></div>
-        <div class="story-viewer-nav"><button id="storyPrevBtn" type="button" class="btn btn-soft">← Previous</button><div class="story-viewer-reply"><select id="storyReactionEmoji"><option>❤️</option><option>😂</option><option>🔥</option><option>😍</option><option>👏</option></select><button id="storyReactBtn" type="button" class="btn btn-soft">React</button><input id="storyReplyInput" type="text" maxlength="500" placeholder="Reply to story…"><button id="storyReplySendBtn" type="button" class="btn btn-primary">Send</button></div><button id="storyNextBtn" type="button" class="btn btn-soft">Next →</button></div>
+    <!-- Trace privacy -->
+    <div id="tracePrivacyModal" class="modal trace-privacy-modal" hidden aria-hidden="true">
+      <div class="trace-privacy-shell">
+        <header class="trace-privacy-header"><button class="trace-icon-btn close-modal" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg></button><div><span>TRACE</span><h2>Trace privacy</h2></div></header>
+        <div class="trace-privacy-body">
+          <p class="trace-privacy-intro">Choose who can see your traces.</p>
+          <label class="trace-privacy-option"><input type="radio" name="tracePrivacyOption" value="public"><span><strong>Everyone</strong><small>Share with anyone who can access your CUNNACT profile.</small></span></label>
+          <label class="trace-privacy-option"><input type="radio" name="tracePrivacyOption" value="closeFriends"><span><strong>Close friends</strong><small>Share only with selected connected people.</small></span></label>
+          <label class="trace-privacy-option"><input type="radio" name="tracePrivacyOption" value="custom"><span><strong>Only selected people</strong><small>Share only with the people you choose.</small></span></label>
+          <div id="storyAudiencePickerWrap" class="trace-audience-picker-wrap" hidden><div class="eyebrow">AUDIENCE</div><div id="storyAudiencePicker" class="checkbox-list"><div class="empty-state">Choose selected people.</div></div></div>
+        </div>
+        <footer class="trace-privacy-footer"><button id="tracePrivacyDoneBtn" type="button" class="btn btn-primary">Done</button></footer>
+      </div>
+    </div>
+
+    <!-- Trace viewer -->
+    <div id="storyViewerModal" class="modal trace-viewer-modal" hidden aria-hidden="true">
+      <div class="trace-viewer-shell">
+        <div class="trace-viewer-topbar">
+          <button id="traceViewerBackBtn" class="trace-viewer-back trace-icon-btn" type="button" aria-label="Back to Trace" title="Back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <div class="trace-viewer-progress" id="traceViewerProgress" aria-hidden="true"></div>
+          <div class="trace-viewer-owner">
+            <span class="trace-viewer-owner-meta"><strong id="storyViewerTitle">Trace</strong><span id="storyViewerMeta"></span></span>
+          </div>
+          <button id="storyViewerCloseBtn" class="trace-viewer-close trace-icon-btn" type="button" aria-label="Close Trace" title="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+        <button id="storyPrevBtn" type="button" class="trace-viewer-edge trace-viewer-edge-prev" aria-label="Previous trace" title="Previous">‹</button>
+        <div id="storyViewerBody" class="story-viewer-body trace-viewer-body"></div>
+        <button id="storyNextBtn" type="button" class="trace-viewer-edge trace-viewer-edge-next" aria-label="Next trace" title="Next">›</button>
+        <div class="trace-viewer-replybar">
+          <select id="storyReactionEmoji" class="trace-reaction-select" aria-label="Trace reaction"><option>❤️</option><option>😂</option><option>🔥</option><option>😍</option><option>👏</option></select>
+          <button id="storyReactBtn" type="button" class="trace-reply-icon" aria-label="React to trace" title="React">☺</button>
+          <button id="traceViewerStickerBtn" type="button" class="trace-reply-icon" aria-label="Sticker" title="Sticker">◌</button>
+          <input id="storyReplyInput" type="text" maxlength="500" placeholder="Reply to trace…" autocomplete="off">
+          <button id="storyReplySendBtn" type="button" class="trace-reply-send" aria-label="Send reply" title="Send reply"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 14-7-4 14-3-5-7-2Z"/><path d="m12 14 5-9"/></svg></button>
+        </div>
       </div>
     </div>
 
