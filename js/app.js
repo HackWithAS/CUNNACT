@@ -733,7 +733,29 @@ function renderOwnProfileSettings(){
   </section>`;
   $id("ownSettingsBack")?.addEventListener("click",()=>{playClick();renderOwnProfileSection("profile");});
   $id("ownSettingsSearch")?.addEventListener("input",e=>{const q=String(e.target.value||"").trim().toLowerCase();$id("ownSettingsList")?.querySelectorAll(".wa-settings-item").forEach(btn=>{btn.hidden=!!q&&!btn.textContent.toLowerCase().includes(q);});});
-  $id("ownSettingsList")?.querySelectorAll("[data-settings-section]").forEach(btn=>btn.addEventListener("click",()=>{const key=btn.dataset.settingsSection; if(key==="profile") renderOwnProfileSection("profile"); else {showToast(`${btn.querySelector("strong")?.textContent||"This section"} is ready for the next settings step.` ,"info");}}));
+  const settingsTargets={
+    general:"#generalSection",
+    profile:null,
+    account:"#dataSection",
+    privacy:"#privacySection",
+    chats:"#preferencesSection",
+    calls:"#videoVoiceSection",
+    notifications:"#notificationsSection",
+    shortcuts:"#keyboardShortcutsSection",
+    help:"#helpSection"
+  };
+  $id("ownSettingsList")?.querySelectorAll("[data-settings-section]").forEach(btn=>btn.addEventListener("click",()=>{
+    const key=btn.dataset.settingsSection;
+    if(key==="profile") { renderOwnProfileSection("profile"); return; }
+    const target=settingsTargets[key];
+    if(target){
+      // The full settings controls already live in profile.html. Open that same
+      // settings surface instead of showing the old placeholder toast.
+      location.href=`profile.html${target}`;
+      return;
+    }
+    showToast("This setting is not available yet.","info");
+  }));
   $id("ownSettingsLogout")?.addEventListener("click",()=>{playClick();logout();});
 }
 function toggleOwnProfileInlineEdit(field){

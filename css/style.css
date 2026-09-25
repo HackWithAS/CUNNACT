@@ -219,3 +219,5 @@ body,.profile-page,.public-profile-page{background:radial-gradient(circle at 10%
 body.popup-mode .nav-rail,body.popup-mode .sidebar,body.popup-mode .mobile-only{display:none!important}body.popup-mode .app-shell{grid-template-columns:1fr!important}body.popup-mode .chat-panel{border:0;max-width:none}
 .messages.drop-target{outline:2px dashed rgba(35,70,213,.55);outline-offset:-10px;background:rgba(35,70,213,.045)}
 .settings-inline-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.is-enabled{border-color:rgba(22,163,74,.35)!important;color:#15803d!important}.btn-danger-account{margin-top:12px;border:1px solid rgba(185,28,28,.28);background:rgba(185,28,28,.08);color:#b91c1c;border-radius:12px;padding:10px 14px;font-weight:800;cursor:pointer}.btn-danger-account:disabled{opacity:.55;cursor:not-allowed}.account-tools-card{margin-top:18px}.danger-account-card{margin-top:18px;border-color:rgba(185,28,28,.18)}
+
+.notification-browser-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}

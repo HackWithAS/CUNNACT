@@ -293,7 +293,10 @@
 
           <div class="notification-browser-card">
             <div><strong>Browser notifications</strong><p id="browserNotificationStatus">Allow CUNNACT to show notifications on this browser.</p></div>
-            <button id="browserNotificationsBtn" class="btn btn-soft btn-sm" type="button">Enable</button>
+            <div class="notification-browser-actions">
+              <button id="browserNotificationsBtn" class="btn btn-soft btn-sm" type="button">Enable</button>
+              <button id="testBrowserNotificationBtn" class="btn btn-soft btn-sm" type="button">Test</button>
+            </div>
           </div>
           <p class="notification-help">Browser notifications work while CUNNACT is open in this browser. Background push across a fully closed browser additionally needs Firebase Web Push/VAPID configuration.</p>
         </div>
@@ -426,7 +429,10 @@
   document.getElementById('profileUsername')?.addEventListener('input',syncPreview);
 
   const generalBtn=document.querySelector('[data-target="#generalSection"]');
-  go('#generalSection',generalBtn);
+  const requestedHash=location.hash && map[location.hash] ? location.hash : '#generalSection';
+  const requestedBtn=document.querySelector(`[data-target="${requestedHash}"]`) || generalBtn;
+  go(requestedHash,requestedBtn);
+  if(requestedHash!== '#generalSection') history.replaceState(null,'',requestedHash);
 })();
 </script>
 </body>

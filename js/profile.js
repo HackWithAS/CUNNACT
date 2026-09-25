@@ -11,7 +11,7 @@ import { $, debounce } from "./ui.js";
 import { isSoundEnabled, setSoundEnabled, playClick, playSuccess } from "./sound.js";
 import { getRetentionMode, loadRetentionMode, setRetentionMode, setUserSetting } from "./retention.js";
 import { createPinHash, listDevices, revokeDevice, revokeOtherDevices, getDeviceSessionId, writeSecurityEvent } from "./security.js";
-import { enablePushNotifications, disablePushNotifications, notificationsAreEnabled, loadNotificationSettings, getNotificationSettings, saveNotificationSettings } from "./notifications.js";
+import { enablePushNotifications, disablePushNotifications, notificationsAreEnabled, loadNotificationSettings, getNotificationSettings, saveNotificationSettings, notifyBrowser } from "./notifications.js";
 import { bindAccountTools } from "./account.js";
 
 let currentUser = null;
@@ -149,6 +149,18 @@ $("browserNotificationsBtn")?.addEventListener("click",async()=>{
     else{await enablePushNotifications(currentUser);showToast("Browser notifications enabled","success");}
   }catch(err){showToast(err?.message||"Could not update browser notifications.","error");}
   finally{btn.disabled=false;syncNotificationSettingsUI();}
+});
+$("testBrowserNotificationBtn")?.addEventListener("click",async()=>{
+  if(!currentUser)return;
+  try{
+    if(!notificationsAreEnabled()){
+      await enablePushNotifications(currentUser);
+      syncNotificationSettingsUI();
+    }
+    const sent=await notifyBrowser({category:"messages",title:"CUNNACT test notification",body:"Browser notifications are working ✓",force:true});
+    if(sent)showToast("Test notification sent","success");
+    else showToast("Notification could not be shown. Check the browser permission for CUNNACT.","error");
+  }catch(err){showToast(err?.message||"Could not send test notification.","error");}
 });
 document.querySelectorAll('input[name="themeMode"]').forEach(r=>r.addEventListener("change",async(e)=>{applyLocalTheme(e.target.value);try{await setUserSetting(currentUser.uid,{theme:pendingTheme});}catch(err){console.warn(err);}playClick();}));
 $("shareProfileBtn")?.addEventListener("click",async()=>{const username=normalizeUsername($("profileUsername").value);if(!username){showToast("Set a CUNNACT ID before sharing your profile.","info");$("profileUsername").focus();return;}const url=`${location.origin}/u/${encodeURIComponent(username)}`,text=`Connect with me on CUNNACT:\n@${username}`;try{if(navigator.share)await navigator.share({title:"CUNNACT profile",text,url});else{await navigator.clipboard.writeText(url);showToast("Profile link copied ✓","success");}}catch(e){if(e.name!=="AbortError")showToast("Could not share profile link","error");}});
