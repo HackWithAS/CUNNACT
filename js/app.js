@@ -676,6 +676,13 @@ function renderOwnProfileSection(section="profile"){
           <button id="ownProfileNameEdit" class="wa-profile-pencil" type="button" aria-label="Edit name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 5 5 5M4 20l4.2-1 9.8-9.8a2.1 2.1 0 0 0-3-3L5.2 16z"/></svg></button>
         </div>
 
+        <div class="wa-profile-label">Username</div>
+        <div class="wa-profile-row" data-inline-field="username">
+          <div class="wa-profile-row-main"><span id="ownProfileUsername" class="wa-profile-value">${escapeHtml(data.username?`@${data.username}`:"Set a username")}</span><input id="ownProfileUsernameInput" class="wa-profile-input" type="text" maxlength="24" value="${escapeHtml(data.username||"")}" placeholder="yourusername" autocomplete="off" spellcheck="false" hidden></div>
+          <button id="ownProfileUsernameEdit" class="wa-profile-pencil" type="button" aria-label="Edit username" title="Edit username"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 5 5 5M4 20l4.2-1 9.8-9.8a2.1 2.1 0 0 0-3-3L5.2 16z"/></svg></button>
+        </div>
+        <p class="wa-profile-note">Your username is the unique ID people can use to find and share your CUNNACT profile.</p>
+
         <div class="wa-profile-label">Email</div>
         <div class="wa-profile-row">
           <div class="wa-profile-row-main"><span class="wa-profile-value">${escapeHtml(currentUser.email||data.email||"Not added")}</span></div>
@@ -692,6 +699,7 @@ function renderOwnProfileSection(section="profile"){
   $id("ownProfilePhotoInput")?.addEventListener("change",handleOwnProfilePhotoChange,{once:true});
   $id("ownProfileAboutEdit")?.addEventListener("click",()=>toggleOwnProfileInlineEdit("bio"));
   $id("ownProfileNameEdit")?.addEventListener("click",()=>toggleOwnProfileInlineEdit("name"));
+  $id("ownProfileUsernameEdit")?.addEventListener("click",()=>toggleOwnProfileInlineEdit("username"));
   $id("ownProfileEmailCopy")?.addEventListener("click",async()=>{const emailValue=currentUser?.email||data.email||"";try{if(emailValue&&navigator.clipboard)await navigator.clipboard.writeText(emailValue);showToast(emailValue?"Email copied":"No email address is connected to this account.","success");}catch{showToast("Could not copy email address","error");}});
 }
 function renderOwnProfileSettings(){
@@ -726,9 +734,9 @@ function renderOwnProfileSettings(){
   $id("ownSettingsLogout")?.addEventListener("click",()=>{playClick();logout();});
 }
 function toggleOwnProfileInlineEdit(field){
-  const input=$id(field==="bio"?"ownProfileAboutInput":"ownProfileNameInput");
-  const valueEl=$id(field==="bio"?"ownProfileAbout":"ownProfileDisplayName");
-  const button=$id(field==="bio"?"ownProfileAboutEdit":"ownProfileNameEdit");
+  const input=$id(field==="bio"?"ownProfileAboutInput":field==="name"?"ownProfileNameInput":"ownProfileUsernameInput");
+  const valueEl=$id(field==="bio"?"ownProfileAbout":field==="name"?"ownProfileDisplayName":"ownProfileUsername");
+  const button=$id(field==="bio"?"ownProfileAboutEdit":field==="name"?"ownProfileNameEdit":"ownProfileUsernameEdit");
   if(!input||!valueEl||!button)return;
   const editing=input.hidden;
   if(editing){
@@ -738,6 +746,8 @@ function toggleOwnProfileInlineEdit(field){
     const save=async()=>{
       const value=input.value.trim();
       if(field==="name"&&!value){showToast("Name cannot be empty","error");input.focus();return;}
+      const normalizedUsername=field==="username"?String(value).replace(/^@+/,"").toLowerCase():"";
+      if(field==="username"&&!USERNAME_PATTERN.test(normalizedUsername)){showToast("Username must be 3–24 characters using only letters, numbers, and underscores.","error");input.focus();return;}
       try{
         if(field==="name"){
           await updateDoc(doc(db,"users",currentUser.uid),{name:value,updatedAt:serverTimestamp()});
@@ -745,15 +755,35 @@ function toggleOwnProfileInlineEdit(field){
           await updateProfile(currentUser,{displayName:value});
           currentUserData={...currentUserData,name:value};
           hydrateCurrentUserUI();
-        }else{
+        }else if(field==="bio"){
           await updateDoc(doc(db,"users",currentUser.uid),{bio:value,updatedAt:serverTimestamp()});
           await setDoc(doc(db,"publicProfiles",currentUser.uid),{bio:value,updatedAt:serverTimestamp()},{merge:true});
           currentUserData={...currentUserData,bio:value};
+        }else{
+          const oldUsername=String(currentUserData?.username||"").replace(/^@+/,"").toLowerCase();
+          if(normalizedUsername!==oldUsername){
+            await runTransaction(db,async(tx)=>{
+              const nextRef=doc(db,"usernames",normalizedUsername);
+              const nextSnap=await tx.get(nextRef);
+              if(nextSnap.exists()&&nextSnap.data()?.uid!==currentUser.uid){const err=new Error("USERNAME_TAKEN");err.code="USERNAME_TAKEN";throw err;}
+              if(oldUsername){
+                const oldRef=doc(db,"usernames",oldUsername);
+                const oldSnap=await tx.get(oldRef);
+                if(oldSnap.exists()&&oldSnap.data()?.uid===currentUser.uid)tx.delete(oldRef);
+              }
+              tx.set(nextRef,{uid:currentUser.uid,createdAt:serverTimestamp()},{merge:true});
+              tx.update(doc(db,"users",currentUser.uid),{username:normalizedUsername,usernameLower:normalizedUsername,updatedAt:serverTimestamp()});
+              tx.set(doc(db,"publicProfiles",currentUser.uid),{username:normalizedUsername,usernameLower:normalizedUsername,updatedAt:serverTimestamp()},{merge:true});
+            });
+          }
+          currentUserData={...currentUserData,username:normalizedUsername,usernameLower:normalizedUsername};
+          valueEl.textContent=`@${normalizedUsername}`;
+          input.value=normalizedUsername;
         }
-        valueEl.textContent=value||(field==="bio"?"Share a thought":"User");
+        if(field!=="username")valueEl.textContent=value||(field==="bio"?"Share a thought":"User");
         input.hidden=true;valueEl.hidden=false;button.setAttribute("aria-label","Edit");button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 5 5 5M4 20l4.2-1 9.8-9.8a2.1 2.1 0 0 0-3-3L5.2 16z"/></svg>';
-        showToast(field==="name"?"Name updated":"About updated","success");
-      }catch(e){console.error("Inline profile save failed",e);showToast("Could not save this change. Please try again.","error");}
+        showToast(field==="name"?"Name updated":field==="bio"?"About updated":"Username updated","success");
+      }catch(e){console.error("Inline profile save failed",e);showToast(e?.code==="USERNAME_TAKEN"?"That username is already taken.":"Could not save this change. Please try again.","error");}
     };
     button.onclick=save; input.onkeydown=(e)=>{if(e.key==="Enter"){e.preventDefault();save();}if(e.key==="Escape"){e.preventDefault();renderOwnProfileSection("profile");}};
   }

@@ -47,25 +47,26 @@
         <strong id="settingsPreviewName">Your name</strong>
       </div>
       <nav class="settings-nav-list" aria-label="Settings sections">
-        <button class="settings-nav-item" type="button" data-target="#preferencesSection"><span class="settings-nav-icon">⌂</span><span><b>General</b><small>Startup and close</small></span></button>
-        <button class="settings-nav-item active" type="button" data-target="#profileSection"><span class="settings-nav-icon">◉</span><span><b>Profile</b><small>Name, profile picture, username</small></span></button>
+        <button class="settings-nav-item active" type="button" data-target="#generalSection"><span class="settings-nav-icon">⌂</span><span><b>General</b><small>Startup and close</small></span></button>
         <button class="settings-nav-item" type="button" data-target="#dataSection"><span class="settings-nav-icon">▣</span><span><b>Account</b><small>Security notifications, account info</small></span></button>
         <button class="settings-nav-item" type="button" data-target="#privacySection"><span class="settings-nav-icon">▢</span><span><b>Privacy</b><small>Blocked contacts, discovery and visibility</small></span></button>
         <button class="settings-nav-item" type="button" data-target="#preferencesSection"><span class="settings-nav-icon">▤</span><span><b>Chats</b><small>Theme, wallpaper, chat settings</small></span></button>
-        <button class="settings-nav-item" type="button" data-target="#securitySection"><span class="settings-nav-icon">◻</span><span><b>Video & voice</b><small>Camera, microphone & speakers</small></span></button>
-        <button class="settings-nav-item" type="button" data-target="#securitySection"><span class="settings-nav-icon">♧</span><span><b>Notifications</b><small>Messages, groups, sounds</small></span></button>
+        <button class="settings-nav-item" type="button" data-target="#videoVoiceSection"><span class="settings-nav-icon">◻</span><span><b>Video & voice</b><small>Camera, microphone & speakers</small></span></button>
+        <button class="settings-nav-item" type="button" data-target="#notificationsSection"><span class="settings-nav-icon">♧</span><span><b>Notifications</b><small>Messages, groups, sounds</small></span></button>
         <button class="settings-nav-item" type="button" data-target="#securitySection"><span class="settings-nav-icon">▣</span><span><b>Security</b><small>App lock, 2-step verification, devices</small></span></button>
-        <button class="settings-nav-item danger" type="button" data-target="#dangerSection"><span class="settings-nav-icon">!</span><span><b>Delete account</b><small>Permanent account removal</small></span></button>
+        <button class="settings-nav-item" type="button" data-target="#keyboardShortcutsSection"><span class="settings-nav-icon">⌨</span><span><b>Keyboard shortcuts</b><small>Quick actions</small></span></button>
+        <button class="settings-nav-item" type="button" data-target="#helpSection"><span class="settings-nav-icon">?</span><span><b>Help and feedback</b><small>Help centre, contact us, privacy policy</small></span></button>
+        <button class="settings-nav-item danger" type="button" data-target="#dangerSection"><span class="settings-nav-icon">→</span><span><b>Log out</b><small></small></span></button>
       </nav>
     </aside>
 
     <main class="settings-detail" id="settingsDetail">
       <header class="settings-detail-head">
-        <div><span class="eyebrow">CUNNACT SETTINGS</span><h2 id="settingsDetailTitle">Profile</h2><p id="settingsDetailSubtitle">Name, profile picture and username</p></div>
+        <div><span class="eyebrow">CUNNACT SETTINGS</span><h2 id="settingsDetailTitle">General</h2><p id="settingsDetailSubtitle">Startup and close</p></div>
         <div class="settings-detail-actions"><button id="shareProfileTopBtn" class="settings-icon-action" type="button" aria-label="Share profile" title="Share profile">↗</button></div>
       </header>
       <div class="settings-detail-scroll">
-        <section class="profile-hero-v6 settings-profile-hero">
+        <section class="profile-hero-v6 settings-profile-hero" hidden>
           <div class="profile-hero-avatar">
             <button id="avatarButton" class="avatar-button-v6" type="button" aria-label="Change profile picture">
               <span class="avatar avatar-profile-v6" id="profileAvatar"><img alt="Profile picture" hidden><span class="avatar-fallback" hidden></span></span>
@@ -85,7 +86,42 @@
           </div>
         </section>
             <form id="profileForm" class="profile-form" novalidate>
-      <section id="profileSection" class="settings-card-v6">
+      <section id="generalSection" class="settings-card-v6 settings-general-section">
+        <div class="general-page-heading">
+          <span class="general-back-arrow" aria-hidden="true">‹</span>
+          <div><h2>General</h2></div>
+        </div>
+        <div class="settings-section-label">Startup and close</div>
+        <div class="preference-row-v6 general-setting-row">
+          <div><strong>Start CUNNACT at login</strong></div>
+          <label class="toggle"><input id="startAtLoginToggle" type="checkbox"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="preference-row-v6 general-setting-row">
+          <div><strong>Minimise to system tray</strong><p>Keep CUNNACT running after closing the application window</p></div>
+          <label class="toggle"><input id="minimizeToTrayToggle" type="checkbox"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-section-label general-subsection-label">Language</div>
+        <label class="general-select-row">
+          <span class="general-select-icon" aria-hidden="true">◎</span>
+          <select id="generalLanguageSelect" aria-label="Language">
+            <option value="en-GB">British English</option>
+            <option value="en-US">English (US)</option>
+            <option value="hi-IN">Hindi</option>
+          </select>
+        </label>
+        <div class="settings-section-label general-subsection-label">Font size</div>
+        <label class="general-select-row">
+          <select id="generalFontSizeSelect" aria-label="Font size">
+            <option value="90">90%</option>
+            <option value="100" selected>100% (default)</option>
+            <option value="110">110%</option>
+            <option value="125">125%</option>
+          </select>
+        </label>
+        <p class="general-font-hint">Use Ctrl + / - to increase or decrease text size</p>
+      </section>
+
+      <section id="profileSection" class="settings-card-v6" hidden>
         <div class="section-heading-v6">
           <div class="section-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c.8-3.2 3.1-5 7-5s6.2 1.8 7 5"/></svg></div>
           <div><h2>Personal information</h2><p>What other people see when they find you.</p></div>
@@ -120,20 +156,62 @@
         <div class="preference-row-v6"><div><strong>Last seen</strong><p>Turn this off and you also won't see other people's last seen.</p></div><label class="toggle"><input id="lastSeenToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
       </section>
 
-      <section id="privacySection" class="settings-card-v6">
-        <div class="section-heading-v6">
-          <div class="section-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3 4 6v5c0 5 3.3 8.6 8 10 4.7-1.4 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg></div>
-          <div><h2>Privacy & account</h2><p>Control discovery, read receipts, typing and profile visibility.</p></div>
+      <section id="privacySection" class="settings-card-v6 privacy-page-v7">
+        <div class="settings-inline-page-head">
+          <button class="settings-section-back privacy-back" type="button" data-target="#generalSection" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <h2>Privacy</h2>
         </div>
-        <div class="preference-row-v6"><div><strong>Read receipts</strong><p>Let people know when you've read their messages.</p></div><label class="toggle"><input id="readReceiptsToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
-        <div class="preference-row-v6"><div><strong>Typing indicators</strong><p>Show when you're typing in a conversation.</p></div><label class="toggle"><input id="typingIndicatorsToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
-        <div class="profile-fields-v6">
-          <label class="profile-field-v6"><span>Profile visibility</span><select id="profileVisibility"><option value="public">Public</option><option value="private">Private</option></select></label>
-          <div class="preference-row-v6" style="border-bottom:0;padding-bottom:0"><div><strong>Appear in discovery</strong><p>Allow your public profile to appear in search.</p></div><label class="toggle"><input id="discoverableToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
+        <div class="privacy-v7-content">
+          <div class="privacy-group-title">Who can see my personal info</div>
+          <button class="privacy-setting-item" type="button" data-privacy-dialog="last-seen">
+            <span class="privacy-setting-copy"><strong>Last seen and online</strong><small id="lastSeenSummary">Everyone</small></span><span class="privacy-chevron">›</span>
+          </button>
+          <button class="privacy-setting-item" type="button" data-privacy-dialog="profile-picture">
+            <span class="privacy-setting-copy"><strong>Profile picture</strong><small id="profilePictureSummary">Everyone</small></span><span class="privacy-chevron">›</span>
+          </button>
+          <button class="privacy-setting-item" type="button" data-privacy-dialog="about">
+            <span class="privacy-setting-copy"><strong>About</strong><small id="aboutSummary">Everyone</small></span><span class="privacy-chevron">›</span>
+          </button>
+          <button class="privacy-setting-item" type="button" data-privacy-dialog="status">
+            <span class="privacy-setting-copy"><strong>Status</strong><small id="statusSummary">My traces use their own audience</small></span><span class="privacy-chevron">›</span>
+          </button>
+          <div class="privacy-setting-toggle-row">
+            <div class="privacy-setting-copy"><strong>Read receipts</strong><small>If turned off, you won't send or receive read receipts. Read receipts are always sent for group chats.</small></div>
+            <label class="toggle"><input id="readReceiptsToggle" type="checkbox"><span class="toggle-slider"></span></label>
+          </div>
+
+          <div class="privacy-group-title privacy-group-spaced">Disappearing messages</div>
+          <button class="privacy-setting-item" type="button" data-privacy-dialog="default-timer">
+            <span class="privacy-setting-copy"><strong>Default message timer</strong><small id="defaultTimerSummary">Off</small></span><span class="privacy-chevron">›</span>
+          </button>
+          <button class="privacy-setting-item" type="button" data-privacy-dialog="groups">
+            <span class="privacy-setting-copy"><strong>Groups</strong><small id="groupPrivacySummary">Everyone</small></span><span class="privacy-chevron">›</span>
+          </button>
+          <button class="privacy-setting-item" type="button" data-privacy-dialog="blocked">
+            <span class="privacy-setting-copy"><strong>Blocked contacts</strong><small id="blockedContactsSummary">0</small></span><span class="privacy-chevron">›</span>
+          </button>
+          <button class="privacy-setting-item" type="button" data-privacy-dialog="app-lock">
+            <span class="privacy-setting-copy"><strong>App lock</strong><small id="appLockSummary">Off</small></span><span class="privacy-chevron">›</span>
+          </button>
+
+          <div class="privacy-extra-controls">
+            <div class="privacy-setting-toggle-row compact"><div class="privacy-setting-copy"><strong>Typing indicators</strong><small>Show when you're typing in a conversation.</small></div><label class="toggle"><input id="typingIndicatorsToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
+            <div class="privacy-profile-discovery-row">
+              <div class="privacy-setting-copy"><strong>Profile visibility</strong><small>Who can discover your CUNNACT profile.</small></div>
+              <select id="profileVisibility"><option value="public">Public</option><option value="private">Private</option></select>
+            </div>
+            <div class="privacy-setting-toggle-row compact"><div class="privacy-setting-copy"><strong>Appear in discovery</strong><small>Allow your profile to appear in search.</small></div><label class="toggle"><input id="discoverableToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
+          </div>
         </div>
-        <div class="privacy-row-v6"><span>Blocked users</span><span>Managed from chat menus</span></div>
-        <div class="privacy-row-v6"><span>Saved messages</span><span>Available from the chat sidebar</span></div>
       </section>
+
+      <div id="privacyChoiceModal" class="privacy-choice-modal" hidden>
+        <div class="privacy-choice-sheet" role="dialog" aria-modal="true" aria-labelledby="privacyChoiceTitle">
+          <div class="privacy-choice-head"><button id="privacyChoiceClose" type="button" aria-label="Close">×</button><div><span>CUNNACT PRIVACY</span><h3 id="privacyChoiceTitle">Privacy</h3></div></div>
+          <div id="privacyChoiceBody" class="privacy-choice-body"></div>
+        </div>
+      </div>
+
       <section id="securitySection" class="settings-card-v6">
         <div class="section-heading-v6"><div class="section-icon purple"><span style="font-size:18px">🔐</span></div><div><h2>Security</h2><p>Protect your CUNNACT account and current device.</p></div></div>
         <div class="preference-row-v6"><div><strong>App lock</strong><p>Lock the CUNNACT interface after you leave it.</p></div><label class="toggle"><input id="appLockToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
@@ -147,11 +225,58 @@
       </section>
 
 
-      <section id="dataSection" class="settings-card-v6 account-tools-card">
-        <div class="section-heading-v6"><div class="section-icon green"><span style="font-size:18px">☁️</span></div><div><h2>Backup & data</h2><p>Keep a portable copy of your CUNNACT data and restore your own content later.</p></div></div>
-        <div class="preference-row-v6"><div><strong>Backup</strong><p>Download a JSON backup containing your profile, settings, chats, media metadata and account data available to this account.</p></div><button id="exportBackupBtn" type="button" class="btn btn-soft btn-sm">Download backup</button></div>
-        <div class="preference-row-v6"><div><strong>Restore</strong><p>Restore settings and messages you originally sent. Backups are account-bound for safety.</p></div><button id="restoreBackupBtn" type="button" class="btn btn-soft btn-sm">Restore backup</button><input id="restoreBackupInput" type="file" hidden accept="application/json,.json"></div>
-        <div class="preference-row-v6"><div><strong>Account data</strong><p>Download the same portable export for your records.</p></div><button id="downloadAccountDataBtn" type="button" class="btn btn-soft btn-sm">Download account data</button></div>
+      <section id="dataSection" class="settings-card-v6 account-settings-screen">
+        <div class="account-settings-heading">
+          <button class="settings-section-back" type="button" data-target="#generalSection" aria-label="Back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <h2>Account</h2>
+        </div>
+
+        <div class="account-settings-list">
+          <button class="account-settings-item" type="button" data-account-action="security-notifications">
+            <span class="account-settings-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3 4.5 6.2v5.1c0 4.7 3 8.1 7.5 9.7 4.5-1.6 7.5-5 7.5-9.7V6.2L12 3Z"/><path d="M12 8v4"/><circle cx="12" cy="15.5" r=".8" fill="currentColor" stroke="none"/></svg>
+            </span>
+            <span>Security notifications</span>
+          </button>
+
+          <button class="account-settings-item" type="button" data-account-action="request-info">
+            <span class="account-settings-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M7 3.5h7l4 4V20.5H7z"/><path d="M14 3.5v5h4"/><path d="M9.5 12h5M9.5 15.5h5"/></svg>
+            </span>
+            <span>Request account info</span>
+          </button>
+
+          <button class="account-settings-item" type="button" data-account-action="delete-account-info">
+            <span class="account-settings-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8.5"/><path d="M12 10v5"/><circle cx="12" cy="7" r=".8" fill="currentColor" stroke="none"/></svg>
+            </span>
+            <span>How to delete my account</span>
+          </button>
+        </div>
+
+        <div class="account-settings-legacy" aria-hidden="true">
+          <button id="exportBackupBtn" type="button">Download backup</button>
+          <button id="restoreBackupBtn" type="button">Restore backup</button>
+          <input id="restoreBackupInput" type="file" hidden accept="application/json,.json">
+          <button id="downloadAccountDataBtn" type="button">Download account data</button>
+        </div>
+      </section>
+      <section id="videoVoiceSection" class="settings-card-v6" hidden>
+        <div class="section-heading-v6"><div class="section-icon purple"><span style="font-size:18px">◻</span></div><div><h2>Video & voice</h2><p>Camera, microphone & speakers</p></div></div>
+        <div class="preference-row-v6"><div><strong>Camera and microphone</strong><p>Device preferences for CUNNACT calls.</p></div></div>
+      </section>
+      <section id="notificationsSection" class="settings-card-v6" hidden>
+        <div class="section-heading-v6"><div class="section-icon orange"><span style="font-size:18px">♧</span></div><div><h2>Notifications</h2><p>Messages, groups and sounds</p></div></div>
+        <div class="preference-row-v6"><div><strong>Notification settings</strong><p>Notification controls will be configured here next.</p></div></div>
+      </section>
+      <section id="keyboardShortcutsSection" class="settings-card-v6" hidden>
+        <div class="section-heading-v6"><div class="section-icon purple"><span style="font-size:18px">⌨</span></div><div><h2>Keyboard shortcuts</h2><p>Quick actions</p></div></div>
+        <div class="preference-row-v6"><div><strong>Shortcut guide</strong><p>Use Ctrl + / - to adjust font size.</p></div></div>
+      </section>
+      <section id="helpSection" class="settings-card-v6" hidden>
+        <div class="section-heading-v6"><div class="section-icon green"><span style="font-size:18px">?</span></div><div><h2>Help and feedback</h2><p>Help centre, contact us, privacy policy</p></div></div>
       </section>
       <section id="dangerSection" class="settings-card-v6 danger-account-card">
         <div class="section-heading-v6"><div class="section-icon orange"><span style="font-size:18px">⚠️</span></div><div><h2>Danger zone</h2><p>Deleting your account signs you out everywhere and removes your CUNNACT identity. Shared chats keep a “Deleted account” placeholder so other participants are not left with broken conversations.</p></div></div>
@@ -170,48 +295,111 @@
 <script type="module" src="js/profile.js"></script>
 <script>
 (function(){
-  const detail=document.getElementById('settingsDetail');
   const title=document.getElementById('settingsDetailTitle');
   const subtitle=document.getElementById('settingsDetailSubtitle');
   const items=[...document.querySelectorAll('.settings-nav-item')];
+  const sections=[...document.querySelectorAll('.settings-detail-scroll .settings-card-v6')];
   const map={
-    '#profileSection':['Profile','Name, profile picture and username'],
+    '#generalSection':['General','Startup and close'],
     '#privacySection':['Privacy','Discovery, read receipts, typing and visibility'],
     '#securitySection':['Security','Account security and active devices'],
-    '#dataSection':['Account','Backup, restore and account data'],
-    '#preferencesSection':['Chats / General','Theme, retention, sound and last seen'],
-    '#dangerSection':['Delete account','Permanent CUNNACT account removal']
+    '#dataSection':['Account','Security notifications, account info'],
+    '#preferencesSection':['Chats','Theme, wallpaper and chat settings'],
+    '#videoVoiceSection':['Video & voice','Camera, microphone & speakers'],
+    '#notificationsSection':['Notifications','Messages, groups, sounds'],
+    '#keyboardShortcutsSection':['Keyboard shortcuts','Quick actions'],
+    '#helpSection':['Help and feedback','Help centre, contact us, privacy policy'],
+    '#dangerSection':['Log out','']
   };
   function go(target,button){
-    const node=document.querySelector(target); if(!node)return;
-    node.scrollIntoView({behavior:'smooth',block:'start'});
+    const node=document.querySelector(target);
+    if(!node)return;
+    sections.forEach(section=>{section.hidden=section!==node || section.id==='profileSection';});
+    node.hidden=false;
     items.forEach(x=>x.classList.toggle('active',x===button));
     const meta=map[target]||['Settings','CUNNACT preferences'];
-    if(title)title.textContent=meta[0]; if(subtitle)subtitle.textContent=meta[1];
+    if(title)title.textContent=meta[0];
+    if(subtitle)subtitle.textContent=meta[1];
+    document.getElementById('settingsDetail')?.scrollTo({top:0,behavior:'auto'});
   }
   items.forEach(btn=>btn.addEventListener('click',()=>go(btn.dataset.target,btn)));
+  document.querySelectorAll('.settings-section-back').forEach(btn=>btn.addEventListener('click',()=>{ const target=btn.dataset.target || '#generalSection'; const match=items.find(x=>x.dataset.target===target); go(target,match); }));
+  document.querySelectorAll('.account-settings-item').forEach(btn=>btn.addEventListener('click',()=>{
+    const action=btn.dataset.accountAction;
+    const messages={
+      'security-notifications':'Security notifications settings will be added here next.',
+      'request-info':'Account information request will be added here next.',
+      'delete-account-info':'Account deletion guidance will be added here next.'
+    };
+    const msg=messages[action]||'This account option is ready for its functionality.';
+    const status=document.getElementById('profileMessage');
+    if(status){status.textContent=msg; status.className='profile-status is-info';}
+  }));
+
   document.getElementById('settingsSearch')?.addEventListener('input',e=>{
     const q=e.target.value.trim().toLowerCase();
     items.forEach(btn=>btn.hidden=!!q && !btn.textContent.toLowerCase().includes(q));
   });
+
   document.getElementById('profileThemeRailBtn')?.addEventListener('click',()=>{
     const current=document.documentElement.dataset.theme==='dark'?'light':'dark';
-    document.documentElement.dataset.theme=current; localStorage.setItem('cunnact_theme',current);
-    const radio=document.querySelector('input[name="themeMode"][value="'+current+'"]'); if(radio) radio.checked=true;
+    document.documentElement.dataset.theme=current;
+    localStorage.setItem('cunnact_theme',current);
   });
-  document.getElementById('profileRailAvatarBtn')?.addEventListener('click',()=>go('#profileSection',document.querySelector('[data-target="#profileSection"]')));
+
+  const startAtLogin=document.getElementById('startAtLoginToggle');
+  const minimizeToTray=document.getElementById('minimizeToTrayToggle');
+  const language=document.getElementById('generalLanguageSelect');
+  const fontSize=document.getElementById('generalFontSizeSelect');
+  if(startAtLogin)startAtLogin.checked=localStorage.getItem('cunnact_start_at_login')==='true';
+  if(minimizeToTray)minimizeToTray.checked=localStorage.getItem('cunnact_minimize_to_tray')==='true';
+  if(language)language.value=localStorage.getItem('cunnact_language')||'en-GB';
+  if(fontSize){
+    const saved=localStorage.getItem('cunnact_font_scale')||'100';
+    fontSize.value=saved;
+    document.documentElement.style.setProperty('--cunnact-font-scale',(Number(saved)/100).toFixed(2));
+  }
+  startAtLogin?.addEventListener('change',e=>localStorage.setItem('cunnact_start_at_login',String(e.target.checked)));
+  minimizeToTray?.addEventListener('change',e=>localStorage.setItem('cunnact_minimize_to_tray',String(e.target.checked)));
+  language?.addEventListener('change',e=>localStorage.setItem('cunnact_language',e.target.value));
+  fontSize?.addEventListener('change',e=>{
+    localStorage.setItem('cunnact_font_scale',e.target.value);
+    document.documentElement.style.setProperty('--cunnact-font-scale',(Number(e.target.value)/100).toFixed(2));
+  });
+  document.addEventListener('keydown',e=>{
+    if(e.ctrlKey && (e.key==='+' || e.key==='=' || e.key==='-')){
+      e.preventDefault();
+      const vals=[90,100,110,125], current=Number(fontSize?.value||100);
+      const idx=vals.indexOf(current);
+      const next=vals[Math.min(vals.length-1,Math.max(0,idx+(e.key==='-'?-1:1)))];
+      if(fontSize){fontSize.value=String(next);fontSize.dispatchEvent(new Event('change'));}
+    }
+  });
+
+  document.getElementById('profileRailAvatarBtn')?.addEventListener('click',()=>go('#generalSection',document.querySelector('[data-target="#generalSection"]')));
   document.getElementById('settingsAvatarButton')?.addEventListener('click',()=>document.getElementById('avatarButton')?.click());
   document.getElementById('shareProfileTopBtn')?.addEventListener('click',()=>document.getElementById('shareProfileBtn')?.click());
+
+  const src=document.getElementById('profileAvatar');
   const syncPreview=()=>{
-    const src=document.getElementById('profileAvatar'); const dst=document.getElementById('settingsSidebarAvatar'); const rail=document.getElementById('profileRailAvatar');
+    const dst=document.getElementById('settingsSidebarAvatar'), rail=document.getElementById('profileRailAvatar');
     if(!src||!dst)return;
     const srcImg=src.querySelector('img'), srcFallback=src.querySelector('.avatar-fallback');
-    [dst,rail].forEach(w=>{ if(!w)return; const di=w.querySelector('img'), df=w.querySelector('.avatar-fallback'); if(di&&srcImg){di.src=srcImg.src;di.hidden=srcImg.hidden;} if(df&&srcFallback){df.textContent=srcFallback.textContent;df.hidden=srcFallback.hidden;df.style.background=getComputedStyle(srcFallback).background;} });
-    const name=document.getElementById('heroDisplayName')?.textContent||'Your name'; const side=document.getElementById('settingsPreviewName'); const sideTitle=document.getElementById('settingsSidebarName'); if(side)side.textContent=name; if(sideTitle)sideTitle.textContent=name;
+    [dst,rail].forEach(w=>{
+      if(!w)return; const di=w.querySelector('img'), df=w.querySelector('.avatar-fallback');
+      if(di&&srcImg){di.src=srcImg.src;di.hidden=srcImg.hidden;}
+      if(df&&srcFallback){df.textContent=srcFallback.textContent;df.hidden=srcFallback.hidden;df.style.background=getComputedStyle(srcFallback).background;}
+    });
+    const name=document.getElementById('heroDisplayName')?.textContent||'Your name';
+    const side=document.getElementById('settingsPreviewName'), sideTitle=document.getElementById('settingsSidebarName');
+    if(side)side.textContent=name; if(sideTitle)sideTitle.textContent=name;
   };
-  const src=document.getElementById('profileAvatar'); if(src){syncPreview();new MutationObserver(syncPreview).observe(src,{childList:true,subtree:true,attributes:true});}
+  if(src){syncPreview();new MutationObserver(syncPreview).observe(src,{childList:true,subtree:true,attributes:true});}
   document.getElementById('profileName')?.addEventListener('input',syncPreview);
   document.getElementById('profileUsername')?.addEventListener('input',syncPreview);
+
+  const generalBtn=document.querySelector('[data-target="#generalSection"]');
+  go('#generalSection',generalBtn);
 })();
 </script>
 </body>

@@ -1,6 +1,6 @@
 import {
   auth, db, functions, httpsCallable, onAuthStateChanged, updateProfile, doc, getDoc, getDocs, setDoc,
-  updateDoc, serverTimestamp, runTransaction, multiFactor, RecaptchaVerifier, collection, query, where, orderBy, limit,
+  updateDoc, deleteDoc, serverTimestamp, runTransaction, multiFactor, RecaptchaVerifier, collection, query, where, orderBy, limit,
   PhoneAuthProvider, PhoneMultiFactorGenerator, EmailAuthProvider,
   reauthenticateWithCredential, reauthenticateWithPopup, GoogleAuthProvider
 } from "./firebase.js";
@@ -21,6 +21,7 @@ let usernameToken = 0;
 let uploadController = null;
 let pendingTheme = localStorage.getItem("cunnact_theme") || "light";
 let profileSettings = {};
+let currentUserData = {};
 let recaptchaVerifier = null;
 let mfaVerificationId = null;
 let mfaUser = null;
@@ -33,6 +34,7 @@ const suggestedUsername = (name, email) => {
   return raw.slice(0,24) || "cunnacter";
 };
 function setStatus(text="", type="") { const el=$("profileMessage"); if(el){el.textContent=text;el.className=`profile-status ${type}`.trim();} }
+function escapeHtml(value){return String(value??"").replace(/[&<>"\']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","\'":"&#039;"}[ch]));}
 function updateBioCount(){const b=$("profileBio"),c=$("bioCount");if(b&&c)c.textContent=String(b.value.length);}
 function updatePreview(){const name=$("profileName")?.value.trim()||"Your name", u=normalizeUsername($("profileUsername")?.value)||"username";$("heroDisplayName").textContent=name;$("heroUsername").textContent=`@${u}`;$("publicProfileState").textContent=`@${u}`;}
 async function usernameAvailable(value){
@@ -68,6 +70,7 @@ onAuthStateChanged(auth,async(user)=>{
     const userSnap=await getDoc(doc(db,"users",user.uid)), data=userSnap.exists()?userSnap.data():{};
     const settingsSnap=await getDoc(doc(db,"userSettings",user.uid)), settings=settingsSnap.exists()?settingsSnap.data():{};
     profileSettings=settings;
+    currentUserData = data || {};
     const name=data.name||user.displayName||user.email||"User", username=normalizeUsername(data.username||""), bio=data.bio||"";
     currentPhotoURL=data.photoURL||user.photoURL||"";pendingTheme=settings.theme||localStorage.getItem("cunnact_theme")||"light";applyLocalTheme(pendingTheme);
     original={name,username,bio,photoURL:currentPhotoURL,retention:settings.retentionMode||"24hours",sound:settings.soundEnabled!==false,theme:pendingTheme};
@@ -81,6 +84,7 @@ onAuthStateChanged(auth,async(user)=>{
     if($("profileVisibility"))$("profileVisibility").value=data.profileVisibility||"public";
     if($("discoverableToggle"))$("discoverableToggle").checked=data.discoverable!==false;
     if($("appLockToggle"))$("appLockToggle").checked=!!settings.appLockEnabled;
+    await updatePrivacySummaries();
     await refreshSecurityUI();
     bindAccountTools({userRef:()=>currentUser});
     const pushBtn=$("pushNotificationsBtn"); if(pushBtn){pushBtn.textContent=notificationsAreEnabled()?"Enabled":"Enable";pushBtn.classList.toggle("is-enabled",notificationsAreEnabled());}
@@ -105,7 +109,6 @@ $("photoInput")?.addEventListener("change",async()=>{
 document.querySelectorAll('input[name="retention"]').forEach(r=>r.addEventListener("change",async(e)=>{try{await setRetentionMode(e.target.value,currentUser.uid);showToast(e.target.value==="seen"?"Messages will remove after they're seen":"Messages will remove after 24 hours","success");}catch(err){console.error(err);showToast("Could not save retention setting","error");}}));
 $("soundToggle")?.addEventListener("change",async(e)=>{const enabled=!!e.target.checked;setSoundEnabled(enabled);try{await setUserSetting(currentUser.uid,{soundEnabled:enabled});}catch(err){console.error(err);}if(enabled)playClick();});
 document.querySelectorAll('input[name="themeMode"]').forEach(r=>r.addEventListener("change",async(e)=>{applyLocalTheme(e.target.value);try{await setUserSetting(currentUser.uid,{theme:pendingTheme});}catch(err){console.warn(err);}playClick();}));
-$("lastSeenToggle")?.addEventListener("change",async(e)=>{const showLastSeen=!!e.target.checked;try{await updateDoc(doc(db,"users",currentUser.uid),{hideLastSeen:!showLastSeen});showToast(showLastSeen?"Others can see your last seen again":"Your last seen is now hidden — you also won't see others'","success");}catch(err){console.error(err);e.target.checked=!showLastSeen;showToast("Could not update last seen setting","error");}playClick();});
 $("shareProfileBtn")?.addEventListener("click",async()=>{const username=normalizeUsername($("profileUsername").value);if(!username){showToast("Set a CUNNACT ID before sharing your profile.","info");$("profileUsername").focus();return;}const url=`${location.origin}/u/${encodeURIComponent(username)}`,text=`Connect with me on CUNNACT:\n@${username}`;try{if(navigator.share)await navigator.share({title:"CUNNACT profile",text,url});else{await navigator.clipboard.writeText(url);showToast("Profile link copied ✓","success");}}catch(e){if(e.name!=="AbortError")showToast("Could not share profile link","error");}});
 $("backToChat")?.addEventListener("click",()=>location.href="index.html");$("cancelProfileBtn")?.addEventListener("click",()=>location.href="index.html");
 
@@ -209,11 +212,89 @@ async function manageMfa(){
 }
 
 $("mfaPrimaryBtn")?.addEventListener("click",manageMfa);
-$("readReceiptsToggle")?.addEventListener("change",e=>{if(currentUser)setUserSetting(currentUser.uid,{showReadReceipts:e.target.checked});});
-$("typingIndicatorsToggle")?.addEventListener("change",e=>{if(currentUser)setUserSetting(currentUser.uid,{showTypingIndicators:e.target.checked});});
-$("lastSeenToggle")?.addEventListener("change",async e=>{if(!currentUser)return;const value=!e.target.checked;try{await updateDoc(doc(db,"users",currentUser.uid),{hideLastSeen:value,updatedAt:serverTimestamp()});currentUserData={...currentUserData,hideLastSeen:value};showToast(value?"Last seen hidden":"Last seen visible","success");}catch{e.target.checked=!e.target.checked;showToast("Could not update last seen","error");}});
-$("profileVisibility")?.addEventListener("change",async e=>{if(!currentUser)return;const value=e.target.value;await updateDoc(doc(db,"users",currentUser.uid),{profileVisibility:value});await updateDoc(doc(db,"publicProfiles",currentUser.uid),{profileVisibility:value}).catch(()=>{});showToast(value==="public"?"Profile is public":"Profile is private","success");});
-$("discoverableToggle")?.addEventListener("change",async e=>{if(!currentUser)return;const value=!!e.target.checked;await updateDoc(doc(db,"users",currentUser.uid),{discoverable:value});await updateDoc(doc(db,"publicProfiles",currentUser.uid),{discoverable:value}).catch(()=>{});showToast(value?"Profile can appear in discovery":"Profile hidden from discovery","success");});
+$("readReceiptsToggle")?.addEventListener("change",async e=>{if(!currentUser)return;try{await setUserSetting(currentUser.uid,{showReadReceipts:e.target.checked});showToast(e.target.checked?"Read receipts enabled":"Read receipts disabled","success");}catch(err){console.error(err);e.target.checked=!e.target.checked;showToast("Could not update read receipts","error");}});
+$("typingIndicatorsToggle")?.addEventListener("change",async e=>{if(!currentUser)return;try{await setUserSetting(currentUser.uid,{showTypingIndicators:e.target.checked});showToast(e.target.checked?"Typing indicators enabled":"Typing indicators disabled","success");}catch(err){console.error(err);e.target.checked=!e.target.checked;showToast("Could not update typing indicators","error");}});
+$("lastSeenToggle")?.addEventListener("change",async e=>{if(!currentUser)return;const value=!e.target.checked;try{await updateDoc(doc(db,"users",currentUser.uid),{hideLastSeen:value,updatedAt:serverTimestamp()});showToast(value?"Last seen hidden":"Last seen visible","success");}catch(err){console.error(err);e.target.checked=!e.target.checked;showToast("Could not update last seen","error");}});
+$("profileVisibility")?.addEventListener("change",async e=>{if(!currentUser)return;const value=e.target.value;try{await updateDoc(doc(db,"users",currentUser.uid),{profileVisibility:value});await updateDoc(doc(db,"publicProfiles",currentUser.uid),{profileVisibility:value}).catch(()=>{});showToast(value==="public"?"Profile is public":"Profile is private","success");}catch(err){console.error(err);showToast("Could not update profile visibility","error");}});
+$("discoverableToggle")?.addEventListener("change",async e=>{if(!currentUser)return;const value=!!e.target.checked;try{await updateDoc(doc(db,"users",currentUser.uid),{discoverable:value});await updateDoc(doc(db,"publicProfiles",currentUser.uid),{discoverable:value}).catch(()=>{});showToast(value?"Profile can appear in discovery":"Profile hidden from discovery","success");}catch(err){console.error(err);e.target.checked=!e.target.checked;showToast("Could not update discovery setting","error");}});
+
+function privacySummary(value){
+  const map={everyone:"Everyone",contacts:"My contacts",nobody:"Nobody"};
+  return map[value]||"Everyone";
+}
+function getPrivacySettings(){
+  return {
+    lastSeen: profileSettings.lastSeenAudience || (currentUserData?.hideLastSeen===true ? "nobody" : "everyone"),
+    profilePicture: profileSettings.profilePictureAudience || "everyone",
+    about: profileSettings.aboutAudience || "everyone",
+    groups: profileSettings.groupPrivacy || "everyone",
+    defaultTimer: profileSettings.retentionMode || getRetentionMode(),
+    tracePrivacy: profileSettings.traceAudienceDefault || "public"
+  };
+}
+async function savePrivacyField(field,value,label,summaryId){
+  if(!currentUser)return;
+  try{
+    await setUserSetting(currentUser.uid,{[field]:value});
+    profileSettings={...profileSettings,[field]:value};
+    const node=$(summaryId);if(node)node.textContent=label;
+    showToast(`${label} saved`,'success');
+  }catch(err){console.error(err);showToast('Could not save privacy setting','error');}
+}
+function openPrivacyChoice(kind){
+  const modal=$("privacyChoiceModal"), title=$("privacyChoiceTitle"), body=$("privacyChoiceBody");
+  if(!modal||!title||!body)return;
+  const s=getPrivacySettings();
+  const configs={
+    'last-seen':{title:'Last seen and online',field:'lastSeenAudience',summaryId:'lastSeenSummary',value:s.lastSeen,options:[['everyone','Everyone','Anyone you allow to see your profile can see this.'],['contacts','My contacts','Only people you are connected with.'],['nobody','Nobody','Hide your last seen. Your existing last-seen toggle remains in effect.']]},
+    'profile-picture':{title:'Profile picture',field:'profilePictureAudience',summaryId:'profilePictureSummary',value:s.profilePicture,options:[['everyone','Everyone','Show your profile picture to everyone who can access your profile.'],['contacts','My contacts','Show it to people you are connected with.'],['nobody','Nobody','Hide your profile picture from others.']]},
+    'about':{title:'About',field:'aboutAudience',summaryId:'aboutSummary',value:s.about,options:[['everyone','Everyone','Show your About text to everyone who can access your profile.'],['contacts','My contacts','Show it to connected contacts.'],['nobody','Nobody','Hide your About text from others.']]},
+    'groups':{title:'Groups',field:'groupPrivacy',summaryId:'groupPrivacySummary',value:s.groups,options:[['everyone','Everyone','Anyone can add you to a group when the app supports the request.'],['contacts','My contacts','Only connected contacts can add you.'],['nobody','Nobody','Require an invite/request flow before joining.']]},
+    'default-timer':{title:'Default message timer',field:'retentionMode',summaryId:'defaultTimerSummary',value:s.defaultTimer,options:[['off','Off','Keep messages until you delete them.'],['24hours','24 hours','Messages expire after 24 hours unless saved.'],['seen','After seen','Messages expire after they are read.']]}
+  };
+  const cfg=configs[kind];
+  if(!cfg)return;
+  title.textContent=cfg.title;
+  body.innerHTML=cfg.options.map(([v,l,d])=>`<label class="privacy-choice-option"><span class="copy"><strong>${l}</strong><small>${d}</small></span><input type="radio" name="privacyChoice" value="${v}" ${cfg.value===v?'checked':''}></label>`).join('');
+  body.querySelectorAll('input[name="privacyChoice"]').forEach(input=>input.addEventListener('change',async()=>{
+    const value=input.value;
+    if(cfg.field==='retentionMode'){
+      if(value==='off'){
+        try{await setUserSetting(currentUser.uid,{retentionMode:'off'});profileSettings.retentionMode='off';$(cfg.summaryId).textContent='Off';showToast('Default message timer set to Off','success');}
+        catch(err){console.error(err);showToast('Could not save message timer','error');}
+      }else{try{await setRetentionMode(value,currentUser.uid);profileSettings.retentionMode=value;$(cfg.summaryId).textContent=value==='seen'?'After seen':'24 hours';showToast('Default message timer updated','success');}catch(err){console.error(err);showToast('Could not save message timer','error');}}
+    }else{
+      const summary=privacySummary(value);await savePrivacyField(cfg.field,value,summary,cfg.summaryId);
+      if(cfg.field==='lastSeenAudience'){const hide=value==='nobody';try{await updateDoc(doc(db,'users',currentUser.uid),{hideLastSeen:hide});if($("lastSeenToggle"))$("lastSeenToggle").checked=!hide;}catch(err){console.warn('last seen sync failed',err);}}
+    }
+    modal.hidden=true;
+  }));
+  modal.hidden=false;
+}
+async function openBlockedContacts(){
+  const modal=$("privacyChoiceModal"),title=$("privacyChoiceTitle"),body=$("privacyChoiceBody");if(!modal||!title||!body||!currentUser)return;
+  title.textContent='Blocked contacts';body.innerHTML='<div class="privacy-blocked-empty">Loading blocked contacts…</div>';modal.hidden=false;
+  try{const snap=await getDocs(collection(db,'users',currentUser.uid,'blockedUsers'));
+    const rows=snap.docs.map(d=>{const x=d.data()||{};return `<div class="privacy-blocked-item"><div><strong>${escapeHtml(x.name||x.displayName||x.email||d.id)}</strong><small>${escapeHtml(x.username?`@${x.username}`:d.id)}</small></div><button type="button" class="btn btn-soft btn-sm" data-unblock="${escapeHtml(d.id)}">Unblock</button></div>`}).join('');
+    body.innerHTML=rows||'<div class="privacy-blocked-empty">You have no blocked contacts.</div>';
+    body.querySelectorAll('[data-unblock]').forEach(btn=>btn.addEventListener('click',async()=>{try{await deleteDoc(doc(db,'users',currentUser.uid,'blockedUsers',btn.dataset.unblock));btn.closest('.privacy-blocked-item')?.remove();showToast('Contact unblocked','success');await updatePrivacySummaries();}catch(err){console.error(err);showToast('Could not unblock contact','error');}}));
+  }catch(err){console.error(err);body.innerHTML='<div class="privacy-blocked-empty">Could not load blocked contacts.</div>';}
+}
+function openAppLock(){document.querySelector('[data-target="#securitySection"]')?.click();$("appLockToggle")?.focus();}
+async function updatePrivacySummaries(){
+  const s=getPrivacySettings();
+  $("lastSeenSummary").textContent=privacySummary(s.lastSeen);
+  $("profilePictureSummary").textContent=privacySummary(s.profilePicture);
+  $("aboutSummary").textContent=privacySummary(s.about);
+  $("groupPrivacySummary").textContent=privacySummary(s.groups);
+  $("defaultTimerSummary").textContent=s.defaultTimer==='seen'?'After seen':s.defaultTimer==='24hours'?'24 hours':'Off';
+  $("statusSummary").textContent=s.tracePrivacy==='public'?'Everyone':s.tracePrivacy==='closeFriends'?'Close friends':s.tracePrivacy==='custom'?'Selected people':'Trace audience';
+  if($("blockedContactsSummary")){try{const snap=await getDocs(collection(db,'users',currentUser.uid,'blockedUsers'));$("blockedContactsSummary").textContent=String(snap.size);}catch{}}
+  if($("appLockSummary"))$("appLockSummary").textContent=profileSettings.appLockEnabled?'On':'Off';
+}
+$("privacyChoiceClose")?.addEventListener('click',()=>$("privacyChoiceModal").hidden=true);
+$("privacyChoiceModal")?.addEventListener('click',e=>{if(e.target.id==='privacyChoiceModal')e.currentTarget.hidden=true;});
+document.querySelectorAll('[data-privacy-dialog]').forEach(btn=>btn.addEventListener('click',()=>{const kind=btn.dataset.privacyDialog;if(kind==='blocked')openBlockedContacts();else if(kind==='app-lock')openAppLock();else if(kind==='status'){document.querySelector('[data-target="#preferencesSection"]')?.click();showToast('Trace audience is controlled when you publish a Trace.','info');}else openPrivacyChoice(kind);}));
 $("appLockToggle")?.addEventListener("change",async e=>{if(!currentUser)return;const enable=!!e.target.checked;if(enable){const pin=window.prompt("Create a 4–8 digit app lock PIN");if(!/^\d{4,8}$/.test(pin||"")){e.target.checked=false;showToast("PIN must be 4–8 digits.","error");return;}const {salt,hash}=await createPinHash(pin);await setDoc(doc(db,"userSettings",currentUser.uid),{appLockEnabled:true,appLockSalt:salt,appLockHash:hash},{merge:true});profileSettings={...profileSettings,appLockEnabled:true,appLockSalt:salt,appLockHash:hash};await writeSecurityEvent(currentUser,{type:"app_lock_enabled",details:"App lock enabled"});showToast("App lock enabled","success");}else{await setDoc(doc(db,"userSettings",currentUser.uid),{appLockEnabled:false,appLockSalt:null,appLockHash:null},{merge:true});profileSettings={...profileSettings,appLockEnabled:false};await writeSecurityEvent(currentUser,{type:"app_lock_disabled",details:"App lock disabled"});showToast("App lock disabled","info");}});
 $("refreshSessionsBtn")?.addEventListener("click",refreshSecurityUI);
 $("signOutOtherDevicesBtn")?.addEventListener("click",async()=>{if(!currentUser)return;try{const count=await revokeOtherDevices(currentUser);await writeSecurityEvent(currentUser,{type:"sessions_revoked",details:`Signed out ${Math.max(0,count-1)} other device session(s)`});showToast("Other devices signed out","success");refreshSecurityUI();}catch(e){console.error(e);showToast("Could not sign out other devices.","error");}});
