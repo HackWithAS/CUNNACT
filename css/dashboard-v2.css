@@ -1489,3 +1489,20 @@ body{background:var(--bg);}
  .trace-viewer-edge-prev{left:8px!important;}.trace-viewer-edge-next{right:8px!important;}
  .trace-viewer-replybar{bottom:max(9px,env(safe-area-inset-bottom))!important;width:calc(100vw - 16px)!important;border-radius:18px!important;}
 }
+
+/* ============================================================
+   CUNNACT TRACE FINAL LAYOUT FIX
+   The Trace screen uses the same three-column shell as the
+   WhatsApp-style reference: nav rail | Trace list | workspace.
+   The normal Chats sidebar must not occupy a blank column.
+   ============================================================ */
+#app.status-open .sidebar{display:none!important;}
+#app.status-open .chat-panel{display:none!important;}
+#app.status-open .status-side-view{display:flex!important;grid-column:2!important;grid-row:1!important;height:100dvh!important;min-height:0!important;}
+#app.status-open .status-main-panel{display:grid!important;grid-column:3!important;grid-row:1!important;height:100dvh!important;min-height:0!important;}
+@media(max-width:820px){
+  #app.status-open .sidebar{display:none!important;}
+  #app.status-open .status-side-view{display:flex!important;grid-column:1!important;grid-row:1!important;height:calc(100dvh - 62px)!important;}
+  #app.status-open .status-main-panel{display:none!important;}
+  #app.status-open .chat-panel{display:none!important;}
+}
