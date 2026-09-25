@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 270" role="img" aria-labelledby="title desc">
+  <title id="title">CUNNACT</title>
+  <desc id="desc">CUNNACT logo and Stay Connected tagline for light backgrounds.</desc>
+  <svg x="0" y="0" width="240" height="240" viewBox="0 0 512 512">
+    <defs>
+      <linearGradient id="cunnactRing" x1="108" y1="400" x2="410" y2="112" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#7653FA"/>
+        <stop offset="0.52" stop-color="#2376FC"/>
+        <stop offset="1" stop-color="#01B3D9"/>
+      </linearGradient>
+    </defs>
+    <path d="M378.9 342 A150 150 0 1 1 378.9 170" fill="none" stroke="url(#cunnactRing)" stroke-width="92" stroke-linecap="round"/>
+    <circle cx="238" cy="256" r="15" fill="#01B3D9"/>
+    <circle cx="288" cy="256" r="15" fill="#01B3D9"/>
+    <circle cx="338" cy="256" r="15" fill="#01B3D9"/>
+  </svg>
+  <text x="275" y="134" font-family="Inter,Arial,sans-serif" font-size="74" font-weight="800" letter-spacing="2" fill="#171F30">CUNNACT</text>
+  <text x="279" y="180" font-family="Inter,Arial,sans-serif" font-size="24" font-weight="650" letter-spacing="7" fill="#2376FC">STAY CONNECTED.</text>
+</svg>
