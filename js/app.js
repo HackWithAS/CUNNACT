@@ -684,7 +684,7 @@ function bindStaticControls() {
     playClick();
     const composer = $id("communityComposerModal");
     if (composer) openModal("communityComposerModal");
-    else $id("navCommunitiesBtn")?.click();
+    else $id("navRequestsBtn")?.click();
   });
   $id("newChatRequestsBtn")?.addEventListener("click", () => { playClick(); openModal("requestsModal"); });
   $id("newChatContactsBtn")?.addEventListener("click", () => {
