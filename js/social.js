@@ -409,7 +409,7 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
   }
   function bind(){
     if(socialBound)return;socialBound=true;
-    $("navStoriesBtn")?.addEventListener("click",()=>{closeChannelsPage();openStatusPage();});$("navCommunitiesBtn")?.addEventListener("click",()=>openChannelsPage());
+    $("navStoriesBtn")?.addEventListener("click",()=>{closeChannelsPage();openStatusPage();});
     $("navChatsBtn")?.addEventListener("click",()=>{window.closeCallsPage?.();closeStatusPage();closeChannelsPage();});$("navNewChatBtn")?.addEventListener("click",()=>{window.closeCallsPage?.();closeStatusPage();closeChannelsPage();});$("newChatBtn")?.addEventListener("click",()=>{window.closeCallsPage?.();closeStatusPage();closeChannelsPage();});
     $("channelsCreateBtn")?.addEventListener("click",()=>openModal("channelComposerModal"));
     $("channelsViewSearch")?.addEventListener("input",e=>renderChannelList(e.target.value));
