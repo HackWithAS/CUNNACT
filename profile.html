@@ -93,11 +93,11 @@
         </div>
         <div class="settings-section-label">Startup and close</div>
         <div class="preference-row-v6 general-setting-row">
-          <div><strong>Start CUNNACT at login</strong></div>
+          <div><strong>Remember CUNNACT session</strong></div>
           <label class="toggle"><input id="startAtLoginToggle" type="checkbox"><span class="toggle-slider"></span></label>
         </div>
         <div class="preference-row-v6 general-setting-row">
-          <div><strong>Minimise to system tray</strong><p>Keep CUNNACT running after closing the application window</p></div>
+          <div><strong>Keep CUNNACT active in background</strong><p>Keep browser notifications and background activity enabled when this tab is not focused</p></div>
           <label class="toggle"><input id="minimizeToTrayToggle" type="checkbox"><span class="toggle-slider"></span></label>
         </div>
         <div class="settings-section-label general-subsection-label">Language</div>
@@ -119,6 +119,7 @@
           </select>
         </label>
         <p class="general-font-hint">Use Ctrl + / - to increase or decrease text size</p>
+        <p class="general-font-hint">These settings are saved for this browser. OS-level auto-start and system-tray controls are not available to a normal website.</p>
       </section>
 
       <section id="profileSection" class="settings-card-v6" hidden>
@@ -262,9 +263,13 @@
           <button id="downloadAccountDataBtn" type="button">Download account data</button>
         </div>
       </section>
-      <section id="videoVoiceSection" class="settings-card-v6" hidden>
-        <div class="section-heading-v6"><div class="section-icon purple"><span style="font-size:18px">◻</span></div><div><h2>Video & voice</h2><p>Camera, microphone & speakers</p></div></div>
-        <div class="preference-row-v6"><div><strong>Camera and microphone</strong><p>Device preferences for CUNNACT calls.</p></div></div>
+      <section id="videoVoiceSection" class="settings-card-v6 settings-subpage" hidden>
+        <div class="settings-inline-page-head"><button class="settings-section-back" type="button" data-target="#generalSection" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Video & voice</h2></div>
+        <div class="settings-page-intro"><strong>Camera, microphone & speakers</strong><p>Choose the devices CUNNACT should use for calls. Permission is requested only when you test a device.</p></div>
+        <div class="device-control-card"><div><strong>Camera</strong><small id="cameraDeviceStatus">Not tested</small></div><button id="testCameraBtn" class="btn btn-soft btn-sm" type="button">Test camera</button></div>
+        <video id="cameraPreview" class="camera-preview" autoplay muted playsinline hidden></video>
+        <div class="device-control-card"><div><strong>Microphone</strong><small id="microphoneDeviceStatus">Not tested</small></div><button id="testMicrophoneBtn" class="btn btn-soft btn-sm" type="button">Test microphone</button></div>
+        <div class="device-control-card"><div><strong>Speakers</strong><small>Browser speaker output follows your system audio device.</small></div><button id="testSpeakerBtn" class="btn btn-soft btn-sm" type="button">Test sound</button></div>
       </section>
       <section id="notificationsSection" class="settings-card-v6 notifications-settings-v7" hidden>
         <div class="settings-inline-page-head">
@@ -301,12 +306,24 @@
           <p class="notification-help">Browser notifications work while CUNNACT is open in this browser. Background push across a fully closed browser additionally needs Firebase Web Push/VAPID configuration.</p>
         </div>
       </section>
-      <section id="keyboardShortcutsSection" class="settings-card-v6" hidden>
-        <div class="section-heading-v6"><div class="section-icon purple"><span style="font-size:18px">⌨</span></div><div><h2>Keyboard shortcuts</h2><p>Quick actions</p></div></div>
-        <div class="preference-row-v6"><div><strong>Shortcut guide</strong><p>Use Ctrl + / - to adjust font size.</p></div></div>
+      <section id="keyboardShortcutsSection" class="settings-card-v6 settings-subpage" hidden>
+        <div class="settings-inline-page-head"><button class="settings-section-back" type="button" data-target="#generalSection" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Keyboard shortcuts</h2></div>
+        <div class="shortcut-list">
+          <div><span>Search</span><kbd>Ctrl</kbd><kbd>K</kbd></div>
+          <div><span>New chat</span><kbd>Ctrl</kbd><kbd>N</kbd></div>
+          <div><span>Mark current chat unread</span><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>U</kbd></div>
+          <div><span>Increase font size</span><kbd>Ctrl</kbd><kbd>+</kbd></div>
+          <div><span>Decrease font size</span><kbd>Ctrl</kbd><kbd>−</kbd></div>
+          <div><span>Close current panel</span><kbd>Esc</kbd></div>
+        </div>
       </section>
-      <section id="helpSection" class="settings-card-v6" hidden>
-        <div class="section-heading-v6"><div class="section-icon green"><span style="font-size:18px">?</span></div><div><h2>Help and feedback</h2><p>Help centre, contact us, privacy policy</p></div></div>
+      <section id="helpSection" class="settings-card-v6 settings-subpage" hidden>
+        <div class="settings-inline-page-head"><button class="settings-section-back" type="button" data-target="#generalSection" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6 6"/></svg></button><h2>Help and feedback</h2></div>
+        <div class="help-list">
+          <button type="button" id="helpContactBtn"><strong>Contact CUNNACT support</strong><small>Open your email app with a pre-filled support message.</small><span>›</span></button>
+          <button type="button" id="helpFeedbackBtn"><strong>Send feedback</strong><small>Tell us what should be improved in CUNNACT.</small><span>›</span></button>
+          <button type="button" id="helpPrivacyBtn"><strong>Privacy information</strong><small>Open the privacy page available in this CUNNACT build.</small><span>›</span></button>
+        </div>
       </section>
       <section id="dangerSection" class="settings-card-v6 danger-account-card">
         <div class="section-heading-v6"><div class="section-icon orange"><span style="font-size:18px">⚠️</span></div><div><h2>Danger zone</h2><p>Deleting your account signs you out everywhere and removes your CUNNACT identity. Shared chats keep a “Deleted account” placeholder so other participants are not left with broken conversations.</p></div></div>
@@ -353,19 +370,13 @@
     document.getElementById('settingsDetail')?.scrollTo({top:0,behavior:'auto'});
   }
   items.forEach(btn=>btn.addEventListener('click',()=>go(btn.dataset.target,btn)));
-  document.querySelectorAll('.settings-section-back').forEach(btn=>btn.addEventListener('click',()=>{ const target=btn.dataset.target || '#generalSection'; const match=items.find(x=>x.dataset.target===target); go(target,match); }));
-  document.querySelectorAll('.account-settings-item').forEach(btn=>btn.addEventListener('click',()=>{
-    const action=btn.dataset.accountAction;
-    const messages={
-      'security-notifications':'Security notifications settings will be added here next.',
-      'request-info':'Account information request will be added here next.',
-      'delete-account-info':'Account deletion guidance will be added here next.'
-    };
-    const msg=messages[action]||'This account option is ready for its functionality.';
-    const status=document.getElementById('profileMessage');
-    if(status){status.textContent=msg; status.className='profile-status is-info';}
-  }));
+  const initialHash=window.location.hash;
+  if(initialHash && document.querySelector(initialHash) && items.some(x=>x.dataset.target===initialHash)){
+    const match=items.find(x=>x.dataset.target===initialHash);
+    go(initialHash,match);
+  }
 
+  document.querySelectorAll('.settings-section-back').forEach(btn=>btn.addEventListener('click',()=>{ const target=btn.dataset.target || '#generalSection'; const match=items.find(x=>x.dataset.target===target); go(target,match); }));
   document.getElementById('settingsSearch')?.addEventListener('input',e=>{
     const q=e.target.value.trim().toLowerCase();
     items.forEach(btn=>btn.hidden=!!q && !btn.textContent.toLowerCase().includes(q));
@@ -389,8 +400,15 @@
     fontSize.value=saved;
     document.documentElement.style.setProperty('--cunnact-font-scale',(Number(saved)/100).toFixed(2));
   }
-  startAtLogin?.addEventListener('change',e=>localStorage.setItem('cunnact_start_at_login',String(e.target.checked)));
-  minimizeToTray?.addEventListener('change',e=>localStorage.setItem('cunnact_minimize_to_tray',String(e.target.checked)));
+  startAtLogin?.addEventListener('change',e=>{
+    localStorage.setItem('cunnact_start_at_login',String(e.target.checked));
+  });
+  minimizeToTray?.addEventListener('change',async e=>{
+    localStorage.setItem('cunnact_minimize_to_tray',String(e.target.checked));
+    if(e.target.checked && 'Notification' in window && Notification.permission==='default'){
+      try{await Notification.requestPermission();}catch{}
+    }
+  });
   language?.addEventListener('change',e=>localStorage.setItem('cunnact_language',e.target.value));
   fontSize?.addEventListener('change',e=>{
     localStorage.setItem('cunnact_font_scale',e.target.value);

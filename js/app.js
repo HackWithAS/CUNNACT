@@ -718,6 +718,7 @@ function renderOwnProfileSettings(){
     ["Chats","Theme, wallpaper, chat settings","▤","chats"],
     ["Video & voice","Camera, microphone & speakers","◫","calls"],
     ["Notifications","Messages, groups, sounds","♧","notifications"],
+    ["Security","App lock, verification, connected devices","▣","security"],
     ["Keyboard shortcuts","Quick actions","⌨","shortcuts"],
     ["Help and feedback","Help centre, contact us, privacy policy","?","help"]
   ];
@@ -741,6 +742,7 @@ function renderOwnProfileSettings(){
     chats:"#preferencesSection",
     calls:"#videoVoiceSection",
     notifications:"#notificationsSection",
+    security:"#securitySection",
     shortcuts:"#keyboardShortcutsSection",
     help:"#helpSection"
   };

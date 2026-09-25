@@ -369,3 +369,60 @@ $("profileForm")?.addEventListener("submit",async(e)=>{
     updatePreview();setStatus("Changes saved ✓");showToast("Profile updated","success");
   }catch(err){console.error("Profile save failed",err);setStatus(err?.message==="USERNAME_TAKEN"?"That CUNNACT ID is already taken.":"Could not save your profile. Please try again.","error");}
 });
+
+// Settings 2.0 interaction layer: account actions, media tests and help links.
+function downloadTextFile(filename, text){
+  const blob=new Blob([text],{type:'application/json'}), url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+// Account actions should perform a real action instead of showing placeholder text.
+document.querySelector('[data-account-action="security-notifications"]')?.addEventListener('click',()=>{
+  document.querySelector('[data-target="#securitySection"]')?.click();
+});
+document.querySelector('[data-account-action="request-info"]')?.addEventListener('click',async()=>{
+  if(!currentUser)return;
+  try{
+    const snap=await getDoc(doc(db,"users",currentUser.uid));
+    const data=snap.exists()?snap.data():{};
+    const safe={name:data.name||currentUser.displayName||"",email:currentUser.email||"",username:data.username||"",bio:data.bio||"",createdAt:data.createdAt||null};
+    downloadTextFile(`cunnact-account-info-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(safe,null,2));
+    showToast("Account information downloaded","success");
+  }catch(err){console.error(err);showToast("Could not prepare account information","error");}
+});
+document.querySelector('[data-account-action="delete-account-info"]')?.addEventListener('click',()=>{
+  showToast("To delete your account, open the Log out / Danger zone section below and choose Delete my CUNNACT account.","info");
+});
+
+let settingsMediaStream=null;
+async function stopSettingsCamera(){
+  settingsMediaStream?.getTracks().forEach(t=>t.stop()); settingsMediaStream=null;
+  const preview=$("cameraPreview"); if(preview){preview.srcObject=null;preview.hidden=true;}
+}
+$("testCameraBtn")?.addEventListener("click",async()=>{
+  const preview=$("cameraPreview"), status=$("cameraDeviceStatus");
+  try{
+    await stopSettingsCamera();
+    settingsMediaStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    preview.srcObject=settingsMediaStream;preview.hidden=false;status.textContent="Camera permission granted and preview is live.";showToast("Camera is working","success");
+    setTimeout(stopSettingsCamera,8000);
+  }catch(err){status.textContent="Camera permission was not granted or no camera is available.";showToast("Could not access the camera","error");}
+});
+$("testMicrophoneBtn")?.addEventListener("click",async()=>{
+  const status=$("microphoneDeviceStatus"); let stream=null;
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    status.textContent="Microphone permission granted and input is available.";showToast("Microphone is working","success");
+  }catch(err){status.textContent="Microphone permission was not granted or no microphone is available.";showToast("Could not access the microphone","error");}
+  finally{stream?.getTracks().forEach(t=>t.stop());}
+});
+$("testSpeakerBtn")?.addEventListener("click",async()=>{
+  try{
+    const C=window.AudioContext||window.webkitAudioContext;if(!C)throw new Error("Audio unavailable");
+    const ctx=new C(),osc=ctx.createOscillator(),gain=ctx.createGain();osc.frequency.value=660;gain.gain.value=.045;osc.connect(gain).connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+.22);showToast("Speaker test played","success");
+  }catch(err){showToast("Could not play speaker test","error");}
+});
+
+$("helpContactBtn")?.addEventListener("click",()=>{location.href="mailto:support@cunnact.com?subject=CUNNACT%20Support%20Request";});
+$("helpFeedbackBtn")?.addEventListener("click",()=>{location.href="mailto:feedback@cunnact.com?subject=CUNNACT%20Feedback";});
+$("helpPrivacyBtn")?.addEventListener("click",()=>{location.href="index.html#privacy";});
