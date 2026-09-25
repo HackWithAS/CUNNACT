@@ -655,6 +655,7 @@ function renderOwnProfileSection(section="profile"){
       <header class="wa-own-profile-head">
         <button id="ownProfileEditBack" class="own-profile-back" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg></button>
         <h1>Edit profile</h1>
+        <button id="ownProfileSettingsBtn" class="own-profile-settings-btn" type="button" aria-label="Open settings" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="m19.4 15 .4 1.9-1.9 1.4-1.7-1a7.3 7.3 0 0 1-2.1 1.2l-.3 2.1h-2.4l-.3-2.1a7.3 7.3 0 0 1-2.1-1.2l-1.7 1-1.9-1.4.4-1.9a7.4 7.4 0 0 1-1.2-2.1l-2.1-.3v-2.4l2.1-.3A7.4 7.4 0 0 1 5.8 7.8l-.4-1.9 1.9-1.4 1.7 1A7.3 7.3 0 0 1 11.1 5l.3-2.1h2.4l.3 2.1a7.3 7.3 0 0 1 2.1.5l1.7-1 1.9 1.4-.4 1.9a7.4 7.4 0 0 1 1.2 2.1l2.1.3v2.4l-2.1.3a7.4 7.4 0 0 1-1.2 2.1Z"/></svg></button>
       </header>
       <div class="wa-own-profile-scroll">
         <button id="ownProfilePhotoBtn" class="wa-own-profile-photo-wrap" type="button" aria-label="Change profile photo">
@@ -675,22 +676,54 @@ function renderOwnProfileSection(section="profile"){
           <button id="ownProfileNameEdit" class="wa-profile-pencil" type="button" aria-label="Edit name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 5 5 5M4 20l4.2-1 9.8-9.8a2.1 2.1 0 0 0-3-3L5.2 16z"/></svg></button>
         </div>
 
-        <div class="wa-profile-label">Phone</div>
+        <div class="wa-profile-label">Email</div>
         <div class="wa-profile-row">
-          <div class="wa-profile-row-main"><span class="wa-profile-value">${escapeHtml(phone)}</span></div>
-          <button id="ownProfilePhoneCopy" class="wa-profile-pencil" type="button" aria-label="Copy phone number" title="Copy phone number"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="10" height="10" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          <div class="wa-profile-row-main"><span class="wa-profile-value">${escapeHtml(currentUser.email||data.email||"Not added")}</span></div>
+          <button id="ownProfileEmailCopy" class="wa-profile-pencil" type="button" aria-label="Copy email address" title="Copy email address"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="6" width="16" height="12" rx="2"/><path d="m5 8 7 5 7-5"/></svg></button>
         </div>
-        <p class="wa-profile-note">This information is used across CUNNACT to keep your profile consistent.</p>
+        <p class="wa-profile-note">Your email is linked to your CUNNACT account and is used for sign-in and account recovery.</p>
       </div>
     </section>`;
 
   paintAvatar($id("ownProfileEditAvatar"),{photoURL:photo,name,email:currentUser.email||""});
   $id("ownProfileEditBack")?.addEventListener("click",()=>{playClick();closeOwnProfileView();});
+  $id("ownProfileSettingsBtn")?.addEventListener("click",()=>{playClick();renderOwnProfileSettings();});
   $id("ownProfilePhotoBtn")?.addEventListener("click",()=>{$id("ownProfilePhotoInput")?.click();});
   $id("ownProfilePhotoInput")?.addEventListener("change",handleOwnProfilePhotoChange,{once:true});
   $id("ownProfileAboutEdit")?.addEventListener("click",()=>toggleOwnProfileInlineEdit("bio"));
   $id("ownProfileNameEdit")?.addEventListener("click",()=>toggleOwnProfileInlineEdit("name"));
-  $id("ownProfilePhoneCopy")?.addEventListener("click",async()=>{try{if(phone&&phone!=="Not added"&&navigator.clipboard)await navigator.clipboard.writeText(phone);showToast(phone==="Not added"?"No phone number is connected to this account.":"Phone number copied","success");}catch{showToast("Could not copy phone number","error");}});
+  $id("ownProfileEmailCopy")?.addEventListener("click",async()=>{const emailValue=currentUser?.email||data.email||"";try{if(emailValue&&navigator.clipboard)await navigator.clipboard.writeText(emailValue);showToast(emailValue?"Email copied":"No email address is connected to this account.","success");}catch{showToast("Could not copy email address","error");}});
+}
+function renderOwnProfileSettings(){
+  const view=$id("ownProfileView"), body=$id("ownProfileDetailBody");
+  if(!view||!body||!currentUser)return;
+  view.dataset.section="settings";
+  const data=currentUserData||{};
+  const items=[
+    ["General","Startup and close","▣","general"],
+    ["Profile","Name, profile picture, username","◉","profile"],
+    ["Account","Security notifications, account info","⚿","account"],
+    ["Privacy","Blocked contacts, disappearing messages","▣","privacy"],
+    ["Chats","Theme, wallpaper, chat settings","▤","chats"],
+    ["Video & voice","Camera, microphone & speakers","◫","calls"],
+    ["Notifications","Messages, groups, sounds","♧","notifications"],
+    ["Keyboard shortcuts","Quick actions","⌨","shortcuts"],
+    ["Help and feedback","Help centre, contact us, privacy policy","?","help"]
+  ];
+  body.innerHTML=`<section class="wa-settings-page" aria-label="CUNNACT settings">
+    <header class="wa-settings-head">
+      <button id="ownSettingsBack" class="own-profile-back" type="button" aria-label="Back to profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg></button>
+      <h1>Settings</h1>
+    </header>
+    <div class="wa-settings-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 5 5"/></svg><input id="ownSettingsSearch" type="search" autocomplete="off" placeholder="Search"></div>
+    <div class="wa-settings-list" id="ownSettingsList">${items.map(([title,sub,icon,key])=>`<button type="button" class="wa-settings-item" data-settings-section="${key}"><span class="wa-settings-icon">${icon}</span><span class="wa-settings-copy"><strong>${title}</strong><small>${sub}</small></span></button>`).join("")}
+      <button type="button" class="wa-settings-item danger" id="ownSettingsLogout"><span class="wa-settings-icon">↪</span><span class="wa-settings-copy"><strong>Log out</strong></span></button>
+    </div>
+  </section>`;
+  $id("ownSettingsBack")?.addEventListener("click",()=>{playClick();renderOwnProfileSection("profile");});
+  $id("ownSettingsSearch")?.addEventListener("input",e=>{const q=String(e.target.value||"").trim().toLowerCase();$id("ownSettingsList")?.querySelectorAll(".wa-settings-item").forEach(btn=>{btn.hidden=!!q&&!btn.textContent.toLowerCase().includes(q);});});
+  $id("ownSettingsList")?.querySelectorAll("[data-settings-section]").forEach(btn=>btn.addEventListener("click",()=>{const key=btn.dataset.settingsSection; if(key==="profile") renderOwnProfileSection("profile"); else {showToast(`${btn.querySelector("strong")?.textContent||"This section"} is ready for the next settings step.` ,"info");}}));
+  $id("ownSettingsLogout")?.addEventListener("click",()=>{playClick();logout();});
 }
 function toggleOwnProfileInlineEdit(field){
   const input=$id(field==="bio"?"ownProfileAboutInput":"ownProfileNameInput");
