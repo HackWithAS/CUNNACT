@@ -44,6 +44,10 @@ export function playClick() {
 export function playSend() {
   const ctx = getContext();
   if (!soundEnabled) return;
+  try {
+    const raw = localStorage.getItem("cunnact_notification_settings");
+    if (raw) { const pref = JSON.parse(raw); if (pref && pref.outgoingSound === false) return; }
+  } catch {}
 
   try {
     // Two-tone swoosh

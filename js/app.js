@@ -18,7 +18,7 @@ import { loadRetentionMode, getRetentionMode, shouldExpireMessage, cleanupExpire
 import { initSocialFeatures } from "./social.js";
 import { initGlobalSearch } from "./search.js";
 import { registerDeviceSession, listenCurrentDevice, touchCurrentDevice, writeSecurityEvent, getUserSettings, isAppLockEnabled, verifyPin, createPinHash } from "./security.js";
-import { initNotificationForeground } from "./notifications.js";
+import { initNotificationForeground, notifyBrowser, updateBrowserBadge, getNotificationSettings } from "./notifications.js";
 
 let currentUser = null;
 let currentUserData = {};
@@ -34,6 +34,8 @@ let cleanupInterval = null;
 let presenceHeartbeat = null;
 let presenceUiTimer = null;
 let conversations = [];
+let notificationConversationStateReady = false;
+let notificationConversationIds = new Map();
 let chatSearchTerm = "";
 let currentMessages = [];
 let activeMessageMap = new Map();
@@ -336,6 +338,7 @@ onAuthStateChanged(auth, async (user) => {
   if(isAppLockEnabled(currentUserSettings)){appLockUnlocked=false;showAppLock();}
   startPresence();
   listenMessageRequests(currentUser, (requests) => { updateRequestsBadge(requests.length); renderMessageRequests(requests); }, () => { refreshNewChatRequestButtons(); });
+  await initNotificationForeground(currentUser).catch(e => console.warn("Notification bootstrap skipped", e));
   listenConversations();
   socialFeatures?.refresh?.();
   const newChatUsername = new URLSearchParams(location.search).get("newChat");
@@ -1228,7 +1231,30 @@ function listenConversations(){
   unsubscribeConversations?.();
   const q=query(collection(db,"conversations"),where("members","array-contains",currentUser.uid),limit(100));
   unsubscribeConversations=onSnapshot(q,(snap)=>{
-    conversations=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.lastMessageTime?.toMillis?.()??b.createdAt?.toMillis?.()??0)-(a.lastMessageTime?.toMillis?.()??a.createdAt?.toMillis?.()??0));
+    const nextConversations=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.lastMessageTime?.toMillis?.()??b.createdAt?.toMillis?.()??0)-(a.lastMessageTime?.toMillis?.()??a.createdAt?.toMillis?.()??0));
+    if(notificationConversationStateReady){
+      const ns=getNotificationSettings();
+      for(const c of nextConversations){
+        const previousId=notificationConversationIds.get(c.id)||"";
+        const latestId=String(c.lastMessageId||"");
+        const incoming=latestId && latestId!==previousId && c.lastMessageSenderId && c.lastMessageSenderId!==currentUser.uid && Number(c.unread?.[currentUser.uid]||0)>0;
+        if(incoming && !c.muted?.[currentUser.uid] && !(activeConversationId===c.id && document.visibilityState==="visible")){
+          const isGroup=c.type==="group";
+          const category=isGroup?"groups":"messages";
+          if(ns[category]){
+            const user=conversationDisplay(c);
+            const title=isGroup?(c.groupName||"Group"):(user?.name||"New message");
+            const body=c.lastMessage||"New message";
+            notifyBrowser({category,title,body,conversationId:c.id});
+          }
+        }
+      }
+    }
+    notificationConversationIds=new Map(nextConversations.map(c=>[c.id,String(c.lastMessageId||"")]));
+    notificationConversationStateReady=true;
+    conversations=nextConversations;
+    const unreadTotal=conversations.reduce((sum,c)=>sum+(c.hiddenFor?.[currentUser.uid]?0:Number(c.unread?.[currentUser.uid]||0)),0);
+    updateBrowserBadge(unreadTotal);
     if(activeConversationId){ const latestActive=conversations.find(c=>c.id===activeConversationId); if(latestActive){ activeConversation={...activeConversation,...latestActive}; refreshOutgoingDeliveryUI(); } }
     const activeUids=new Set(conversations.map(otherUid).filter(Boolean));
     for(const [uid,entry] of userListeners){ if(!activeUids.has(uid) && uid!==activeUser?.uid){ entry.unsub?.(); userListeners.delete(uid); } }
@@ -1323,7 +1349,7 @@ async function openChatById(conversationId,hintedUid=null){
     const snap=await getDoc(doc(db,"conversations",conversationId));if(!snap.exists()){showToast("Conversation is not available yet.","info");return;}
     const data=snap.data(),members=data.members||[];if(!members.includes(currentUser.uid)){showToast("You don't have access to this conversation.","error");return;}
     closeMessageActionMenus();stopTyping();unsubscribeTyping?.();unsubscribeTyping=null;unsubscribeMessages?.();unsubscribeMessages=null;cleanupInterval?.();cleanupInterval=null;
-    activeConversationId=conversationId;activeConversation={id:conversationId,...data};
+    activeConversationId=conversationId;window.__cunnactActiveConversationId=conversationId;activeConversation={id:conversationId,...data};
 
     if(data.type==="group"){
       const profiles=await Promise.all(members.map(async uid=>{

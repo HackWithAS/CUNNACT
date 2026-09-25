@@ -217,7 +217,6 @@
         <div class="preference-row-v6"><div><strong>App lock</strong><p>Lock the CUNNACT interface after you leave it.</p></div><label class="toggle"><input id="appLockToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
         <div class="preference-row-v6"><div><strong>2-step verification</strong><p id="mfaState">Checking…</p></div><button id="mfaPrimaryBtn" type="button" class="btn btn-soft btn-sm">Enable 2-step verification</button></div>
         <div id="mfaRecaptcha" class="mfa-recaptcha"></div>
-        <div class="preference-row-v6"><div><strong>Push notifications</strong><p>Enable message notifications on this browser/device.</p></div><button id="pushNotificationsBtn" type="button" class="btn btn-soft btn-sm">Enable</button></div>
         <div class="preference-row-v6"><div><strong>Active devices</strong><p>Sign out a session remotely if you no longer recognize it.</p></div><div class="settings-inline-actions"><button id="refreshSessionsBtn" type="button" class="btn btn-soft btn-sm">Refresh</button><button id="signOutOtherDevicesBtn" type="button" class="btn btn-soft btn-sm">Sign out others</button></div></div>
         <div id="deviceSessionsList" class="device-sessions-list"><div class="empty-state">Loading devices…</div></div>
         <div class="preference-row-v6"><div><strong>Security activity</strong><p>Recent sign-ins and security changes on your account.</p></div></div>
@@ -267,9 +266,37 @@
         <div class="section-heading-v6"><div class="section-icon purple"><span style="font-size:18px">◻</span></div><div><h2>Video & voice</h2><p>Camera, microphone & speakers</p></div></div>
         <div class="preference-row-v6"><div><strong>Camera and microphone</strong><p>Device preferences for CUNNACT calls.</p></div></div>
       </section>
-      <section id="notificationsSection" class="settings-card-v6" hidden>
-        <div class="section-heading-v6"><div class="section-icon orange"><span style="font-size:18px">♧</span></div><div><h2>Notifications</h2><p>Messages, groups and sounds</p></div></div>
-        <div class="preference-row-v6"><div><strong>Notification settings</strong><p>Notification controls will be configured here next.</p></div></div>
+      <section id="notificationsSection" class="settings-card-v6 notifications-settings-v7" hidden>
+        <div class="settings-inline-page-head">
+          <button class="settings-section-back" type="button" data-target="#generalSection" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <h2>Notifications</h2>
+        </div>
+        <div class="notification-settings-list">
+          <div class="notification-setting-row notification-setting-action">
+            <div class="notification-setting-copy"><strong>Show notification banner</strong><small id="notificationBannerSummary">Always</small></div>
+            <label class="toggle"><input id="notificationBannerToggle" type="checkbox"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="notification-setting-row notification-setting-action">
+            <div class="notification-setting-copy"><strong>Show taskbar notification badge</strong><small id="notificationBadgeSummary">Always</small></div>
+            <label class="toggle"><input id="notificationBadgeToggle" type="checkbox"><span class="toggle-slider"></span></label>
+          </div>
+
+          <div class="notification-group-title">Notify me about</div>
+          <div class="notification-setting-row"><div class="notification-leading-icon">▤</div><div class="notification-setting-copy"><strong>Messages</strong><small>New direct messages</small></div><label class="toggle"><input id="notificationMessagesToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
+          <div class="notification-setting-row"><div class="notification-leading-icon">♧</div><div class="notification-setting-copy"><strong>Groups</strong><small>New group messages</small></div><label class="toggle"><input id="notificationGroupsToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
+          <div class="notification-setting-row"><div class="notification-leading-icon">◉</div><div class="notification-setting-copy"><strong>Status</strong><small>New CUNNACT traces</small></div><label class="toggle"><input id="notificationStatusToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
+          <div class="notification-setting-row"><div class="notification-leading-icon">⌕</div><div class="notification-setting-copy"><strong>Calls</strong><small>Incoming voice and video calls</small></div><label class="toggle"><input id="notificationCallsToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
+
+          <div class="notification-divider"></div>
+          <div class="notification-setting-row"><div class="notification-setting-copy"><strong>Show previews</strong><small>Preview message text inside message notifications.</small></div><label class="toggle"><input id="notificationPreviewsToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
+          <div class="notification-setting-row"><div class="notification-setting-copy"><strong>Play sound for outgoing messages</strong><small>Play the send sound when you send a message.</small></div><label class="toggle"><input id="notificationOutgoingSoundToggle" type="checkbox"><span class="toggle-slider"></span></label></div>
+
+          <div class="notification-browser-card">
+            <div><strong>Browser notifications</strong><p id="browserNotificationStatus">Allow CUNNACT to show notifications on this browser.</p></div>
+            <button id="browserNotificationsBtn" class="btn btn-soft btn-sm" type="button">Enable</button>
+          </div>
+          <p class="notification-help">Browser notifications work while CUNNACT is open in this browser. Background push across a fully closed browser additionally needs Firebase Web Push/VAPID configuration.</p>
+        </div>
       </section>
       <section id="keyboardShortcutsSection" class="settings-card-v6" hidden>
         <div class="section-heading-v6"><div class="section-icon purple"><span style="font-size:18px">⌨</span></div><div><h2>Keyboard shortcuts</h2><p>Quick actions</p></div></div>

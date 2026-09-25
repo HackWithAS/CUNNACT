@@ -3,6 +3,7 @@ import {
   onSnapshot, serverTimestamp, arrayUnion, arrayRemove
 } from "./firebase.js";
 import { showToast } from "./toast.js";
+import { getNotificationSettings, notificationsAreEnabled } from "./notifications.js";
 
 const RTC_CONFIG = {
   iceServers: [
@@ -132,8 +133,9 @@ export function createCallController({ getCurrentUser, getConversations, getActi
     state.incoming = call;
     openModal("incomingCallModal");
     try {
-      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-        new Notification("CUNNACT call", { body: `${title} is calling you.` });
+      const notificationSettings=getNotificationSettings();
+      if (notificationSettings.calls && notificationSettings.banner && notificationsAreEnabled() && typeof Notification !== "undefined" && Notification.permission === "granted") {
+        new Notification("CUNNACT call", { body: `${title} is calling you.`, icon:"/assets/icons/cunnact-192.png", badge:"/assets/icons/cunnact-32.png" });
       }
     } catch {}
   }

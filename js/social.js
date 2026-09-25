@@ -5,6 +5,7 @@ import {
 import { uploadFileToCloudinary, validateMediaFile, mediaKind, UploadError } from "./cloudinary.js";
 import { escapeHtml, formatTime } from "./ui.js";
 import { showToast } from "./toast.js";
+import { notifyBrowser } from "./notifications.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -44,6 +45,8 @@ export function initSocialFeatures({ getCurrentUser }) {
   let channelUnsub = null;
   let storyCursor = 0;
   let storyCandidates = [];
+  let storyNotificationInitialized = false;
+  let knownStoryIds = new Set();
   let traceMode = "text";
   let traceBackgroundIndex = 0;
   let myTraceCache = [];
@@ -111,6 +114,13 @@ export function initSocialFeatures({ getCurrentUser }) {
     try { snaps.push(await getDocs(query(base,where("privacy","==","closeFriends"),where("closeFriendsIds","array-contains",u.uid),where("expiresAt",">",now),limit(80)))); } catch {}
     const map=new Map();snaps.flatMap(s=>s.docs).forEach(d=>{const item={id:d.id,...d.data()};if(!isExpired(item))map.set(d.id,item);});
     stories=[...map.values()].sort((a,b)=>(safeTime(b.createdAt)?.getTime()||0)-(safeTime(a.createdAt)?.getTime()||0));
+    if(storyNotificationInitialized){
+      stories.filter(story=>!knownStoryIds.has(story.id)&&story.ownerId!==u.uid).slice(0,10).forEach(story=>{
+        notifyBrowser({category:"status",title:story.ownerName||"New status",body:storyText(story),conversationId:`status-${story.id}`});
+      });
+    }
+    knownStoryIds=new Set(stories.map(story=>story.id));
+    storyNotificationInitialized=true;
     return stories;
   }
 

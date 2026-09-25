@@ -11,7 +11,7 @@ import { $, debounce } from "./ui.js";
 import { isSoundEnabled, setSoundEnabled, playClick, playSuccess } from "./sound.js";
 import { getRetentionMode, loadRetentionMode, setRetentionMode, setUserSetting } from "./retention.js";
 import { createPinHash, listDevices, revokeDevice, revokeOtherDevices, getDeviceSessionId, writeSecurityEvent } from "./security.js";
-import { enablePushNotifications, disablePushNotifications, notificationsAreEnabled } from "./notifications.js";
+import { enablePushNotifications, disablePushNotifications, notificationsAreEnabled, loadNotificationSettings, getNotificationSettings, saveNotificationSettings } from "./notifications.js";
 import { bindAccountTools } from "./account.js";
 
 let currentUser = null;
@@ -87,7 +87,8 @@ onAuthStateChanged(auth,async(user)=>{
     await updatePrivacySummaries();
     await refreshSecurityUI();
     bindAccountTools({userRef:()=>currentUser});
-    const pushBtn=$("pushNotificationsBtn"); if(pushBtn){pushBtn.textContent=notificationsAreEnabled()?"Enabled":"Enable";pushBtn.classList.toggle("is-enabled",notificationsAreEnabled());}
+    await loadNotificationSettings(currentUser.uid);
+    syncNotificationSettingsUI();
     setStatus("");
   }catch(e){console.error("Profile load error",e);setStatus("Could not load your profile. Please refresh.","error");}
 });
@@ -108,6 +109,47 @@ $("photoInput")?.addEventListener("change",async()=>{
 
 document.querySelectorAll('input[name="retention"]').forEach(r=>r.addEventListener("change",async(e)=>{try{await setRetentionMode(e.target.value,currentUser.uid);showToast(e.target.value==="seen"?"Messages will remove after they're seen":"Messages will remove after 24 hours","success");}catch(err){console.error(err);showToast("Could not save retention setting","error");}}));
 $("soundToggle")?.addEventListener("change",async(e)=>{const enabled=!!e.target.checked;setSoundEnabled(enabled);try{await setUserSetting(currentUser.uid,{soundEnabled:enabled});}catch(err){console.error(err);}if(enabled)playClick();});
+
+function syncNotificationSettingsUI(){
+  const s=getNotificationSettings();
+  const map={
+    notificationBannerToggle:s.banner, notificationBadgeToggle:s.badge, notificationMessagesToggle:s.messages,
+    notificationGroupsToggle:s.groups, notificationStatusToggle:s.status, notificationCallsToggle:s.calls,
+    notificationPreviewsToggle:s.previews, notificationOutgoingSoundToggle:s.outgoingSound
+  };
+  Object.entries(map).forEach(([id,value])=>{const el=$(id);if(el)el.checked=!!value;});
+  const banner=$("notificationBannerSummary"); if(banner)banner.textContent=s.banner?"Always":"Off";
+  const badge=$("notificationBadgeSummary"); if(badge)badge.textContent=s.badge?"Always":"Off";
+  const status=$("browserNotificationStatus");
+  const btn=$("browserNotificationsBtn");
+  const enabled=notificationsAreEnabled();
+  if(status)status.textContent=enabled?"Allowed on this browser. New CUNNACT notifications can appear outside the active tab.":("Notification permission is " + ((typeof Notification!=="undefined"&&Notification.permission)||"not available") + ".");
+  if(btn){btn.textContent=enabled?"Disable":"Enable";btn.classList.toggle("is-enabled",enabled);}
+}
+
+const notificationControlMap={
+  notificationBannerToggle:"banner", notificationBadgeToggle:"badge", notificationMessagesToggle:"messages",
+  notificationGroupsToggle:"groups", notificationStatusToggle:"status", notificationCallsToggle:"calls",
+  notificationPreviewsToggle:"previews", notificationOutgoingSoundToggle:"outgoingSound"
+};
+Object.entries(notificationControlMap).forEach(([id,key])=>{
+  $(id)?.addEventListener("change",async(e)=>{
+    if(!currentUser)return;
+    try{await saveNotificationSettings(currentUser.uid,{[key]:!!e.target.checked});syncNotificationSettingsUI();showToast(`${key === "outgoingSound" ? "Outgoing message sound" : "Notification setting"} ${e.target.checked?"enabled":"disabled"}`,"success");}
+    catch(err){console.error("Notification setting failed",err);e.target.checked=!e.target.checked;showToast("Could not save notification setting","error");}
+  });
+});
+
+$("browserNotificationsBtn")?.addEventListener("click",async()=>{
+  if(!currentUser)return;
+  const btn=$("browserNotificationsBtn");
+  btn.disabled=true;
+  try{
+    if(notificationsAreEnabled()){await disablePushNotifications(currentUser);showToast("Browser notifications disabled","success");}
+    else{await enablePushNotifications(currentUser);showToast("Browser notifications enabled","success");}
+  }catch(err){showToast(err?.message||"Could not update browser notifications.","error");}
+  finally{btn.disabled=false;syncNotificationSettingsUI();}
+});
 document.querySelectorAll('input[name="themeMode"]').forEach(r=>r.addEventListener("change",async(e)=>{applyLocalTheme(e.target.value);try{await setUserSetting(currentUser.uid,{theme:pendingTheme});}catch(err){console.warn(err);}playClick();}));
 $("shareProfileBtn")?.addEventListener("click",async()=>{const username=normalizeUsername($("profileUsername").value);if(!username){showToast("Set a CUNNACT ID before sharing your profile.","info");$("profileUsername").focus();return;}const url=`${location.origin}/u/${encodeURIComponent(username)}`,text=`Connect with me on CUNNACT:\n@${username}`;try{if(navigator.share)await navigator.share({title:"CUNNACT profile",text,url});else{await navigator.clipboard.writeText(url);showToast("Profile link copied ✓","success");}}catch(e){if(e.name!=="AbortError")showToast("Could not share profile link","error");}});
 $("backToChat")?.addEventListener("click",()=>location.href="index.html");$("cancelProfileBtn")?.addEventListener("click",()=>location.href="index.html");
@@ -298,7 +340,7 @@ document.querySelectorAll('[data-privacy-dialog]').forEach(btn=>btn.addEventList
 $("appLockToggle")?.addEventListener("change",async e=>{if(!currentUser)return;const enable=!!e.target.checked;if(enable){const pin=window.prompt("Create a 4–8 digit app lock PIN");if(!/^\d{4,8}$/.test(pin||"")){e.target.checked=false;showToast("PIN must be 4–8 digits.","error");return;}const {salt,hash}=await createPinHash(pin);await setDoc(doc(db,"userSettings",currentUser.uid),{appLockEnabled:true,appLockSalt:salt,appLockHash:hash},{merge:true});profileSettings={...profileSettings,appLockEnabled:true,appLockSalt:salt,appLockHash:hash};await writeSecurityEvent(currentUser,{type:"app_lock_enabled",details:"App lock enabled"});showToast("App lock enabled","success");}else{await setDoc(doc(db,"userSettings",currentUser.uid),{appLockEnabled:false,appLockSalt:null,appLockHash:null},{merge:true});profileSettings={...profileSettings,appLockEnabled:false};await writeSecurityEvent(currentUser,{type:"app_lock_disabled",details:"App lock disabled"});showToast("App lock disabled","info");}});
 $("refreshSessionsBtn")?.addEventListener("click",refreshSecurityUI);
 $("signOutOtherDevicesBtn")?.addEventListener("click",async()=>{if(!currentUser)return;try{const count=await revokeOtherDevices(currentUser);await writeSecurityEvent(currentUser,{type:"sessions_revoked",details:`Signed out ${Math.max(0,count-1)} other device session(s)`});showToast("Other devices signed out","success");refreshSecurityUI();}catch(e){console.error(e);showToast("Could not sign out other devices.","error");}});
-$("pushNotificationsBtn")?.addEventListener("click",async()=>{if(!currentUser)return;const btn=$("pushNotificationsBtn");try{if(notificationsAreEnabled()){await disablePushNotifications(currentUser);btn.textContent="Enable";btn.classList.remove("is-enabled");showToast("Push notifications disabled","success");}else{btn.disabled=true;const token=await enablePushNotifications(currentUser);if(token){btn.textContent="Enabled";btn.classList.add("is-enabled");showToast("Push notifications enabled","success");}}}catch(e){showToast(e?.message||"Could not enable notifications.","error");}finally{btn.disabled=false;}});
+
 $("deleteAccountBtn")?.addEventListener("click",async()=>{if(!currentUser)return;const confirmation=window.prompt("This permanently signs you out everywhere and removes your CUNNACT identity. Type DELETE to continue.");if(confirmation!=="DELETE")return;const btn=$("deleteAccountBtn");try{btn.disabled=true;btn.textContent="Deleting…";const callable=httpsCallable(functions,"deleteMyAccount");await callable({confirmation:"DELETE"});showToast("Your CUNNACT account has been deleted.","success");setTimeout(()=>location.replace("login.html?deleted=1"),700);}catch(e){console.error("Account deletion failed",e);showToast(e?.message||"Could not delete your account.","error");btn.disabled=false;btn.textContent="Delete my CUNNACT account";}});
 
 $("profileForm")?.addEventListener("submit",async(e)=>{
