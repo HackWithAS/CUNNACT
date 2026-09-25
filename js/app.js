@@ -591,9 +591,189 @@ async function openCallsPage() {
   await loadCallsPageHistory();
 }
 
+
+function ownProfileAvatarHtml(data){
+  const src=escapeHtml(data?.photoURL||currentUser?.photoURL||"");
+  const name=escapeHtml(data?.name||currentUser?.displayName||currentUser?.email||"User");
+  return src ? `<img src="${src}" alt="">` : `<span class="avatar-fallback">${escapeHtml(name.slice(0,1).toUpperCase())}</span>`;
+}
+function renderOwnProfileSection(section="profile"){
+  // Keep the WhatsApp-style in-place profile editor as the default profile surface.
+  // Settings data remains available in the existing profile/settings page.
+  const view=$id("ownProfileView"), body=$id("ownProfileDetailBody");
+  if(!view||!body||!currentUser)return;
+  view.dataset.section=section;
+  body.innerHTML="";
+  const sidebar=$id("ownProfileSidebar");
+  const detail=$id("ownProfileDetail");
+  if(section!=="profile"){
+    if(sidebar) sidebar.hidden=false;
+    if(detail) detail.hidden=false;
+    const title=$id("ownProfileDetailTitle"), subtitle=$id("ownProfileDetailSubtitle");
+    const data=currentUserData||{};
+    const name=data.name||currentUser.displayName||currentUser.email||"User";
+    const email=data.email||currentUser.email||"";
+    const sections={
+      account:["Account","Security notifications and account information"],
+      privacy:["Privacy","Blocked contacts, visibility and discovery"],
+      chats:["Chats","Theme, wallpaper and chat preferences"],
+      calls:["Video & voice","Camera, microphone and calling preferences"],
+      notifications:["Notifications","Messages, groups and sound preferences"],
+      security:["Security","App lock, verification and connected devices"],
+      delete:["Delete account","Permanent account removal"]
+    };
+    const meta=sections[section]||sections.account;
+    if(title)title.textContent=meta[0]; if(subtitle)subtitle.textContent=meta[1];
+    view.querySelectorAll(".own-profile-nav-item").forEach(btn=>btn.classList.toggle("active",btn.dataset.ownProfileSection===section));
+    const content={
+      account:`<div class="own-profile-section-note">Your CUNNACT account remains connected to the existing Firebase authentication and profile data.</div><div class="own-profile-section-grid"><div class="own-profile-setting-card"><div><strong>Email</strong><small>Your account email</small></div><span class="value">${escapeHtml(email)}</span></div><div class="own-profile-setting-card"><div><strong>Email verification</strong><small>Current Firebase account state</small></div><span class="value">${currentUser.emailVerified?"Verified":"Not verified"}</span></div></div>`,
+      privacy:`<div class="own-profile-section-note">Privacy controls continue to use your existing CUNNACT settings.</div><div class="own-profile-section-grid"><div class="own-profile-setting-card"><div><strong>Profile visibility</strong><small>Who can discover your profile</small></div><span class="value">${escapeHtml(data.profileVisibility||"Default")}</span></div><div class="own-profile-setting-card"><div><strong>Discoverable</strong><small>Allow discovery results</small></div><span class="value">${data.discoverable===false?"Off":"On"}</span></div></div>`,
+      chats:`<div class="own-profile-section-note">Chat appearance remains tied to the existing CUNNACT theme and retention settings.</div><div class="own-profile-section-grid"><div class="own-profile-setting-card"><div><strong>Theme</strong><small>Current interface theme</small></div><span class="value">${escapeHtml(document.documentElement.dataset.theme||"system")}</span></div><div class="own-profile-setting-card"><div><strong>Message retention</strong><small>Automatic deletion preference</small></div><span class="value">${escapeHtml(data.retentionMode||"Default")}</span></div></div>`,
+      calls:`<div class="own-profile-section-note">Voice and video controls remain backed by the existing CUNNACT call experience.</div>`,
+      notifications:`<div class="own-profile-section-note">Notification preferences remain connected to the existing CUNNACT notification system.</div><div class="own-profile-section-grid"><div class="own-profile-setting-card"><div><strong>Sound</strong><small>Message and interaction sounds</small></div><span class="value">${data.soundEnabled===false?"Off":"On"}</span></div></div>`,
+      security:`<div class="own-profile-section-note">Security controls stay backed by Firebase Authentication and user settings.</div><div class="own-profile-section-grid"><div class="own-profile-setting-card"><div><strong>App lock</strong><small>Current device preference</small></div><span class="value">${currentUserSettings?.appLockEnabled?"Enabled":"Off"}</span></div></div>`,
+      delete:`<div class="own-profile-section-note">Deleting your account is permanent and uses the existing secure deletion flow.</div><div class="own-profile-section-grid"><div class="own-profile-setting-card"><div><strong>Delete account</strong><small>Open the existing secure deletion flow.</small></div><button type="button" class="own-profile-edit-btn" id="ownProfileDeleteOpen">Open</button></div></div>`
+    };
+    body.innerHTML=content[section]||content.account;
+    $id("ownProfileDeleteOpen")?.addEventListener("click",()=>{location.href="profile.html#dangerSection";});
+    return;
+  }
+
+  if(sidebar) sidebar.hidden=true;
+  if(detail) detail.hidden=false;
+  detail?.classList.add("own-profile-edit-mode");
+  const detailHead=detail?.querySelector(".own-profile-detail-head");
+  if(detailHead) detailHead.hidden=true;
+  view.querySelectorAll(".own-profile-nav-item").forEach(btn=>btn.classList.remove("active"));
+  const data=currentUserData||{};
+  const name=data.name||currentUser.displayName||currentUser.email||"User";
+  const about=data.bio||"";
+  const phone=currentUser.phoneNumber||data.phoneNumber||data.phone||"Not added";
+  const photo=currentUserData?.photoURL||currentUser.photoURL||"";
+  body.innerHTML=`
+    <section class="wa-own-profile-editor" aria-label="Edit profile">
+      <header class="wa-own-profile-head">
+        <button id="ownProfileEditBack" class="own-profile-back" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg></button>
+        <h1>Edit profile</h1>
+      </header>
+      <div class="wa-own-profile-scroll">
+        <button id="ownProfilePhotoBtn" class="wa-own-profile-photo-wrap" type="button" aria-label="Change profile photo">
+          <span class="wa-own-profile-photo avatar" id="ownProfileEditAvatar"><img alt="" hidden><span class="avatar-fallback"></span></span>
+          <span class="wa-own-profile-photo-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h4l1.3-2h5.4L16 7h4v12H4z"/><circle cx="12" cy="13" r="3.2"/></svg></span>
+        </button>
+        <input id="ownProfilePhotoInput" type="file" accept="image/*" hidden>
+
+        <div class="wa-profile-label">About</div>
+        <div class="wa-profile-row" data-inline-field="bio">
+          <div class="wa-profile-row-main"><span id="ownProfileAbout" class="wa-profile-value">${escapeHtml(about||"Share a thought")}</span><input id="ownProfileAboutInput" class="wa-profile-input" type="text" maxlength="120" value="${escapeHtml(about)}" hidden></div>
+          <button id="ownProfileAboutEdit" class="wa-profile-pencil" type="button" aria-label="Edit about"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 5 5 5M4 20l4.2-1 9.8-9.8a2.1 2.1 0 0 0-3-3L5.2 16z"/></svg></button>
+        </div>
+
+        <div class="wa-profile-label">Name</div>
+        <div class="wa-profile-row" data-inline-field="name">
+          <div class="wa-profile-row-main"><span id="ownProfileDisplayName" class="wa-profile-value">${escapeHtml(name)}</span><input id="ownProfileNameInput" class="wa-profile-input" type="text" maxlength="60" value="${escapeHtml(name)}" hidden></div>
+          <button id="ownProfileNameEdit" class="wa-profile-pencil" type="button" aria-label="Edit name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 5 5 5M4 20l4.2-1 9.8-9.8a2.1 2.1 0 0 0-3-3L5.2 16z"/></svg></button>
+        </div>
+
+        <div class="wa-profile-label">Phone</div>
+        <div class="wa-profile-row">
+          <div class="wa-profile-row-main"><span class="wa-profile-value">${escapeHtml(phone)}</span></div>
+          <button id="ownProfilePhoneCopy" class="wa-profile-pencil" type="button" aria-label="Copy phone number" title="Copy phone number"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="10" height="10" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        </div>
+        <p class="wa-profile-note">This information is used across CUNNACT to keep your profile consistent.</p>
+      </div>
+    </section>`;
+
+  paintAvatar($id("ownProfileEditAvatar"),{photoURL:photo,name,email:currentUser.email||""});
+  $id("ownProfileEditBack")?.addEventListener("click",()=>{playClick();closeOwnProfileView();});
+  $id("ownProfilePhotoBtn")?.addEventListener("click",()=>{$id("ownProfilePhotoInput")?.click();});
+  $id("ownProfilePhotoInput")?.addEventListener("change",handleOwnProfilePhotoChange,{once:true});
+  $id("ownProfileAboutEdit")?.addEventListener("click",()=>toggleOwnProfileInlineEdit("bio"));
+  $id("ownProfileNameEdit")?.addEventListener("click",()=>toggleOwnProfileInlineEdit("name"));
+  $id("ownProfilePhoneCopy")?.addEventListener("click",async()=>{try{if(phone&&phone!=="Not added"&&navigator.clipboard)await navigator.clipboard.writeText(phone);showToast(phone==="Not added"?"No phone number is connected to this account.":"Phone number copied","success");}catch{showToast("Could not copy phone number","error");}});
+}
+function toggleOwnProfileInlineEdit(field){
+  const input=$id(field==="bio"?"ownProfileAboutInput":"ownProfileNameInput");
+  const valueEl=$id(field==="bio"?"ownProfileAbout":"ownProfileDisplayName");
+  const button=$id(field==="bio"?"ownProfileAboutEdit":"ownProfileNameEdit");
+  if(!input||!valueEl||!button)return;
+  const editing=input.hidden;
+  if(editing){
+    input.hidden=false; valueEl.hidden=true; input.focus(); input.select();
+    button.setAttribute("aria-label","Save");
+    button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4L19 6"/></svg>';
+    const save=async()=>{
+      const value=input.value.trim();
+      if(field==="name"&&!value){showToast("Name cannot be empty","error");input.focus();return;}
+      try{
+        if(field==="name"){
+          await updateDoc(doc(db,"users",currentUser.uid),{name:value,updatedAt:serverTimestamp()});
+          await setDoc(doc(db,"publicProfiles",currentUser.uid),{displayName:value,updatedAt:serverTimestamp()},{merge:true});
+          await updateProfile(currentUser,{displayName:value});
+          currentUserData={...currentUserData,name:value};
+          hydrateCurrentUserUI();
+        }else{
+          await updateDoc(doc(db,"users",currentUser.uid),{bio:value,updatedAt:serverTimestamp()});
+          await setDoc(doc(db,"publicProfiles",currentUser.uid),{bio:value,updatedAt:serverTimestamp()},{merge:true});
+          currentUserData={...currentUserData,bio:value};
+        }
+        valueEl.textContent=value||(field==="bio"?"Share a thought":"User");
+        input.hidden=true;valueEl.hidden=false;button.setAttribute("aria-label","Edit");button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 5 5 5M4 20l4.2-1 9.8-9.8a2.1 2.1 0 0 0-3-3L5.2 16z"/></svg>';
+        showToast(field==="name"?"Name updated":"About updated","success");
+      }catch(e){console.error("Inline profile save failed",e);showToast("Could not save this change. Please try again.","error");}
+    };
+    button.onclick=save; input.onkeydown=(e)=>{if(e.key==="Enter"){e.preventDefault();save();}if(e.key==="Escape"){e.preventDefault();renderOwnProfileSection("profile");}};
+  }
+}
+async function handleOwnProfilePhotoChange(){
+  const input=$id("ownProfilePhotoInput"),file=input?.files?.[0]; if(input)input.value=""; if(!file||!currentUser)return;
+  const previous=currentUserData?.photoURL||currentUser.photoURL||"";
+  const objectUrl=URL.createObjectURL(file);
+  paintAvatar($id("ownProfileEditAvatar"),{photoURL:objectUrl,name:currentUserData?.name||currentUser.displayName||"User",email:currentUser.email||""});
+  try{
+    const uploaded=await uploadImageToCloudinary(file,{signal:new AbortController().signal});
+    const url=uploaded?.url||uploaded;
+    await updateProfile(currentUser,{photoURL:url});
+    await updateDoc(doc(db,"users",currentUser.uid),{photoURL:url,updatedAt:serverTimestamp()});
+    if(currentUserData?.username)await setDoc(doc(db,"publicProfiles",currentUser.uid),{photoURL:url,updatedAt:serverTimestamp()},{merge:true});
+    currentUserData={...currentUserData,photoURL:url};
+    hydrateCurrentUserUI();
+    paintAvatar($id("ownProfileEditAvatar"),{photoURL:url,name:currentUserData?.name||currentUser.displayName||"User",email:currentUser.email||""});
+    showToast("Profile photo updated","success");
+  }catch(e){console.error("In-place profile photo upload failed",e);paintAvatar($id("ownProfileEditAvatar"),{photoURL:previous,name:currentUserData?.name||currentUser.displayName||"User",email:currentUser.email||""});showToast(e?.userMessage||"Could not update profile photo.","error");}
+  finally{URL.revokeObjectURL(objectUrl);}
+}
+function openOwnProfileView(){
+  const app=$id("app"), view=$id("ownProfileView"); if(!app||!view||!currentUser)return;
+  $id("accountMenu")?.setAttribute("hidden","");
+  $id("sidebarDefaultView")?.setAttribute("hidden","");
+  $id("newChatView")?.setAttribute("hidden","");
+  $id("statusView")?.setAttribute("hidden",""); $id("statusPanel")?.setAttribute("hidden","");
+  $id("channelsView")?.setAttribute("hidden",""); $id("channelsPanel")?.setAttribute("hidden","");
+  $id("callsView")?.setAttribute("hidden",""); $id("callsPanel")?.setAttribute("hidden","");
+  $id("profileDrawer")?.setAttribute("hidden","");
+  view.hidden=false;
+  app.classList.add("profile-open");
+  app.classList.remove("chat-open","status-open","channels-open","calls-open");
+  document.querySelectorAll(".nav-rail-btn").forEach(b=>b.classList.remove("active"));
+  renderOwnProfileSection("profile");
+}
+function closeOwnProfileView(){
+  const app=$id("app"), view=$id("ownProfileView");
+  if(view)view.hidden=true;
+  if(app)app.classList.remove("profile-open");
+  $id("sidebarDefaultView")?.removeAttribute("hidden");
+  $id("navChatsBtn")?.classList.add("active");
+}
+
 /* Static controls */
 function bindStaticControls() {
   if (staticBound) return; staticBound = true;
+  $id("ownProfileBackBtn")?.addEventListener("click", () => { playClick(); closeOwnProfileView(); $id("sidebarDefaultView")?.removeAttribute("hidden"); $id("navChatsBtn")?.classList.add("active"); });
+  $id("topbarAccountBtn")?.addEventListener("click", () => { if (currentUser) { playClick(); openOwnProfileView(); } });
+    $id("ownProfileEditBtn")?.addEventListener("click", () => { playClick(); renderOwnProfileSection("profile"); });
+  $id("ownProfileSearch")?.addEventListener("input", (e) => { const q=String(e.target.value||"").trim().toLowerCase(); $id("ownProfileNav")?.querySelectorAll(".own-profile-nav-item").forEach(btn=>{ const t=btn.textContent.toLowerCase(); btn.hidden=!!q&&!t.includes(q); }); });
+
   $id("appLockUnlockBtn")?.addEventListener("click",async()=>{const pin=$id("appLockPinInput")?.value||"";const ok=await verifyPin(pin,currentUserSettings.appLockSalt,currentUserSettings.appLockHash);if(ok){closeAppLock();}else{$id("appLockError").textContent="Incorrect PIN.";}});
   $id("appLockPinInput")?.addEventListener("keydown",e=>{if(e.key==="Enter")$id("appLockUnlockBtn")?.click();});
   $id("appLockLockBtn")?.addEventListener("click",()=>showAppLock());
@@ -601,7 +781,7 @@ function bindStaticControls() {
   updateSoundToggle();
   $id("logoutBtn")?.addEventListener("click", logout);
   $id("navThemeBtn")?.addEventListener("click", () => { playClick(); applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"); });
-  $id("navProfileBtn")?.addEventListener("click", () => { playClick(); location.href = "profile.html"; });
+  $id("navProfileBtn")?.addEventListener("click", () => { playClick(); openOwnProfileView(); });
   $id("accountMenuBtn")?.addEventListener("click", (e) => { e.stopPropagation(); playClick(); toggleDropdown("accountMenu", "accountMenuBtn"); });
   $id("dashboardNewGroupBtn")?.addEventListener("click", () => { playClick(); $id("accountMenu").hidden=true; openNewGroupModal(); });
   $id("dashboardStarredBtn")?.addEventListener("click", async () => { playClick(); $id("accountMenu").hidden=true; openModal("savedModal"); await renderSavedMessages(); });
@@ -670,7 +850,7 @@ function bindStaticControls() {
   $id("newChatBtn")?.addEventListener("click", newChat);
   $id("newChatMenuMessage")?.addEventListener("click", () => { newChat(); });
   $id("newChatMenuGroup")?.addEventListener("click", () => { playClick(); openNewGroupModal(); });
-  $id("navNewChatBtn")?.addEventListener("click", newChat);
+  $id("navNewChatBtn")?.addEventListener("click", () => { closeOwnProfileView(); newChat(); });
   $id("newChatBackBtn")?.addEventListener("click", () => { playClick(); closeNewChatView(); });
   $id("newChatNewGroupBtn")?.addEventListener("click", () => { playClick(); openNewGroupModal(); });
   $id("newChatNewContactBtn")?.addEventListener("click", () => {
@@ -698,8 +878,8 @@ function bindStaticControls() {
   $id("addGroupMembersBtn")?.addEventListener("click", addGroupMembers);
   $id("leaveGroupBtn")?.addEventListener("click", leaveGroupChat);
   $id("requestsBtn")?.addEventListener("click", () => { playClick(); openModal("requestsModal"); });
-  $id("navRequestsBtn")?.addEventListener("click", () => { playClick(); closeProfileDrawer(); socialFeatures?.openChannelsPage?.(); });
-  $id("navCallsBtn")?.addEventListener("click", () => { playClick(); closeProfileDrawer(); openCallsPage(); });
+  $id("navRequestsBtn")?.addEventListener("click", () => { playClick(); closeOwnProfileView(); closeProfileDrawer(); socialFeatures?.openChannelsPage?.(); });
+  $id("navCallsBtn")?.addEventListener("click", () => { playClick(); closeOwnProfileView(); closeProfileDrawer(); openCallsPage(); });
   $id("callsStartBtn")?.addEventListener("click", () => { playClick(); openStartCallPicker(); });
   $id("callsAddBtn")?.addEventListener("click", () => { playClick(); openStartCallPicker(); });
   $id("callsDialBtn")?.addEventListener("click", () => { playClick(); openStartCallPicker(); });
@@ -711,8 +891,8 @@ function bindStaticControls() {
   $id("callPickerSearch")?.addEventListener("input", debounce(e => renderCallPicker(e.target.value), 120));
 
   $id("savedBtn")?.addEventListener("click", async () => { playClick(); openModal("savedModal"); await renderSavedMessages(); });
-  $id("navSavedBtn")?.addEventListener("click", async () => { playClick(); openModal("savedModal"); await renderSavedMessages(); });
-  $id("navChatsBtn")?.addEventListener("click", () => { playClick(); closeCallsPage(); $id("app")?.classList.remove("chat-open","status-open","channels-open"); $id("statusView")?.setAttribute("hidden", "true"); $id("statusPanel")?.setAttribute("hidden", "true"); $id("channelsView")?.setAttribute("hidden", "true"); $id("channelsPanel")?.setAttribute("hidden", "true"); $id("sidebarDefaultView")?.removeAttribute("hidden"); });
+  $id("navSavedBtn")?.addEventListener("click", async () => { playClick(); closeOwnProfileView(); openModal("savedModal"); await renderSavedMessages(); });
+  $id("navChatsBtn")?.addEventListener("click", () => { playClick(); closeOwnProfileView(); closeCallsPage(); $id("app")?.classList.remove("chat-open","status-open","channels-open"); $id("statusView")?.setAttribute("hidden", "true"); $id("statusPanel")?.setAttribute("hidden", "true"); $id("channelsView")?.setAttribute("hidden", "true"); $id("channelsPanel")?.setAttribute("hidden", "true"); $id("sidebarDefaultView")?.removeAttribute("hidden"); });
   $id("userSearch")?.addEventListener("input", debounce((e) => { chatSearchTerm = normalizeSearch(e.target.value); renderChatList(); }, 120));
   $id("newChatSearch")?.addEventListener("input", debounce((e) => loadNewChatSearch(e.target.value), 320));
   $id("messageForm")?.addEventListener("submit", handleMessageSubmit);

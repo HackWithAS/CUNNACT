@@ -68,9 +68,7 @@
       syncTopbarAvatar();
       new MutationObserver(syncTopbarAvatar).observe(srcAvatar, { childList: true, subtree: true, attributes: true });
     }
-    topbarAccountBtn?.addEventListener("click", function () {
-      document.getElementById("accountMenuBtn")?.click();
-    });
+    // The topbar avatar is handled by app.js so it can open the in-place WhatsApp-style profile workspace.
 
     // ---- "Chats  N Active" + filter pills + pill counts ----
     function applyFilter() {

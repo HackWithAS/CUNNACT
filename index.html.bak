@@ -544,18 +544,6 @@
       </form>
     </main>
 
-    <!-- Own profile editor (WhatsApp-style, same dashboard page) -->
-    <section id="ownProfileView" class="own-profile-view own-profile-in-place" hidden aria-label="Edit your profile">
-      <aside class="own-profile-sidebar" id="ownProfileSidebar" hidden aria-hidden="true"></aside>
-      <main class="own-profile-detail" id="ownProfileDetail">
-        <header class="own-profile-detail-head" hidden>
-          <div><span class="eyebrow">CUNNACT PROFILE</span><h2 id="ownProfileDetailTitle">Profile</h2><p id="ownProfileDetailSubtitle">Name, profile picture and username</p></div>
-          <button id="ownProfileEditBtn" class="own-profile-edit-btn" type="button">Edit profile</button>
-        </header>
-        <section id="ownProfileDetailBody" class="own-profile-detail-body"></section>
-      </main>
-    </section>
-
     <aside id="profileDrawer" class="profile-drawer" hidden aria-label="Conversation profile panel">
       <div class="profile-drawer-head">
         <button id="closeProfileDrawer" class="icon-btn" type="button" aria-label="Close contact info" title="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
@@ -893,7 +881,7 @@
           </div>
           <div class="trace-bottom-right">
             <button id="traceMediaBtn" class="trace-bottom-icon" type="button" aria-label="Add photo or video" title="Add photo or video"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 4.8-4.8 3.3 3.2 2.5-2.5L20 17"/></svg></button>
-            <button id="publishStoryBtn" type="button" class="trace-send-btn" aria-label="Publish trace" title="Publish trace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 14-7-4 14-3-5-7-2Z"/><path d="m12 14 5-9"/></svg></button>
+            <button id="publishStoryBtn" type="button" class="trace-send-btn" aria-label="Share trace" title="Share trace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 14-7-4 14-3-5-7-2Z"/><path d="m12 14 5-9"/></svg></button>
           </div>
         </div>
       </div>
@@ -978,31 +966,6 @@
     <!-- Channel composer -->
     <div id="channelComposerModal" class="modal" hidden aria-hidden="true">
       <div class="modal-content compact-modal social-compose-modal"><div class="modal-header"><div><span class="eyebrow">CHANNEL</span><h2>Create channel</h2><p id="channelCommunityLabel">Broadcast updates to followers.</p></div><button class="icon-btn close-modal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div class="social-compose-grid"><label>Name<input id="channelNameInput" maxlength="80" placeholder="CUNNACT News"></label><label>Description<textarea id="channelDescriptionInput" maxlength="500" rows="3" placeholder="Channel description"></textarea></label><label>Privacy<select id="channelPrivacy"><option value="public">Public</option><option value="private">Private</option></select></label></div><button id="createChannelBtn" type="button" class="btn btn-primary" style="width:100%;margin-top:14px">Create channel</button></div>
-    </div>
-
-    <!-- Channel owner controls -->
-    <div id="channelManageModal" class="modal" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="channelManageTitle">
-      <div class="modal-content channel-manage-modal">
-        <div class="modal-header">
-          <div><span class="eyebrow">CHANNEL OWNER</span><h2 id="channelManageTitle">Channel controls</h2><p>Manage your channel identity, people and limits.</p></div>
-          <button class="icon-btn close-modal" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-        </div>
-        <div class="channel-manage-grid">
-          <label>Name<input id="channelManageName" type="text" maxlength="80" placeholder="Channel name"></label>
-          <label>Description<textarea id="channelManageDescription" rows="3" maxlength="500" placeholder="Channel description"></textarea></label>
-          <div class="form-two">
-            <label>Privacy<select id="channelManagePrivacy"><option value="public">Public</option><option value="private">Private</option></select></label>
-            <label>Admin limit<input id="channelMaxAdmins" type="number" min="1" max="20" value="10"></label>
-          </div>
-          <div class="form-two">
-            <label>Follower limit<input id="channelMaxFollowers" type="number" min="0" max="100000" value="0"><small>0 = unlimited</small></label>
-            <label>Comments<select id="channelCommentsPolicy"><option value="followers">Followers</option><option value="off">Off</option></select></label>
-          </div>
-          <label class="checkbox-line channel-setting-toggle"><input id="channelReactionsEnabled" type="checkbox" checked><span>Allow reactions</span></label>
-        </div>
-        <div class="channel-manage-section"><div class="eyebrow">PEOPLE</div><div id="channelManagePeople" class="channel-manage-people"><div class="empty-state">Loading connected people…</div></div></div>
-        <div class="channel-manage-actions-footer"><button id="saveChannelControlsBtn" type="button" class="btn btn-primary" style="width:100%">Save channel controls</button></div>
-      </div>
     </div>
 
     <!-- Channel detail -->
