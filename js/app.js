@@ -260,7 +260,7 @@ function setPopupMode(){
   if(new URLSearchParams(location.search).get("popup")==="1")document.body.classList.add("popup-mode");
 }
 /* Auth bootstrap */
-applyTheme(localStorage.getItem("cunnact_theme") || "light", false);
+applyTheme(localStorage.getItem("cunnact_theme") || "system", false);
 onAuthStateChanged(auth, async (user) => {
   if (!user) { location.replace("login.html"); return; }
   if (!user.emailVerified) { currentUser = user; showVerifyGate(user); return; }
@@ -280,7 +280,7 @@ onAuthStateChanged(auth, async (user) => {
 
   const settingsSnap = await getDoc(doc(db, "userSettings", user.uid)).catch(() => null);
   const accountSettings = settingsSnap?.exists?.() ? settingsSnap.data() : {};
-  const theme = accountSettings.theme || localStorage.getItem("cunnact_theme") || "light";
+  const theme = accountSettings.theme || localStorage.getItem("cunnact_theme") || "system";
   applyTheme(theme, false);
   if (typeof accountSettings.soundEnabled === "boolean") {
     const { setSoundEnabled } = await import("./sound.js");

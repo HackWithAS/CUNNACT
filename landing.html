@@ -3,7 +3,11 @@
 <title>CUNNACT — Stay Connected</title><meta name="description" content="CUNNACT is a private, modern real-time messaging platform with shareable CUNNACT IDs.">
 <link rel="icon" href="assets/brand/favicon.svg"><link rel="icon" type="image/png" sizes="32x32" href="assets/icons/cunnact-32.png"><link rel="apple-touch-icon" href="assets/icons/cunnact-192.png"><link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><script>document.documentElement.dataset.theme=localStorage.getItem('cunnact_theme')==='dark'?'dark':'light';</script><link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/landing.css"><link rel="stylesheet" href="css/animations.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><script>(() => {
+  const saved = localStorage.getItem("cunnact_theme");
+  const systemDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.dataset.theme = saved === "dark" || saved === "light" ? saved : (systemDark ? "dark" : "light");
+})();</script><link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/landing.css"><link rel="stylesheet" href="css/animations.css">
 </head><body class="landing-page">
 <header class="landing-nav"><a class="landing-brand" href="landing.html"><img class="theme-logo-light landing-wordmark-logo" src="assets/brand/cunnact-logo.svg" alt="CUNNACT — Stay Connected"><img class="theme-logo-dark landing-wordmark-logo" src="assets/brand/cunnact-logo-light.svg" alt="CUNNACT — Stay Connected"></a><nav><a href="#features">Features</a><a href="#privacy">Privacy</a><a href="login.html">Log in</a><a class="btn btn-primary btn-sm" href="register.html">Start chatting</a></nav></header>
 <main>

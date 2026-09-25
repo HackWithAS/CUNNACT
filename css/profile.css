@@ -251,3 +251,38 @@ body.profile-settings-page{
   .settings-profile-hero .profile-hero-avatar{align-items:center}
 }
 @media(prefers-reduced-motion:reduce){.settings-nav-item{scroll-behavior:auto}}
+
+
+/* CUNNACT FINAL THEME BRIDGE — profile/settings page */
+:root{
+  --profile-bg:#FAF8FB;
+  --profile-surface:#FFFFFF;
+  --profile-surface-2:#F5F0F7;
+  --profile-text:#17121B;
+  --profile-muted:#8D8592;
+  --profile-border:#E9E0EC;
+  --profile-hover:#F2EAF5;
+}
+:root[data-theme="dark"]{
+  --profile-bg:#08070A;
+  --profile-surface:#111016;
+  --profile-surface-2:#211D26;
+  --profile-text:#F7F2F8;
+  --profile-muted:#A197A5;
+  --profile-border:rgba(255,255,255,.09);
+  --profile-hover:#211C26;
+}
+.profile-page,.profile-shell,.profile-main,.settings-main,.settings-sidebar,.settings-content,
+.profile-nav-rail{background:var(--profile-bg)!important;color:var(--profile-text)!important;}
+.profile-nav-rail{background:var(--cunnact-rail-bg,var(--profile-surface))!important;border-color:var(--profile-border)!important;}
+.settings-sidebar,.settings-sidebar-head,.settings-search{background:var(--profile-surface)!important;border-color:var(--profile-border)!important;}
+.settings-sidebar-head h1,.settings-nav-item,.settings-detail-scroll h2,.settings-detail-scroll h3,.settings-profile-preview strong{color:var(--profile-text)!important;}
+.settings-nav-item:hover,.settings-nav-item.active,.profile-nav-btn:hover{background:var(--profile-hover)!important;color:var(--profile-text)!important;}
+.settings-search,.locked-input,.settings-detail-scroll .preference-block{background:var(--profile-surface-2)!important;color:var(--profile-text)!important;border-color:var(--profile-border)!important;}
+.settings-search input,.settings-detail-scroll input,.settings-detail-scroll textarea,.settings-detail-scroll select{color:var(--profile-text)!important;background:transparent!important;}
+.settings-search input::placeholder{color:var(--profile-muted)!important;}
+.settings-card-v6,.settings-detail-scroll .settings-card-v6,.settings-profile-hero{background:var(--profile-surface)!important;border-color:var(--profile-border)!important;box-shadow:none!important;}
+.settings-detail-scroll .retention-option-v6{background:var(--profile-surface-2)!important;border-color:var(--profile-border)!important;}
+.settings-detail-scroll .btn-primary{background:var(--ig-gradient)!important;color:#fff!important;border-color:transparent!important;}
+.profile-rail-avatar,.profile-nav-btn{color:var(--profile-muted)!important;}
+.avatar-settings-v6{background:var(--profile-surface-2)!important;}

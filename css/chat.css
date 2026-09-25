@@ -378,3 +378,10 @@ html[data-theme="dark"] .chat-header-actions .icon-btn:not(:disabled){
   .emoji-grid{grid-template-columns:repeat(8,minmax(0,1fr));gap:2px}
   .emoji-grid button{font-size:26px!important}
 }
+
+
+/* Final theme-safe overrides for shared chat primitives. */
+html[data-theme="light"] .status-dot:not(.online){background:#D7CBDC!important;}
+html[data-theme="light"] .welcome-orb{background:var(--ig-gradient)!important;color:#fff!important;}
+html[data-theme="dark"] .welcome-orb{background:var(--ig-gradient)!important;color:#fff!important;}
+html[data-theme="light"] .lightbox{background:rgba(23,18,27,.86)!important;}

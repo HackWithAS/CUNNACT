@@ -169,7 +169,7 @@ $("completeProfileBtn")?.addEventListener("click", async () => {
     }, { merge: true });
     await setDoc(doc(db, "userSettings", user.uid), {
       retentionMode: "24hours",
-      theme: localStorage.getItem("cunnact_theme") || "light",
+      theme: localStorage.getItem("cunnact_theme") || ((window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light"),
       soundEnabled: localStorage.getItem("cunnact_sound_enabled") !== "false",
       createdAt: serverTimestamp()
     }, { merge: true });
@@ -221,7 +221,7 @@ $("registerForm")?.addEventListener("submit",async e=>{
     const credential = await createUserWithEmailAndPassword(auth,email,password);
     await updateProfile(credential.user,{displayName:name});
     await setDoc(doc(db,"users",credential.user.uid),{uid:credential.user.uid,name,email,emailLower:email,photoURL:"",bio:"",createdAt:serverTimestamp(),lastSeen:serverTimestamp(),isOnline:true,lastHeartbeat:serverTimestamp()});
-    await setDoc(doc(db,"userSettings",credential.user.uid),{retentionMode:"24hours",theme:localStorage.getItem("cunnact_theme")||"light",soundEnabled:localStorage.getItem("cunnact_sound_enabled")!=="false",createdAt:serverTimestamp()});
+    await setDoc(doc(db,"userSettings",credential.user.uid),{retentionMode:"24hours",theme:localStorage.getItem("cunnact_theme")||((window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light"),soundEnabled:localStorage.getItem("cunnact_sound_enabled")!=="false",createdAt:serverTimestamp()});
 
     try {
       await claimChosenUsername(credential.user.uid, usernameCheck.candidate, name);

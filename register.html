@@ -19,6 +19,7 @@ tailwind.config={theme:{extend:{colors:{"on-surface":"#131b2e","secondary-fixed"
   ::-webkit-scrollbar{display:none}
   [hidden]{display:none !important}
 </style>
+<script>(()=>{const saved=localStorage.getItem("cunnact_theme");const systemDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.dataset.theme=saved==="dark"||saved==="light"?saved:(systemDark?"dark":"light");})();</script>
 </head>
 <body class="min-h-full bg-surface-canvas text-on-surface font-body antialiased relative">
 

@@ -1,18 +1,24 @@
 :root {
   --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-display: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --ink: #0F172A;
-  --ink-soft: #444655;
-  --ink-faint: #64748B;
-  --bg: #F4F6FB;
-  --surface: #FAF8FF;
+  --ink: #17121B;
+  --ink-soft: #5D5662;
+  --ink-faint: #8D8592;
+  --bg: #FAF8FB;
+  --surface: #FFFFFF;
   --surface-2: #FFFFFF;
-  --surface-3: #F2F3FF;
-  --border: #E2E8F0;
-  --border-strong: #C4C5D7;
-  --accent: #2346D5;
-  --accent-strong: #4361EE;
-  --accent-soft: #EAEDFF;
+  --surface-3: #F5F0F7;
+  --border: #E9E0EC;
+  --border-strong: #D7CBDC;
+  --accent: #833AB4;
+  --accent-strong: #E1306C;
+  --accent-soft: rgba(131,58,180,.11);
+  --ig-orange: #F77737;
+  --ig-yellow: #FCAF45;
+  --ig-pink: #E1306C;
+  --ig-purple: #833AB4;
+  --ig-blue: #405DE6;
+  --ig-gradient: linear-gradient(135deg,#FCAF45 0%,#F77737 28%,#E1306C 56%,#C13584 76%,#833AB4 100%);
   --online: #10B981;
   --danger: #EF4444;
   --warning: #F59E0B;
@@ -28,18 +34,19 @@
 }
 
 :root[data-theme="dark"] {
-  --ink: #EEF0FF;
-  --ink-soft: #C4C5D7;
-  --ink-faint: #8A8CA6;
-  --bg: #10121E;
-  --surface: #171A2B;
-  --surface-2: #1D2036;
-  --surface-3: #262A44;
-  --border: rgba(238,240,255,.09);
-  --border-strong: rgba(238,240,255,.16);
-  --accent: #7C89FF;
-  --accent-strong: #96A1FF;
-  --accent-soft: rgba(67,97,238,.18);
+  --ink: #F7F2F8;
+  --ink-soft: #C9C0CE;
+  --ink-faint: #968C9A;
+  --bg: #08070A;
+  --surface: #111016;
+  --surface-2: #17151C;
+  --surface-3: #211D26;
+  --border: rgba(255,255,255,.09);
+  --border-strong: rgba(255,255,255,.16);
+  --accent: #C13584;
+  --accent-strong: #E1306C;
+  --accent-soft: rgba(193,53,132,.18);
+  --ig-gradient: linear-gradient(135deg,#FCAF45 0%,#F77737 28%,#E1306C 56%,#C13584 76%,#833AB4 100%);
   --online: #10B981;
   --danger: #EF4444;
   --warning: #F59E0B;
@@ -59,7 +66,7 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
-body::selection { background: rgba(35, 70, 213,.18); }
+body::selection { background: rgba(193,53,132,.16); }
 h1,h2,h3,p { margin: 0; }
 h1,h2,h3 { font-family: var(--font-display); letter-spacing: -0.02em; }
 button,input,textarea { font: inherit; color: inherit; }
@@ -80,10 +87,10 @@ img { max-width: 100%; }
 .btn:active:not(:disabled) { transform: scale(.98); }
 .btn-primary {
   color:#fff;
-  background:linear-gradient(135deg,#2563EB,#4F46E5);
-  box-shadow:0 10px 26px rgba(37, 99, 235,.22);
+  background:var(--ig-gradient);
+  box-shadow:0 10px 26px rgba(193,53,132,.18);
 }
-.btn-primary:hover:not(:disabled) { box-shadow:0 14px 32px rgba(37, 99, 235,.30); }
+.btn-primary:hover:not(:disabled) { box-shadow:0 14px 32px rgba(193,53,132,.24); }
 .btn-soft { color:var(--ink); background:var(--surface-3); border-color:var(--border); }
 .btn-soft:hover:not(:disabled) { background:var(--surface-2); border-color:var(--border-strong); }
 .btn-sm { min-height:34px; padding:0 12px; font-size:12px; }
@@ -106,7 +113,7 @@ img { max-width: 100%; }
 .status-dot.online { background:var(--online); }
 
 .brand-lockup { display:flex; align-items:center; gap:10px; }
-.brand-symbol { width:38px; height:38px; border-radius:12px; display:grid; place-items:center; color:#fff; font-size:17px; font-weight:800; background:linear-gradient(135deg,#2563EB,#4F46E5); box-shadow:0 10px 24px rgba(35, 70, 213,.20); }
+.brand-symbol { width:38px; height:38px; border-radius:12px; display:grid; place-items:center; color:#fff; font-size:17px; font-weight:800; background:var(--ig-gradient); box-shadow:0 10px 24px rgba(35, 70, 213,.20); }
 .brand-mark { display:flex; flex-direction:column; line-height:1.05; }
 .brand-mark strong { font-size:17px; font-weight:800; letter-spacing:.01em; }
 .brand-mark span { margin-top:5px; font-size:9.5px; text-transform:uppercase; letter-spacing:.14em; color:var(--ink-faint); }
@@ -168,20 +175,20 @@ body.modal-open { overflow: hidden; }
 /* V6 avatar invariant: hidden avatar layers must never be displayed by component CSS. */
 .avatar img[hidden], .avatar .avatar-fallback[hidden], [hidden] { display:none !important; }
 .avatar img { display:block; }
-/* CUNNACT V6 brand system — aligned to Stitch "Connective Clarity" palette */
+/* CUNNACT V6 brand system — Instagram-inspired visual palette */
 :root{
-  --cunnact-blue:#2346D5;
-  --cunnact-purple:#4F46E5;
-  --cunnact-cyan:#10B981;
-  --cunnact-slate:#0F172A;
-  --accent:#2346D5;
-  --accent-strong:#4361EE;
-  --accent-soft:#EAEDFF;
+  --cunnact-blue:#405DE6;
+  --cunnact-purple:#833AB4;
+  --cunnact-cyan:#E1306C;
+  --cunnact-slate:#17121B;
+  --accent:#833AB4;
+  --accent-strong:#E1306C;
+  --accent-soft:rgba(131,58,180,.11);
 }
 :root[data-theme="dark"]{
-  --accent:#7C89FF;
-  --accent-strong:#96A1FF;
-  --accent-soft:rgba(124, 137, 255,.16);
+  --accent:#C13584;
+  --accent-strong:#E1306C;
+  --accent-soft:rgba(193,53,132,.18);
 }
 .brand-symbol,.brand-icon-logo,.nav-logo img,.auth-brand img,.page-brand-icon,.public-brand img{width:38px;height:38px;object-fit:contain;display:block}
 .brand-icon-logo{border-radius:11px}
@@ -192,7 +199,7 @@ body.modal-open { overflow: hidden; }
 .auth-brand span{display:block;margin-top:4px;font-size:9px;color:var(--ink-faint);letter-spacing:.16em;text-transform:uppercase}
 .profile-title-wrap{display:flex;align-items:center;gap:12px}.page-brand-icon{width:34px;height:34px;border-radius:10px}
 .public-brand{display:flex;align-items:center;gap:11px}.public-brand img{width:36px;height:36px;border-radius:10px}.public-brand strong{display:block;font-size:16px}.public-brand span{display:block;margin-top:3px;font-size:8.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-faint)}
-body,.profile-page,.public-profile-page{background:radial-gradient(circle at 10% -10%,rgba(35, 70, 213,.08),transparent 28%),radial-gradient(circle at 95% 110%,rgba(79, 70, 229,.06),transparent 28%),var(--bg)}
+body,.profile-page,.public-profile-page{background:radial-gradient(circle at 10% -10%,rgba(225,48,108,.09),transparent 28%),radial-gradient(circle at 95% 110%,rgba(131,58,180,.08),transparent 28%),var(--bg)}
 /* Strict avatar invariant: a valid photo and initials can never be visible together. */
 .avatar.has-photo .avatar-fallback{display:none!important;visibility:hidden!important}
 .avatar.has-fallback img{display:none!important;visibility:hidden!important}

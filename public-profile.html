@@ -4,7 +4,11 @@
 <meta name="theme-color" content="#0F172A"><title>CUNNACT Profile</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<script>document.documentElement.dataset.theme=localStorage.getItem("cunnact_theme")==="dark"?"dark":"light";</script>
+<script>(() => {
+  const saved = localStorage.getItem("cunnact_theme");
+  const systemDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.dataset.theme = saved === "dark" || saved === "light" ? saved : (systemDark ? "dark" : "light");
+})();</script>
 <link rel="stylesheet" href="/css/style.css"><link rel="stylesheet" href="/css/public-profile.css">
 </head><body class="public-profile-page">
 <main class="public-profile-shell">
