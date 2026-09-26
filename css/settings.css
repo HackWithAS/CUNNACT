@@ -731,3 +731,58 @@ html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detai
 html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .privacy-setting-toggle-row:hover,
 html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .privacy-profile-discovery-row:hover{background:#f0f2f5!important;}
 html[data-theme="light"] #app.profile-open .own-settings-in-place .toggle .toggle-slider{background:#d7dde0!important;border-color:rgba(17,27,33,.16)!important;}
+
+/* Complete light-theme surface mapping for Settings. */
+html[data-theme="light"] body.profile-settings-page .settings-shell,
+html[data-theme="light"] body.profile-settings-page .profile-app-shell,
+html[data-theme="light"] .own-profile-view.own-settings-in-place,
+html[data-theme="light"] .settings-sidebar,
+html[data-theme="light"] .settings-detail,
+html[data-theme="light"] .settings-detail-scroll,
+html[data-theme="light"] .settings-home-placeholder{
+  background:#ffffff!important;
+  color:#111827!important;
+}
+html[data-theme="light"] .settings-sidebar{border-right-color:rgba(17,24,39,.10)!important;}
+html[data-theme="light"] .settings-sidebar-head{background:#ffffff!important;}
+html[data-theme="light"] .settings-sidebar-head h1{color:#111827!important;}
+html[data-theme="light"] .settings-back-btn,
+html[data-theme="light"] .settings-icon-action{color:#667781!important;}
+html[data-theme="light"] .settings-back-btn:hover,
+html[data-theme="light"] .settings-icon-action:hover{background:#f0f2f5!important;color:#111827!important;}
+html[data-theme="light"] .settings-sidebar-search{background:#f0f2f5!important;border-color:transparent!important;}
+html[data-theme="light"] .settings-sidebar-search input{color:#111827!important;}
+html[data-theme="light"] .settings-sidebar-search input::placeholder{color:#667781!important;}
+html[data-theme="light"] .settings-profile-preview{background:#f7f9fa!important;border-color:rgba(17,24,39,.08)!important;}
+html[data-theme="light"] .settings-profile-preview strong{color:#111827!important;}
+html[data-theme="light"] .settings-nav-item{color:#111827!important;}
+html[data-theme="light"] .settings-nav-item:hover{background:#f0f2f5!important;}
+html[data-theme="light"] .settings-nav-item.active{background:#eef2f5!important;}
+html[data-theme="light"] .settings-nav-icon{color:#667781!important;}
+html[data-theme="light"] .settings-nav-item small{color:#667781!important;}
+html[data-theme="light"] .settings-detail-head{background:#ffffff!important;border-bottom-color:rgba(17,24,39,.10)!important;}
+html[data-theme="light"] .settings-detail-head h2{color:#111827!important;}
+html[data-theme="light"] .settings-detail-head p,
+html[data-theme="light"] .settings-detail-head .eyebrow{color:#667781!important;}
+html[data-theme="light"] .settings-detail-scroll .settings-card-v6,
+html[data-theme="light"] .settings-detail-scroll .settings-general-section,
+html[data-theme="light"] .settings-detail-scroll .preference-block,
+html[data-theme="light"] .settings-detail-scroll .device-control-card,
+html[data-theme="light"] .settings-detail-scroll .notification-setting-row{
+  background:#ffffff!important;
+  border-color:rgba(17,24,39,.10)!important;
+  color:#111827!important;
+}
+html[data-theme="light"] .settings-detail-scroll .general-select-row,
+html[data-theme="light"] .settings-detail-scroll .locked-input{
+  background:#f0f2f5!important;
+  border-color:rgba(17,24,39,.10)!important;
+  color:#111827!important;
+}
+html[data-theme="light"] .settings-detail-scroll .retention-option-v6{background:#ffffff!important;border-color:rgba(17,24,39,.10)!important;}
+html[data-theme="light"] .settings-detail-scroll .retention-option-v6:has(input:checked){background:rgba(35,70,213,.08)!important;border-color:rgba(35,70,213,.20)!important;}
+html[data-theme="light"] .camera-preview{background:#f0f2f5!important;}
+html[data-theme="light"] .profile-whatsapp-page,
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-profile-active #profileSection{background:#ffffff!important;color:#111827!important;}
+html[data-theme="light"] .profile-wa-input{color:#111827!important;}
+html[data-theme="light"] .profile-wa-input::placeholder{color:#667781!important;}

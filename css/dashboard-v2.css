@@ -2375,3 +2375,246 @@ html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detai
 html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .general-select-row select{color:#111b21!important;}
 
 .status-main-icon img{width:64px!important;height:64px!important;object-fit:contain;display:block;}
+
+/* ============================================================
+   CUNNACT LIGHT THEME — complete dashboard parity
+   The WhatsApp-style reference pass above intentionally used
+   dark fixed values. This final light-theme layer maps every
+   dashboard surface back to the global light tokens without
+   changing the dark theme.
+   ============================================================ */
+html[data-theme="light"]{
+  --cunnact-wa-bg:#f4f7f9;
+  --cunnact-wa-panel:#ffffff;
+  --cunnact-wa-panel-2:#f0f2f5;
+  --cunnact-wa-hover:#eef1f4;
+  --cunnact-wa-text:#111827;
+  --cunnact-wa-muted:#667781;
+}
+html[data-theme="light"] body{background:var(--bg)!important;color:var(--ink)!important;}
+html[data-theme="light"] #app,
+html[data-theme="light"] .app-shell{
+  background:#f4f7f9!important;
+  color:#111827!important;
+}
+html[data-theme="light"] .nav-rail{
+  background:#ffffff!important;
+  border-right:1px solid rgba(17,24,39,.10)!important;
+}
+html[data-theme="light"] .nav-logo{
+  background:#f0f2f5!important;
+  border-color:rgba(17,24,39,.08)!important;
+}
+html[data-theme="light"] .nav-rail-btn{color:#667781!important;}
+html[data-theme="light"] .nav-rail-btn:hover,
+html[data-theme="light"] .nav-rail-profile-btn:hover{background:#f0f2f5!important;color:#111827!important;}
+html[data-theme="light"] .nav-rail-btn.active{
+  color:#ffffff!important;
+  background:linear-gradient(135deg,#2346D5,#4F46E5)!important;
+  border-color:transparent!important;
+}
+html[data-theme="light"] .rail-badge{
+  border-color:#ffffff!important;
+}
+
+html[data-theme="light"] .sidebar{
+  background:#ffffff!important;
+  border-right:1px solid rgba(17,24,39,.10)!important;
+}
+html[data-theme="light"] .sidebar-top,
+html[data-theme="light"] .sidebar-search-block,
+html[data-theme="light"] .chat-list,
+html[data-theme="light"] .stories-strip,
+html[data-theme="light"] .sidebar-bottom{
+  background:#ffffff!important;
+}
+html[data-theme="light"] .current-user-card{
+  background:#f7f9fa!important;
+  border-color:rgba(17,24,39,.09)!important;
+}
+html[data-theme="light"] .current-user-card .meta strong,
+html[data-theme="light"] .chat-item strong,
+html[data-theme="light"] .chats-heading strong{color:#111827!important;}
+html[data-theme="light"] .current-user-card .user-email,
+html[data-theme="light"] .current-user-card .online-text,
+html[data-theme="light"] .chat-item .time,
+html[data-theme="light"] .preview-line .text,
+html[data-theme="light"] .story-chip small,
+html[data-theme="light"] .stories-strip-head span{color:#667781!important;}
+html[data-theme="light"] .search-row.compact-search{
+  background:#f0f2f5!important;
+  border-color:rgba(17,24,39,.06)!important;
+}
+html[data-theme="light"] .search-row.compact-search:focus-within{background:#ffffff!important;}
+html[data-theme="light"] .search-row.compact-search input,
+html[data-theme="light"] .search-row.compact-search input::placeholder{color:#111827!important;}
+html[data-theme="light"] .search-row.compact-search input::placeholder{color:#667781!important;}
+html[data-theme="light"] .filter-pill{
+  color:#54656f!important;
+  border-color:rgba(17,24,39,.10)!important;
+  background:#ffffff!important;
+}
+html[data-theme="light"] .filter-pill.active{
+  background:rgba(35,70,213,.10)!important;
+  color:#2346D5!important;
+  border-color:rgba(35,70,213,.18)!important;
+}
+html[data-theme="light"] .new-chat-btn{color:#ffffff!important;}
+html[data-theme="light"] .story-ring.seen,
+html[data-theme="light"] .story-ring.add{background:#dfe5e9!important;}
+html[data-theme="light"] .story-ring-inner{background:#ffffff!important;color:#2346D5!important;}
+html[data-theme="light"] .chat-item{border-bottom-color:rgba(17,24,39,.07)!important;}
+html[data-theme="light"] .chat-item:hover{background:#f0f2f5!important;}
+html[data-theme="light"] .chat-item.active{background:#eef2f5!important;box-shadow:none!important;}
+html[data-theme="light"] .sidebar-bottom .utility-card{
+  background:#f7f9fa!important;
+  border:1px solid rgba(17,24,39,.08)!important;
+}
+
+html[data-theme="light"] .chat-panel{
+  background:#f4f7f9!important;
+}
+html[data-theme="light"] .chat-header{
+  background:rgba(255,255,255,.96)!important;
+  color:#111827!important;
+  border-bottom-color:rgba(17,24,39,.10)!important;
+}
+html[data-theme="light"] .chat-title-line strong{color:#111827!important;}
+html[data-theme="light"] .chat-header .meta>span{color:#667781!important;}
+html[data-theme="light"] .chat-header-actions .icon-btn{color:#54656f!important;}
+html[data-theme="light"] .chat-header-actions .icon-btn:hover{background:#f0f2f5!important;color:#111827!important;}
+html[data-theme="light"] .messages{
+  background-color:#f7f9fa!important;
+  background-image:radial-gradient(rgba(17,24,39,.05) 1px,transparent 1px)!important;
+}
+html[data-theme="light"] .message-bubble.incoming{
+  background:#ffffff!important;
+  color:#111827!important;
+  border:1px solid rgba(17,24,39,.08)!important;
+}
+html[data-theme="light"] .message-bubble.outgoing{
+  background:linear-gradient(135deg,#2346D5,#4F46E5)!important;
+  color:#ffffff!important;
+}
+html[data-theme="light"] .message-bubble .message-time{color:#667781!important;}
+html[data-theme="light"] .message.outgoing .message-meta small{color:rgba(255,255,255,.74)!important;}
+html[data-theme="light"] .composer{
+  background:#ffffff!important;
+  border-top-color:rgba(17,24,39,.10)!important;
+}
+html[data-theme="light"] .composer-icon{color:#667781!important;}
+html[data-theme="light"] .composer-icon:hover:not(:disabled){background:#f0f2f5!important;color:#111827!important;}
+html[data-theme="light"] .composer textarea{
+  background:#f0f2f5!important;
+  color:#111827!important;
+}
+html[data-theme="light"] .composer textarea::placeholder{color:#667781!important;}
+html[data-theme="light"] .send-btn{color:#06130b!important;}
+
+html[data-theme="light"] .dropdown-menu,
+html[data-theme="light"] .context-menu,
+html[data-theme="light"] .message-menu,
+html[data-theme="light"] .composer-popover,
+html[data-theme="light"] .emoji-picker,
+html[data-theme="light"] .emoji-panel,
+html[data-theme="light"] .sticker-panel,
+html[data-theme="light"] .gif-panel,
+html[data-theme="light"] .message-actions-popover,
+html[data-theme="light"] .reaction-bar,
+html[data-theme="light"] .attachment-panel{
+  background:#ffffff!important;
+  color:#111827!important;
+  border-color:rgba(17,24,39,.10)!important;
+  box-shadow:0 18px 48px rgba(15,23,42,.14)!important;
+}
+html[data-theme="light"] .dropdown-item,
+html[data-theme="light"] .attachment-panel>button{color:#111827!important;}
+html[data-theme="light"] .dropdown-item:hover,
+html[data-theme="light"] .attachment-panel>button:hover{background:#f0f2f5!important;}
+html[data-theme="light"] .attach-icon{background:#eef2f5!important;}
+
+html[data-theme="light"] .profile-drawer{
+  background:#ffffff!important;
+  border-left-color:rgba(17,24,39,.10)!important;
+  box-shadow:-18px 0 48px rgba(15,23,42,.14)!important;
+}
+html[data-theme="light"] .profile-drawer-head,
+html[data-theme="light"] .profile-drawer-body{background:#ffffff!important;}
+html[data-theme="light"] .profile-drawer-head{border-bottom-color:rgba(17,24,39,.10)!important;}
+html[data-theme="light"] .profile-drawer-head .icon-btn,
+html[data-theme="light"] .profile-drawer-title,
+html[data-theme="light"] .profile-drawer-body h3{color:#111827!important;}
+html[data-theme="light"] .drawer-username,
+html[data-theme="light"] .profile-drawer-body> #drawerContactDetails > p{color:#667781!important;}
+
+html[data-theme="light"] .modal{background:rgba(15,23,42,.24)!important;}
+html[data-theme="light"] .modal-content{
+  background:#ffffff!important;
+  color:#111827!important;
+  border-color:rgba(17,24,39,.10)!important;
+  box-shadow:0 24px 80px rgba(15,23,42,.20)!important;
+}
+html[data-theme="light"] .modal-header{
+  background:#ffffff!important;
+  border-bottom-color:rgba(17,24,39,.10)!important;
+}
+html[data-theme="light"] .social-tabs,
+html[data-theme="light"] .social-panel{background:#ffffff!important;}
+html[data-theme="light"] .social-list-card,
+html[data-theme="light"] .social-card,
+html[data-theme="light"] .stories-grid>*,
+html[data-theme="light"] .story-card{
+  background:#f7f9fa!important;
+  border-color:rgba(17,24,39,.09)!important;
+}
+
+html[data-theme="light"] .call-modal-content{background:#ffffff!important;color:#111827!important;}
+html[data-theme="light"] .call-stage{background:#f0f2f5!important;}
+html[data-theme="light"] .call-control{
+  background:#ffffff!important;color:#111827!important;
+  border-color:rgba(17,24,39,.10)!important;
+}
+
+html[data-theme="light"] .chat-selection-toolbar{
+  background:#ffffff!important;
+  border-bottom-color:rgba(17,24,39,.10)!important;
+}
+html[data-theme="light"] .chat-selection-toolbar strong{color:#111827!important;}
+html[data-theme="light"] .chat-select-check{border-color:rgba(17,24,39,.25)!important;color:#07120b!important;}
+html[data-theme="light"] .chat-selected{background:#eef7f1!important;}
+
+html[data-theme="light"] .status-side-view,
+html[data-theme="light"] .status-main-panel{background:#ffffff!important;color:#111827!important;}
+html[data-theme="light"] .status-side-header,
+html[data-theme="light"] .my-status-row{background:#f0f2f5!important;border-bottom-color:rgba(17,24,39,.08)!important;}
+html[data-theme="light"] .status-side-header h2,
+html[data-theme="light"] .my-status-copy strong,
+html[data-theme="light"] .status-update-copy strong,
+html[data-theme="light"] .status-main-empty h2{color:#111827!important;}
+html[data-theme="light"] .status-side-actions .icon-btn,
+html[data-theme="light"] .status-main-empty,
+html[data-theme="light"] .status-main-empty p,
+html[data-theme="light"] .my-status-copy small,
+html[data-theme="light"] .status-update-copy small,
+html[data-theme="light"] .status-section-label,
+html[data-theme="light"] .status-list-empty{color:#667781!important;}
+html[data-theme="light"] .status-side-actions .icon-btn:hover,
+html[data-theme="light"] .status-update-row:hover{background:#f0f2f5!important;color:#111827!important;}
+html[data-theme="light"] .status-add-menu,
+html[data-theme="light"] .status-more-menu{
+  background:#ffffff!important;color:#111827!important;border-color:rgba(17,24,39,.10)!important;box-shadow:0 18px 48px rgba(15,23,42,.14)!important;
+}
+html[data-theme="light"] .status-add-menu button,
+html[data-theme="light"] .status-more-menu button{color:#111827!important;}
+html[data-theme="light"] .status-add-menu button:hover,
+html[data-theme="light"] .status-more-menu button:hover{background:#f0f2f5!important;}
+html[data-theme="light"] .my-status-plus{border-color:#f0f2f5!important;}
+html[data-theme="light"] .status-avatar-inner{background:#ffffff!important;color:#111827!important;}
+
+/* Keep the settings/detail shell fully light when the same theme is active. */
+html[data-theme="light"] .own-profile-view.own-settings-in-place,
+html[data-theme="light"] .settings-sidebar,
+html[data-theme="light"] .settings-detail,
+html[data-theme="light"] .settings-home-placeholder{background:#ffffff!important;color:#111827!important;}
+html[data-theme="light"] .emoji-grid::-webkit-scrollbar-thumb{background:#c5cdd2!important;}
+html[data-theme="light"] .emoji-grid::-webkit-scrollbar-thumb:hover{background:#aeb8be!important;}
