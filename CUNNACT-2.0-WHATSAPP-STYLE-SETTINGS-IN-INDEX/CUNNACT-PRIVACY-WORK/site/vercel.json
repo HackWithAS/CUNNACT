@@ -1,8 +1,0 @@
-{
-  "rewrites": [
-    {
-      "source": "/u/:username",
-      "destination": "/public-profile.html?username=:username"
-    }
-  ]
-}

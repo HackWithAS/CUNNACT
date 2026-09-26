@@ -40,7 +40,7 @@ function syncProfilePhotoEditor(){
   const avatar=$("profileSettingsAvatar");
   if(avatar)paintAvatar(avatar,{photoURL:currentPhotoURL,name:$("profileName")?.value||currentUser?.displayName,email:currentUser?.email});
 }
-function updatePreview(){const name=$("profileName")?.value.trim()||"Your name", u=normalizeUsername($("profileUsername")?.value)||"username";$("heroDisplayName")?.textContent=name;$("heroUsername")?.textContent=`@${u}`;$("publicProfileState")?.textContent=`@${u}`;}
+function updatePreview(){const name=$("profileName")?.value.trim()||"Your name", u=normalizeUsername($("profileUsername")?.value)||"username";const heroName=$("heroDisplayName"), heroUser=$("heroUsername"), publicState=$("publicProfileState");if(heroName)heroName.textContent=name;if(heroUser)heroUser.textContent=`@${u}`;if(publicState)publicState.textContent=`@${u}`;}
 async function usernameAvailable(value){
   const username=normalizeUsername(value),status=$("usernameStatus");
   if(!username){status.textContent="Choose a unique ID to share your profile.";status.className="";return false;}
