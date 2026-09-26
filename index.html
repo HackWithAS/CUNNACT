@@ -139,16 +139,19 @@
         <div class="section-heading-row">
           <span class="chats-heading"><strong>Chats</strong><em id="chatsActiveCount">0 Active</em></span>
           <div class="heading-actions">
-            <button id="newChatBtn" class="new-chat-btn" type="button" aria-label="Start a new chat" aria-haspopup="true" aria-expanded="false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            <button id="newChatBtn" class="new-chat-btn mobile-new-chat-fab" type="button" aria-label="Start a new chat" title="New chat" aria-haspopup="true" aria-expanded="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M5.5 5.5h13a2 2 0 0 1 2 2v7.8a2 2 0 0 1-2 2H11l-4.8 3.1.9-3.1H5.5a2 2 0 0 1-2-2V7.5a2 2 0 0 1 2-2Z"/>
+                <path d="M12 8.8v5.2M9.4 11.4h5.2"/>
+              </svg>
               <span>New chat</span>
             </button>
             <button id="mobileTraceQuickBtn" class="mobile-profile-settings-btn" type="button" aria-label="Open profile and settings" title="Profile and settings">
               <span class="avatar sm" id="mobileTraceAvatar"><img alt="Your profile picture" hidden><span class="avatar-fallback"></span></span>
             </button>
             <!-- Desktop (>820px): a small dropdown folds "Create group" into this
-                 New chat button, wired in app.js. Mobile keeps the original
-                 separate "New group" button below, unchanged. -->
+                 New chat button, wired in app.js. Mobile uses the same control as
+                 the floating WhatsApp-style New Chat action. -->
             <div id="newChatMenu" class="dropdown-menu new-chat-menu" hidden>
               <button class="dropdown-item" id="newChatMenuMessage" type="button">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 5v14M5 12h14"/></svg>
