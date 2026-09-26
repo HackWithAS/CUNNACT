@@ -78,7 +78,7 @@
 .story-chip{ flex:none; display:flex; flex-direction:column; align-items:center; gap:6px; width:58px; background:none; border:0; cursor:pointer; }
 .story-ring{
   width:52px; height:52px; border-radius:50%; display:grid; place-items:center; flex:none;
-  background:linear-gradient(135deg,var(--accent),var(--accent-strong),var(--online));
+  background:linear-gradient(135deg,#7653FA 0%,#2376FC 52%,#01B3D9 100%);
   padding:2px; transition:transform .16s var(--ease);
 }
 .story-ring.seen{ background:var(--surface-3); }
@@ -1378,7 +1378,7 @@ body{background:var(--bg);}
 .status-updates-list{min-height:0!important;overflow:auto!important;padding:0 8px 20px!important;}
 .status-update-row{width:100%!important;display:flex!important;align-items:center!important;gap:12px!important;padding:10px 10px!important;background:transparent!important;border:0!important;border-radius:10px!important;color:var(--ink)!important;text-align:left!important;cursor:pointer!important;}
 .status-update-row:hover{background:var(--surface-2)!important;}
-.status-avatar-ring{width:50px!important;height:50px!important;padding:2px!important;background:var(--online)!important;}
+.status-avatar-ring{width:50px!important;height:50px!important;padding:2px!important;background:linear-gradient(135deg,#7653FA 0%,#2376FC 52%,#01B3D9 100%)!important;}
 .status-avatar-ring.seen{background:var(--border)!important;}
 .status-avatar-inner{background:var(--surface)!important;color:var(--ink)!important;}
 .status-update-copy strong{font-size:13px!important;color:var(--ink)!important;}
@@ -2373,3 +2373,5 @@ html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detai
 html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .general-font-hint{color:#667781!important;}
 html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .general-select-row{background:#f0f2f5!important;border-color:rgba(17,27,33,.12)!important;}
 html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .general-select-row select{color:#111b21!important;}
+
+.status-main-icon img{width:64px!important;height:64px!important;object-fit:contain;display:block;}

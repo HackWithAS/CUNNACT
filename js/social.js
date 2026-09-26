@@ -51,6 +51,10 @@ export function initSocialFeatures({ getCurrentUser }) {
   let traceAudienceDefault = "public";
   let traceBackgroundIndex = 0;
   let myTraceCache = [];
+  let connectedUserIdsCache = null;
+  let connectedUserIdsAt = 0;
+  let myTracePressTimer = null;
+  let myTraceLongPressed = false;
   const traceBackgrounds = [
     "linear-gradient(135deg,#263238,#34495e)",
     "linear-gradient(135deg,#203a43,#2c5364)",
@@ -126,7 +130,10 @@ export function initSocialFeatures({ getCurrentUser }) {
     try { snaps.push(await getDocs(query(base,where("privacy","==","custom"),where("audienceIds","array-contains",u.uid),where("expiresAt",">",now),limit(80)))); } catch {}
     try { snaps.push(await getDocs(query(base,where("privacy","==","closeFriends"),where("closeFriendsIds","array-contains",u.uid),where("expiresAt",">",now),limit(80)))); } catch {}
     const map=new Map();snaps.flatMap(s=>s.docs).forEach(d=>{const item={id:d.id,...d.data()};if(!isExpired(item))map.set(d.id,item);});
-    stories=[...map.values()].sort((a,b)=>(safeTime(b.createdAt)?.getTime()||0)-(safeTime(a.createdAt)?.getTime()||0));
+    // Remote public traces are intended for connected contacts in the trace list.
+    let allowedRemoteOwners=null;
+    try { allowedRemoteOwners=await getConnectedUserIds(); } catch {}
+    stories=[...map.values()].filter(item=>item.ownerId===u.uid || !allowedRemoteOwners || allowedRemoteOwners.has(String(item.ownerId||''))).sort((a,b)=>(safeTime(b.createdAt)?.getTime()||0)-(safeTime(a.createdAt)?.getTime()||0));
     syncTraceAvatarRings();
     if(storyNotificationInitialized){
       stories.filter(story=>!knownStoryIds.has(story.id)&&story.ownerId!==u.uid).slice(0,10).forEach(story=>{
@@ -248,6 +255,15 @@ export function initSocialFeatures({ getCurrentUser }) {
       showToast("Trace published for 24 hours","success");
     }catch(e){console.error("Story publish failed",e);showToast(e?.message==="STORY_AUDIENCE_REQUIRED"?"Choose at least one person for this story.":(e?.userMessage||"Could not publish your trace."),"error");}
     finally{if(btn){btn.disabled=false;btn.textContent="Publish story";}}
+  }
+
+  async function getConnectedUserIds(){
+    const now=Date.now();
+    if(connectedUserIdsCache && (now-connectedUserIdsAt)<30000) return connectedUserIdsCache;
+    const contacts=await getConnectedUsers();
+    connectedUserIdsCache=new Set(contacts.map(c=>String(c.uid)).filter(Boolean));
+    connectedUserIdsAt=now;
+    return connectedUserIdsCache;
   }
 
   async function getConnectedUsers(){
@@ -522,7 +538,28 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
     $("channelsMainMoreBtn")?.addEventListener("click",e=>{e.stopPropagation();const m=$("channelsMainMoreMenu");if(!m)return;const followed=(activeChannel?.subscriberIds||[]).includes(user()?.uid);const owner=isChannelOwner();m.innerHTML=`${owner?`<button type="button" class="dropdown-item" data-channel-action="manage"><span>Channel controls</span></button>`:""}<button type="button" class="dropdown-item" data-channel-action="info"><span>Channel info</span></button>${followed&&!owner?`<button type="button" class="dropdown-item" data-channel-action="unfollow"><span>Unfollow channel</span></button>`:!owner?`<button type="button" class="dropdown-item" data-channel-action="follow"><span>Follow channel</span></button>`:""}`;m.hidden=!m.hidden;m.querySelector('[data-channel-action="follow"]')?.addEventListener("click",()=>followChannel(activeChannel.id,true));m.querySelector('[data-channel-action="unfollow"]')?.addEventListener("click",()=>followChannel(activeChannel.id,false));m.querySelector('[data-channel-action="info"]')?.addEventListener("click",()=>showToast(activeChannel?.description||"No channel description.","info"));m.querySelector('[data-channel-action="manage"]')?.addEventListener("click",openChannelManage);});
     document.addEventListener("click",e=>{if(!e.target.closest(".channels-main-actions"))$("channelsMainMoreMenu")?.setAttribute("hidden","");});
     $("statusAddBtn")?.addEventListener("click",e=>{e.stopPropagation();$("statusMoreMenu")?.setAttribute("hidden","");const m=$("statusAddMenu");if(m)m.hidden=!m.hidden;});
-    $("myStatusRow")?.addEventListener("click",()=>openTraceComposer("text"));
+    const myStatusRow=$("myStatusRow");
+    const clearMyTracePress=()=>{if(myTracePressTimer){clearTimeout(myTracePressTimer);myTracePressTimer=null;}};
+    myStatusRow?.addEventListener("pointerdown",()=>{
+      clearMyTracePress();
+      myTraceLongPressed=false;
+      myTracePressTimer=setTimeout(()=>{
+        myTracePressTimer=null;
+        myTraceLongPressed=true;
+        openTraceComposer("text");
+      },550);
+    });
+    myStatusRow?.addEventListener("pointerup",clearMyTracePress);
+    myStatusRow?.addEventListener("pointercancel",clearMyTracePress);
+    myStatusRow?.addEventListener("pointerleave",clearMyTracePress);
+    myStatusRow?.addEventListener("click",()=>{
+      if(myTraceLongPressed){myTraceLongPressed=false;return;}
+      const u=user();
+      const active=(u?[...myTraceCache,...stories.filter(s=>s.ownerId===u.uid)]:[]).filter(s=>!isExpired(s));
+      if(active.length) openStoryViewer(u.uid);
+      else openTraceComposer("text");
+    });
+    $("myStatusRow")?.querySelector(".my-status-plus")?.addEventListener("click",e=>{e.stopPropagation();openTraceComposer("text");});
     $("statusMoreBtn")?.addEventListener("click",e=>{e.stopPropagation();$("statusAddMenu")?.setAttribute("hidden","");const m=$("statusMoreMenu");if(m)m.hidden=!m.hidden;});
     document.querySelectorAll("[data-status-create]").forEach(b=>b.addEventListener("click",()=>{const mode=b.dataset.statusCreate;$("statusAddMenu")?.setAttribute("hidden","");openTraceComposer(mode); }));
     document.querySelectorAll("[data-status-action]").forEach(b=>b.addEventListener("click",async()=>{const action=b.dataset.statusAction;$("statusMoreMenu")?.setAttribute("hidden","");if(action==="refresh"){await fetchStories();renderStatusPage();showToast("Traces refreshed","success");}else if(action==="privacy"){openTracePrivacy();}}));
