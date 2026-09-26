@@ -146,7 +146,7 @@ export function createCallController({ getCurrentUser, getConversations, getActi
 
   function addRemoteVideo(uid, stream) {
     const grid = document.getElementById("remoteCallVideos");
-    if (!grid) return;
+    if (!grid || !stream?.getVideoTracks?.().length) return;
     let wrap = grid.querySelector(`[data-remote-video="${CSS.escape(uid)}"]`);
     if (!wrap) {
       wrap = document.createElement("div");
@@ -155,6 +155,7 @@ export function createCallController({ getCurrentUser, getConversations, getActi
       const video = document.createElement("video");
       video.autoplay = true;
       video.playsInline = true;
+      video.muted = true;
       video.setAttribute("aria-label", "Remote call video");
       wrap.appendChild(video);
       const label = document.createElement("span");
@@ -165,7 +166,45 @@ export function createCallController({ getCurrentUser, getConversations, getActi
     }
     const video = wrap.querySelector("video");
     if (video && video.srcObject !== stream) video.srcObject = stream;
+    video?.play?.().catch(() => {});
     document.getElementById("callStagePlaceholder")?.setAttribute("hidden", "true");
+  }
+
+  function addRemoteAudio(uid, stream) {
+    const host = document.getElementById("remoteCallAudio");
+    if (!host || !stream?.getAudioTracks?.().length) return;
+    let audio = host.querySelector(`[data-remote-audio="${CSS.escape(uid)}"]`);
+    if (!audio) {
+      audio = document.createElement("audio");
+      audio.autoplay = true;
+      audio.playsInline = true;
+      audio.controls = false;
+      audio.dataset.remoteAudio = uid;
+      audio.setAttribute("aria-label", "Remote call audio");
+      audio.className = "remote-call-audio";
+      host.appendChild(audio);
+    }
+    if (audio.srcObject !== stream) audio.srcObject = stream;
+    audio.play?.().then(() => {
+      document.getElementById("callAudioEnableBtn")?.setAttribute("hidden", "");
+    }).catch(() => {
+      document.getElementById("callAudioEnableBtn")?.removeAttribute("hidden");
+    });
+  }
+
+  function attachRemoteMedia(session, remoteUid, stream) {
+    if (!stream) return;
+    if (session.callType === "video") addRemoteVideo(remoteUid, stream);
+    addRemoteAudio(remoteUid, stream);
+  }
+
+  async function enableRemoteAudio() {
+    const items = [...document.querySelectorAll("#remoteCallAudio audio")];
+    if (!items.length) return;
+    for (const audio of items) {
+      try { await audio.play(); } catch {}
+    }
+    document.getElementById("callAudioEnableBtn")?.setAttribute("hidden", "");
   }
 
   async function getMedia(callType) {
@@ -199,17 +238,40 @@ export function createCallController({ getCurrentUser, getConversations, getActi
     if (remoteUid === user().uid) return null;
     if (session.peers.has(remoteUid)) return session.peers.get(remoteUid).pc;
     const pc = new RTCPeerConnection(RTC_CONFIG);
-    const record = { pc, pendingCandidates: [], candidateUnsub: null, peerUnsub: null, remoteDescriptionSet: false, startedOffer: false };
+    const record = { pc, pendingCandidates: [], candidateUnsub: null, peerUnsub: null, remoteDescriptionSet: false, startedOffer: false, remoteStream: new MediaStream() };
     session.peers.set(remoteUid, record);
 
     session.localStream?.getTracks().forEach(track => pc.addTrack(track, session.localStream));
-    pc.ontrack = (event) => addRemoteVideo(remoteUid, event.streams?.[0] || new MediaStream([event.track]));
+    pc.ontrack = (event) => {
+      const incoming = event.streams?.[0];
+      if (incoming) {
+        record.remoteStream = incoming;
+      } else if (event.track && !record.remoteStream.getTracks().some(track => track.id === event.track.id)) {
+        record.remoteStream.addTrack(event.track);
+      }
+      attachRemoteMedia(session, remoteUid, record.remoteStream);
+    };
     pc.onicecandidate = (event) => {
       if (event.candidate) writeCandidate(session.callId, remoteUid, event.candidate).catch(() => {});
     };
     pc.onconnectionstatechange = () => {
-      if (["failed", "closed", "disconnected"].includes(pc.connectionState)) {
+      if (pc.connectionState === "connected") {
+        const status = document.getElementById("activeCallStatus");
+        if (status) status.textContent = "Connected";
+      } else if (pc.connectionState === "connecting") {
+        const status = document.getElementById("activeCallStatus");
+        if (status) status.textContent = "Connecting media…";
+      } else if (["failed", "closed", "disconnected"].includes(pc.connectionState)) {
         removeRemoteVideo(remoteUid);
+        document.querySelector(`[data-remote-audio="${CSS.escape(remoteUid)}"]`)?.remove();
+        if (pc.connectionState === "failed") {
+          showToast("Media connection failed. This network may require TURN support.", "error");
+        }
+      }
+    };
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === "failed") {
+        console.warn("WebRTC ICE failed", { remoteUid, callId: session.callId, iceServers: RTC_CONFIG.iceServers.length });
       }
     };
 
@@ -277,7 +339,7 @@ export function createCallController({ getCurrentUser, getConversations, getActi
       return false;
     }
     try {
-      state.current = {
+        state.current = {
         callId: call.id,
         conversationId: call.conversationId,
         callType: call.callType || "voice",
@@ -285,6 +347,7 @@ export function createCallController({ getCurrentUser, getConversations, getActi
         isInitiator: !!isInitiator,
         peers: new Map(),
         localStream: null,
+        screenStream: null,
         call,
         callDocUnsub: null,
         connectedAt: null
@@ -427,6 +490,8 @@ export function createCallController({ getCurrentUser, getConversations, getActi
     const localVideo = document.getElementById("localCallVideo");
     if (localVideo) localVideo.srcObject = null;
     document.getElementById("remoteCallVideos")?.replaceChildren();
+    document.getElementById("remoteCallAudio")?.replaceChildren();
+    document.getElementById("callAudioEnableBtn")?.setAttribute("hidden", "");
     try {
       const ref = doc(db, "conversations", session.conversationId, "calls", session.callId);
       if (endWholeCall) {
@@ -477,16 +542,37 @@ export function createCallController({ getCurrentUser, getConversations, getActi
         const sender = record.pc.getSenders().find(s => s.track?.kind === "video");
         if (sender) await sender.replaceTrack(oldTrack || null);
       }
-      screenTrack.stop(); session.screenStream = null;
+      screenTrack.stop();
+      session.screenStream = null;
+      const localVideo = document.getElementById("localCallVideo");
+      if (localVideo) localVideo.srcObject = session.localStream;
       return;
     }
     try {
       const screen = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
       session.screenStream = screen;
       const track = screen.getVideoTracks()[0];
+      let replaced = 0;
       for (const record of session.peers.values()) {
         const sender = record.pc.getSenders().find(s => s.track?.kind === "video");
-        if (sender) await sender.replaceTrack(track);
+        if (sender) {
+          await sender.replaceTrack(track);
+          replaced += 1;
+        }
+      }
+      if (!replaced) {
+        track.stop();
+        session.screenStream = null;
+        showToast("Screen sharing is available during a video call.", "info");
+        return;
+      }
+      const localVideo = document.getElementById("localCallVideo");
+      if (localVideo) {
+        const previewTracks = [track, ...(session.localStream?.getAudioTracks?.() || [])];
+        localVideo.srcObject = new MediaStream(previewTracks);
+        localVideo.hidden = false;
+        localVideo.muted = true;
+        localVideo.play?.().catch(() => {});
       }
       track.onended = () => toggleScreenShare().catch(() => {});
     } catch (e) {
@@ -590,6 +676,7 @@ export function createCallController({ getCurrentUser, getConversations, getActi
   document.getElementById("callReactBtn")?.addEventListener("click", sendCallReaction);
   document.getElementById("callRaiseHandBtn")?.addEventListener("click", toggleRaiseHand);
   document.getElementById("callPipBtn")?.addEventListener("click", enterPip);
+  document.getElementById("callAudioEnableBtn")?.addEventListener("click", enableRemoteAudio);
 
   return {
     startCall,
