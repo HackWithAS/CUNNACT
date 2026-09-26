@@ -2303,7 +2303,6 @@ html[data-theme="light"] #app.profile-open .profile-photo-settings-copy small{co
   #app.profile-open .own-settings-in-place.settings-detail-active .general-font-hint{
     margin:10px 0 0!important;color:#8696a0!important;font-size:12px!important;line-height:1.45!important;
   }
-  #app.profile-open .own-settings-in-place .settings-home-action.radhe-ai-icon{}
   #app.profile-open .own-settings-in-place .radhe-ai-icon{color:#a855f7!important;}
   #app.profile-open .own-settings-in-place .settings-home-action:hover .radhe-ai-icon{background:#342640!important;}
 
