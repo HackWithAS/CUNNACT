@@ -600,9 +600,7 @@
 <span aria-hidden="true" class="avatar-camera-v6"><svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v11H4z"></path><circle cx="12" cy="12.5" r="3.3"></circle></svg></span>
 </button>
 <button class="btn btn-secondary photo-btn-v6" id="changePhotoBtn" type="button">Change photo</button>
-<input accept="image/jpeg,image/png,image/webp" hidden="" id="photoInput" type="file"/>
-<div aria-live="polite" class="upload-status" id="uploadStatus"></div>
-<div aria-hidden="true" class="progress profile-progress"><div class="progress-fill" id="uploadProgressFill"></div></div>
+
 </div>
 <div class="profile-hero-copy-v6">
 <span class="profile-badge"><span class="profile-badge-dot"></span>CUNNACT profile</span>
@@ -650,24 +648,55 @@
 </label>
 <p class="general-font-hint">Use Ctrl + / - to increase or decrease text size</p>
 </section>
-<section class="settings-card-v6" hidden="" id="profileSection">
-<div class="section-heading-v6">
-<div class="section-icon purple"><svg fill="none" stroke="currentColor" stroke-width="1.9" viewbox="0 0 24 24"><circle cx="12" cy="8" r="3.2"></circle><path d="M5 20c.8-3.2 3.1-5 7-5s6.2 1.8 7 5"></path></svg></div>
-<div><h2>Personal information</h2><p>What other people see when they find you.</p></div>
-</div>
-<div class="profile-photo-settings-row">
-<button type="button" class="profile-settings-avatar-btn" id="profileSettingsPhotoButton" aria-label="Change profile picture">
-<span class="avatar avatar-settings-editor" id="profileSettingsAvatar"><img alt="" hidden><span class="avatar-fallback"></span></span>
-</button>
-<div class="profile-photo-settings-copy"><strong>Profile picture</strong><small>Choose the photo shown on your CUNNACT profile.</small></div>
-<button type="button" class="btn btn-soft btn-sm profile-photo-change-btn" id="profileSettingsPhotoTextButton">Change</button>
-</div>
-<div class="profile-fields-v6">
-<label class="profile-field-v6"><span>Display name</span><input autocomplete="name" id="profileName" maxlength="60" placeholder="Your name" required="" type="text"/></label>
-<label class="profile-field-v6 username-field-v6"><span>CUNNACT ID</span><div class="username-input"><b>@</b><input autocomplete="off" id="profileUsername" maxlength="24" placeholder="yourusername" spellcheck="false" type="text"/></div><small aria-live="polite" id="usernameStatus">Choose a unique ID to share your profile.</small></label>
-<label class="profile-field-v6"><span>Email</span><div class="locked-input"><input autocomplete="email" disabled="" id="profileEmail" type="email"/><span aria-label="Read only">🔒</span></div></label>
-<label class="profile-field-v6 full"><span>Bio</span><textarea id="profileBio" maxlength="160" placeholder="Tell people a little about yourself…"></textarea><small><span id="bioCount">0</span>/160</small></label>
-</div>
+<section class="settings-card-v6 profile-whatsapp-page" hidden="" id="profileSection">
+  <div class="profile-wa-photo-area">
+    <button type="button" class="profile-wa-avatar-button" id="profileSettingsPhotoButton" aria-label="Change profile picture" title="Change profile picture">
+      <span class="avatar avatar-settings-editor profile-wa-avatar" id="profileSettingsAvatar"><img alt="Profile picture" hidden><span class="avatar-fallback"></span></span>
+      <span class="profile-wa-camera" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h4l1.5-2h5L16 8h4v11H4z"/><circle cx="12" cy="13" r="3.3"/></svg></span>
+    </button>
+    <input accept="image/jpeg,image/png,image/webp" hidden id="photoInput" type="file"/>
+    <div class="profile-wa-photo-note" id="uploadStatus" aria-live="polite"></div>
+    <div class="progress profile-progress" aria-hidden="true"><div class="progress-fill" id="uploadProgressFill"></div></div>
+  </div>
+
+  <div class="profile-wa-fields">
+    <div class="profile-wa-row">
+      <div class="profile-wa-label">About</div>
+      <div class="profile-wa-control">
+        <input class="profile-wa-input" autocomplete="off" id="profileBio" maxlength="160" placeholder="About" type="text"/>
+        <button class="profile-wa-edit" type="button" data-profile-focus="profileBio" aria-label="Edit about" title="Edit about">✎</button>
+      </div>
+      <div class="profile-wa-meta"><span id="bioCount">0</span>/160</div>
+    </div>
+
+    <div class="profile-wa-row">
+      <div class="profile-wa-label">Name</div>
+      <div class="profile-wa-control">
+        <input class="profile-wa-input" autocomplete="name" id="profileName" maxlength="60" placeholder="Your name" required type="text"/>
+        <button class="profile-wa-edit" type="button" data-profile-focus="profileName" aria-label="Edit name" title="Edit name">✎</button>
+      </div>
+      <div class="profile-wa-meta">This is the name people will see on CUNNACT.</div>
+    </div>
+
+    <div class="profile-wa-row">
+      <div class="profile-wa-label">Username</div>
+      <div class="profile-wa-control">
+        <span class="profile-wa-prefix">@</span>
+        <input class="profile-wa-input" autocomplete="off" id="profileUsername" maxlength="24" placeholder="yourusername" spellcheck="false" type="text"/>
+        <button class="profile-wa-edit" type="button" data-profile-focus="profileUsername" aria-label="Edit username" title="Edit username">✎</button>
+      </div>
+      <div class="profile-wa-meta" id="usernameStatus" aria-live="polite">Choose a unique CUNNACT ID to share your profile.</div>
+    </div>
+
+    <div class="profile-wa-row">
+      <div class="profile-wa-label">Email</div>
+      <div class="profile-wa-control">
+        <input class="profile-wa-input" autocomplete="email" id="profileEmail" maxlength="254" placeholder="you@example.com" type="email"/>
+        <button class="profile-wa-edit" type="button" data-profile-focus="profileEmail" aria-label="Edit email" title="Edit email">✎</button>
+      </div>
+      <div class="profile-wa-meta" id="emailStatus" aria-live="polite">Used for your CUNNACT account and sign-in.</div>
+    </div>
+  </div>
 </section>
 <section class="settings-card-v6" id="preferencesSection">
 <div class="section-heading-v6">

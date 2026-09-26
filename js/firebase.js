@@ -3,7 +3,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword,
-  createUserWithEmailAndPassword, signOut, updateProfile,
+  createUserWithEmailAndPassword, signOut, updateProfile, updateEmail,
   sendEmailVerification, reload, sendPasswordResetEmail,
   GoogleAuthProvider, signInWithPopup, reauthenticateWithPopup, reauthenticateWithCredential,
   EmailAuthProvider, linkWithCredential, PhoneAuthProvider, PhoneMultiFactorGenerator,
@@ -25,7 +25,7 @@ export const functions = getFunctions(app);
 
 export {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  signOut, updateProfile, sendEmailVerification, reload, sendPasswordResetEmail,
+  signOut, updateProfile, updateEmail, sendEmailVerification, reload, sendPasswordResetEmail,
   GoogleAuthProvider, signInWithPopup, reauthenticateWithPopup, reauthenticateWithCredential,
   EmailAuthProvider, linkWithCredential, PhoneAuthProvider, PhoneMultiFactorGenerator,
   RecaptchaVerifier, multiFactor, getMultiFactorResolver,

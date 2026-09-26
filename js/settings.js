@@ -1,5 +1,5 @@
 import {
-  auth, db, functions, httpsCallable, onAuthStateChanged, updateProfile, doc, getDoc, getDocs, setDoc,
+  auth, db, functions, httpsCallable, onAuthStateChanged, updateProfile, updateEmail, sendEmailVerification, doc, getDoc, getDocs, setDoc,
   updateDoc, deleteDoc, serverTimestamp, runTransaction, multiFactor, RecaptchaVerifier, collection, query, where, orderBy, limit,
   PhoneAuthProvider, PhoneMultiFactorGenerator, EmailAuthProvider,
   reauthenticateWithCredential, reauthenticateWithPopup, GoogleAuthProvider
@@ -44,11 +44,11 @@ function updatePreview(){const name=$("profileName")?.value.trim()||"Your name",
 async function usernameAvailable(value){
   const username=normalizeUsername(value),status=$("usernameStatus");
   if(!username){status.textContent="Choose a unique ID to share your profile.";status.className="";return false;}
-  if(!PATTERN.test(username)){status.textContent="Use 3–24 lowercase letters, numbers or underscores.";status.className="error";return false;}
-  if(RESERVED.has(username)){status.textContent="That CUNNACT ID is reserved.";status.className="error";return false;}
-  const token=++usernameToken;status.textContent="Checking availability…";status.className="";
-  try{const snap=await getDoc(doc(db,"usernames",username));if(token!==usernameToken)return false;const free=!snap.exists()||snap.data()?.uid===currentUser?.uid;status.textContent=free?"✓ Available":"✕ Username already taken";status.className=free?"success":"error";return free;}
-  catch(e){console.error(e);if(token===usernameToken){status.textContent="Could not check availability.";status.className="error";}return false;}
+  if(!PATTERN.test(username)){status.textContent="Use 3–24 lowercase letters, numbers or underscores.";status.className="profile-wa-meta error";return false;}
+  if(RESERVED.has(username)){status.textContent="That CUNNACT ID is reserved.";status.className="profile-wa-meta error";return false;}
+  const token=++usernameToken;status.textContent="Checking availability…";status.className="profile-wa-meta";
+  try{const snap=await getDoc(doc(db,"usernames",username));if(token!==usernameToken)return false;const free=!snap.exists()||snap.data()?.uid===currentUser?.uid;status.textContent=free?"✓ Available":"✕ Username already taken";status.className=free?"profile-wa-meta success":"profile-wa-meta error";return free;}
+  catch(e){console.error(e);if(token===usernameToken){status.textContent="Could not check availability.";status.className="profile-wa-meta error";}return false;}
 }
 async function claimUsername(nextValue,oldValue,name,bio,photoURL){
   const next=normalizeUsername(nextValue),old=normalizeUsername(oldValue);
@@ -78,7 +78,7 @@ onAuthStateChanged(auth,async(user)=>{
     const name=data.name||user.displayName||user.email||"User", username=normalizeUsername(data.username||""), bio=data.bio||"";
     $("settingsSidebarName")?.replaceChildren(document.createTextNode(name));
     currentPhotoURL=data.photoURL||user.photoURL||"";pendingTheme=settings.theme||localStorage.getItem("cunnact_theme")||"light";applyLocalTheme(pendingTheme);
-    original={name,username,bio,photoURL:currentPhotoURL,retention:settings.retentionMode||"24hours",sound:settings.soundEnabled!==false,theme:pendingTheme};
+    original={name,username,bio,email:(user.email||data.email||"").trim().toLowerCase(),photoURL:currentPhotoURL,retention:settings.retentionMode||"24hours",sound:settings.soundEnabled!==false,theme:pendingTheme};
     $("profileName").value=name;$("profileEmail").value=user.email||data.email||"";$("profileUsername").value=username;$("profileBio").value=bio;if(!username)$("profileUsername").placeholder=suggestedUsername(name,user.email);
     updateBioCount();updatePreview();paintAvatar($("profileAvatar"),{photoURL:currentPhotoURL,name,email:user.email});syncProfilePhotoEditor();
     const retention=await loadRetentionMode(user.uid);const retentionRadio=document.querySelector(`input[name="retention"][value="${retention}"]`); if(retentionRadio) retentionRadio.checked=true;
@@ -102,6 +102,8 @@ onAuthStateChanged(auth,async(user)=>{
 $("profileName")?.addEventListener("input",updatePreview);
 $("profileBio")?.addEventListener("input",updateBioCount);
 $("profileUsername")?.addEventListener("input",debounce(()=>{updatePreview();usernameAvailable($("profileUsername").value);},480));
+document.querySelectorAll("[data-profile-focus]").forEach(btn=>btn.addEventListener("click",()=>{const target=$(btn.dataset.profileFocus);target?.focus();target?.select?.();}));
+$("profileEmail")?.addEventListener("input",()=>setEmailStatus("Changing email may require a quick sign-in confirmation."));
 const openPicker=()=>{$("photoInput")?.click();};
 $("profileSettingsPhotoButton")?.addEventListener("click",openPicker);
 $("profileSettingsPhotoTextButton")?.addEventListener("click",openPicker);
@@ -364,20 +366,67 @@ $("signOutOtherDevicesBtn")?.addEventListener("click",async()=>{if(!currentUser)
 
 $("deleteAccountBtn")?.addEventListener("click",async()=>{if(!currentUser)return;const confirmation=window.prompt("This permanently signs you out everywhere and removes your CUNNACT identity. Type DELETE to continue.");if(confirmation!=="DELETE")return;const btn=$("deleteAccountBtn");try{btn.disabled=true;btn.textContent="Deleting…";const callable=httpsCallable(functions,"deleteMyAccount");await callable({confirmation:"DELETE"});showToast("Your CUNNACT account has been deleted.","success");setTimeout(()=>location.replace("login.html?deleted=1"),700);}catch(e){console.error("Account deletion failed",e);showToast(e?.message||"Could not delete your account.","error");btn.disabled=false;btn.textContent="Delete my CUNNACT account";}});
 
+async function reauthenticateForSensitiveProfileChange(user){
+  const passwordProvider=(user.providerData||[]).some(p=>p.providerId==="password");
+  const googleProvider=(user.providerData||[]).some(p=>p.providerId==="google.com");
+  if(passwordProvider){
+    const password=window.prompt("Enter your current CUNNACT password to change your email");
+    if(!password)throw new Error("REAUTH_CANCELLED");
+    await reauthenticateWithCredential(user,EmailAuthProvider.credential(user.email,password));
+    return;
+  }
+  if(googleProvider){await reauthenticateWithPopup(user,new GoogleAuthProvider());return;}
+}
+
+function setEmailStatus(text="",type=""){const el=$("emailStatus");if(el){el.textContent=text;el.className=`profile-wa-meta ${type}`.trim();}}
+
 $("profileForm")?.addEventListener("submit",async(e)=>{
-  e.preventDefault();if(!currentUser)return;setStatus("Saving…");const name=$("profileName").value.trim(),bio=$("profileBio").value.trim(),username=normalizeUsername($("profileUsername").value);
-  if(name.length<1){setStatus("Display name is required.","error");return;}
-  if(!PATTERN.test(username)||RESERVED.has(username)){setStatus("Choose a valid CUNNACT ID.","error");$("profileUsername").focus();return;}
+  e.preventDefault();
+  if(!currentUser)return;
+  setStatus("Saving…");
+  const name=$("profileName").value.trim();
+  const bio=$("profileBio").value.trim();
+  const username=normalizeUsername($("profileUsername").value);
+  const email=$("profileEmail").value.trim().toLowerCase();
   const old=original.username;
+  const oldEmail=(original.email||currentUser.email||"").trim().toLowerCase();
+  if(name.length<1){setStatus("Name is required.","error");$("profileName").focus();return;}
+  if(!PATTERN.test(username)||RESERVED.has(username)){setStatus("Choose a valid CUNNACT ID.","error");$("profileUsername").focus();return;}
+  if(!email||!/^\S+@\S+\.\S+$/.test(email)){setEmailStatus("Enter a valid email address.","error");setStatus("Please check your email address.","error");$("profileEmail").focus();return;}
   try{
-    if(username!==old){const free=await usernameAvailable(username);if(!free){setStatus("That CUNNACT ID is not available.","error");return;}await claimUsername(username,old,name,bio,currentPhotoURL||"");}
-    else {await updateDoc(doc(db,"users",currentUser.uid),{name,bio,photoURL:currentPhotoURL||""});await savePublicProfile(name,bio,username);if(!old)await runTransaction(db,async(tx)=>{const ref=doc(db,"usernames",username),snap=await tx.get(ref);if(snap.exists()&&snap.data()?.uid!==currentUser.uid)throw new Error("USERNAME_TAKEN");tx.set(ref,{uid:currentUser.uid,createdAt:serverTimestamp()},{merge:true});});}
+    if(username!==old){
+      const free=await usernameAvailable(username);
+      if(!free){setStatus("That CUNNACT ID is not available.","error");return;}
+      await claimUsername(username,old,name,bio,currentPhotoURL||"");
+    } else {
+      await updateDoc(doc(db,"users",currentUser.uid),{name,bio,photoURL:currentPhotoURL||""});
+      await savePublicProfile(name,bio,username);
+      if(!old)await runTransaction(db,async(tx)=>{const ref=doc(db,"usernames",username),snap=await tx.get(ref);if(snap.exists()&&snap.data()?.uid!==currentUser.uid)throw new Error("USERNAME_TAKEN");tx.set(ref,{uid:currentUser.uid,createdAt:serverTimestamp()},{merge:true});});
+    }
+
+    if(email!==oldEmail){
+      await reauthenticateForSensitiveProfileChange(currentUser);
+      await updateEmail(currentUser,email);
+      await updateDoc(doc(db,"users",currentUser.uid),{email,emailLower:email});
+      setEmailStatus("Email updated. Check your inbox to verify the new address.","success");
+      try{await sendEmailVerification(currentUser);}catch(verifyErr){console.warn("Email verification could not be sent",verifyErr);}
+    }else{
+      setEmailStatus("Used for your CUNNACT account and sign-in.");
+    }
+
     await updateProfile(currentUser,{displayName:name,photoURL:currentPhotoURL||null});
     await setUserSetting(currentUser.uid,{retentionMode:getRetentionMode(),soundEnabled:isSoundEnabled(),theme:pendingTheme});
-    original={name,username,bio,photoURL:currentPhotoURL,retention:getRetentionMode(),sound:isSoundEnabled(),theme:pendingTheme};
-    window.CUNNACTApp?.syncOwnProfile?.({name,bio,username,usernameLower:username,photoURL:currentPhotoURL||""});
+    original={name,username,bio,email,photoURL:currentPhotoURL,retention:getRetentionMode(),sound:isSoundEnabled(),theme:pendingTheme};
+    currentUserData={...currentUserData,name,bio,email,emailLower:email,photoURL:currentPhotoURL||"",username,usernameLower:username};
+    window.CUNNACTApp?.syncOwnProfile?.({name,bio,username,usernameLower:username,photoURL:currentPhotoURL||"",email,emailLower:email});
     updatePreview();setStatus("Changes saved ✓");showToast("Profile updated","success");
-  }catch(err){console.error("Profile save failed",err);setStatus(err?.message==="USERNAME_TAKEN"?"That CUNNACT ID is already taken.":"Could not save your profile. Please try again.","error");}
+  }catch(err){
+    console.error("Profile save failed",err);
+    if(err?.message==="REAUTH_CANCELLED"){setStatus("Email change cancelled.","error");return;}
+    if(err?.code==="auth/email-already-in-use"){setEmailStatus("That email is already linked to another account.","error");setStatus("Could not update email.","error");return;}
+    if(err?.code==="auth/requires-recent-login"){setEmailStatus("Please sign in again before changing your email.","error");setStatus("Recent sign-in required.","error");return;}
+    setStatus(err?.message==="USERNAME_TAKEN"?"That CUNNACT ID is already taken.":"Could not save your profile. Please try again.","error");
+  }
 });
 
 // Settings 2.0 interaction layer: account actions, media tests and help links.
@@ -452,7 +501,7 @@ $("helpPrivacyBtn")?.addEventListener("click",()=>{window.CUNNACTSettings?.open?
   const sections=[...document.querySelectorAll('#ownProfileView .settings-detail-scroll .settings-card-v6')];
   const meta={
     '#generalSection':['General','Startup and close'],
-    '#profileSection':['Profile','Name, profile picture and username'],
+    '#profileSection':['Edit profile','Name, profile picture, username and email'],
     '#dataSection':['Account','Security notifications, account info'],
     '#privacySection':['Privacy','Who can see your personal information and activity'],
     '#preferencesSection':['Chats','Theme, wallpaper and chat settings'],
@@ -464,7 +513,7 @@ $("helpPrivacyBtn")?.addEventListener("click",()=>{window.CUNNACTSettings?.open?
   };
   const generalBack=document.getElementById('generalBackBtn');
   function clearSelection(){
-    root.classList.remove('settings-detail-active','settings-general-active');
+    root.classList.remove('settings-detail-active','settings-general-active','settings-profile-active');
     delete root.dataset.settingsTarget;
   }
   function showHome(){
@@ -488,6 +537,7 @@ $("helpPrivacyBtn")?.addEventListener("click",()=>{window.CUNNACTSettings?.open?
     root.dataset.settingsTarget=target;
     const isGeneral=target==='#generalSection';
     root.classList.toggle('settings-general-active',isGeneral);
+    root.classList.toggle('settings-profile-active',target==='#profileSection');
     if(home)home.hidden=false; // Desktop keeps the right-side WhatsApp-style quick-action surface visible.
     if(head)head.hidden=isGeneral;
     if(window.innerWidth<=820){
