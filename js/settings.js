@@ -462,25 +462,39 @@ $("helpPrivacyBtn")?.addEventListener("click",()=>{window.CUNNACTSettings?.open?
     '#keyboardShortcutsSection':['Keyboard shortcuts','Quick actions'],
     '#helpSection':['Help and feedback','Help centre, contact us, privacy policy'],
   };
+  const generalBack=document.getElementById('generalBackBtn');
+  function clearSelection(){
+    root.classList.remove('settings-detail-active','settings-general-active');
+    delete root.dataset.settingsTarget;
+  }
   function showHome(){
     sections.forEach(section=>{section.hidden=true;});
     items.forEach(x=>x.classList.remove('active'));
+    clearSelection();
     if(home)home.hidden=false;
     if(head)head.hidden=true;
     root.classList.remove('mobile-detail-open');
     if(detail)detail.scrollTo({top:0,behavior:'auto'});
-    if(root.dataset.settingsReady==='true' && location.hash && ['#settings','#profile','#privacy','#generalSection','#privacySection','#securitySection','#dataSection','#preferencesSection','#videoVoiceSection','#notificationsSection','#keyboardShortcutsSection','#helpSection'].includes(location.hash)){
+    if(root.dataset.settingsReady==='true' && location.hash && ['#settings','#profile','#privacy','#general','#generalSection','#privacySection','#securitySection','#dataSection','#preferencesSection','#videoVoiceSection','#notificationsSection','#keyboardShortcutsSection','#helpSection'].includes(location.hash)){
       history.replaceState(null,'',`${location.pathname}${location.search}`);
     }
   }
   function go(target,button){
     const node=document.querySelector(target);
     if(!node)return;
-    if(home)home.hidden=true;
-    if(head)head.hidden=false;
     sections.forEach(section=>{section.hidden=section!==node;});
     items.forEach(x=>x.classList.toggle('active',x===button));
-    if(window.innerWidth<=820)root.classList.add('mobile-detail-open');
+    root.classList.add('settings-detail-active');
+    root.dataset.settingsTarget=target;
+    const isGeneral=target==='#generalSection';
+    root.classList.toggle('settings-general-active',isGeneral);
+    if(home)home.hidden=false; // Desktop keeps the right-side WhatsApp-style quick-action surface visible.
+    if(head)head.hidden=isGeneral;
+    if(window.innerWidth<=820){
+      root.classList.add('mobile-detail-open');
+      if(home)home.hidden=true;
+      if(head)head.hidden=isGeneral;
+    }
     const actions=document.querySelector('.settings-profile-actions');
     if(actions)actions.hidden=target!=='#profileSection';
     const m=meta[target]||['Settings','CUNNACT preferences'];
@@ -501,6 +515,7 @@ $("helpPrivacyBtn")?.addEventListener("click",()=>{window.CUNNACTSettings?.open?
   },go,close:()=>document.getElementById('backToChat')?.click(),home:showHome};
   items.forEach(btn=>btn.addEventListener('click',()=>go(btn.dataset.target,btn)));
   document.getElementById('settingsDetailBack')?.addEventListener('click',showHome);
+  generalBack?.addEventListener('click',showHome);
   document.getElementById('settingsSearch')?.addEventListener('input',e=>{
     const q=String(e.target.value||'').trim().toLowerCase();
     items.forEach(btn=>btn.hidden=!!q&&!btn.textContent.toLowerCase().includes(q));
@@ -514,43 +529,77 @@ $("helpPrivacyBtn")?.addEventListener("click",()=>{window.CUNNACTSettings?.open?
     if(location.hash)history.replaceState(null,'',location.pathname+location.search);
   });
   root.dataset.settingsReady='true';
-  const sendDocument=()=>document.getElementById('attachmentBtn')?.click();
+
+  const sendDocument=()=>{
+    const attachBtn=document.getElementById('attachBtn');
+    const docAction=document.querySelector('[data-attach-action="document"]');
+    if(attachBtn && !attachBtn.disabled && docAction){
+      docAction.click();
+      return;
+    }
+    sessionStorage.setItem('cunnact_pending_attachment','document');
+    document.getElementById('navNewChatBtn')?.click();
+    showToast('Choose a chat first, then CUNNACT will open the document picker.', 'info');
+  };
   const addContact=()=>document.getElementById('navNewChatBtn')?.click();
+  const radheAI=()=>showToast('Radhe AI is not connected to an AI service in this build yet.', 'info');
   document.querySelector('[data-settings-home-action="send-document"]')?.addEventListener('click',sendDocument);
   document.querySelector('[data-settings-home-action="add-contact"]')?.addEventListener('click',addContact);
-  document.querySelector('[data-settings-home-action="start-chat"]')?.addEventListener('click',addContact);
+  document.querySelector('[data-settings-home-action="radhe-ai"]')?.addEventListener('click',radheAI);
+
   const hash=location.hash;
   const route={'#profile':'#profileSection','#privacy':'#privacySection','#general':'#generalSection','#generalSection':'#generalSection','#privacySection':'#privacySection','#securitySection':'#securitySection','#dataSection':'#dataSection','#preferencesSection':'#preferencesSection','#videoVoiceSection':'#videoVoiceSection','#notificationsSection':'#notificationsSection','#keyboardShortcutsSection':'#keyboardShortcutsSection','#helpSection':'#helpSection'};
   if(window.CUNNACTSettings){setTimeout(()=>{if(route[hash])window.CUNNACTSettings.open(route[hash]);else if(hash==='#settings')window.CUNNACTSettings.open(null);},0);}
-  // General controls persisted locally, just like the former page.
+
+  // General controls are persisted per device. Browser builds cannot directly control
+  // native OS login/tray behavior, but the selected state is stable across reloads.
   const startAtLogin=document.getElementById('startAtLoginToggle');
   const minimizeToTray=document.getElementById('minimizeToTrayToggle');
   const language=document.getElementById('generalLanguageSelect');
   const fontSize=document.getElementById('generalFontSizeSelect');
+  const applyFontScale=()=>{
+    const raw=Number(fontSize?.value||100);
+    const scale=Math.min(1.25,Math.max(.8,raw/100));
+    document.documentElement.style.setProperty('--cunnact-font-scale',scale.toFixed(2));
+    // Scale the Settings content density without applying a CSS transform that can
+    // distort the three-column layout. Long labels continue to wrap naturally.
+    root.style.setProperty('--cunnact-settings-scale',scale.toFixed(2));
+  };
   if(startAtLogin)startAtLogin.checked=localStorage.getItem('cunnact_start_at_login')==='true';
   if(minimizeToTray)minimizeToTray.checked=localStorage.getItem('cunnact_minimize_to_tray')==='true';
-  if(language)language.value=localStorage.getItem('cunnact_language')||'en-GB';
-  if(fontSize){const saved=localStorage.getItem('cunnact_font_scale')||'100';fontSize.value=saved;document.documentElement.style.setProperty('--cunnact-font-scale',(Number(saved)/100).toFixed(2));}
+  if(language){language.value=localStorage.getItem('cunnact_language')||'en-GB';document.documentElement.lang=language.value;}
+  if(fontSize){const saved=localStorage.getItem('cunnact_font_scale')||'100';fontSize.value=saved;applyFontScale();}
   startAtLogin?.addEventListener('change',e=>localStorage.setItem('cunnact_start_at_login',String(e.target.checked)));
   minimizeToTray?.addEventListener('change',e=>localStorage.setItem('cunnact_minimize_to_tray',String(e.target.checked)));
-  language?.addEventListener('change',e=>localStorage.setItem('cunnact_language',e.target.value));
-  fontSize?.addEventListener('change',e=>{localStorage.setItem('cunnact_font_scale',e.target.value);document.documentElement.style.setProperty('--cunnact-font-scale',(Number(e.target.value)/100).toFixed(2));});
+  language?.addEventListener('change',e=>{localStorage.setItem('cunnact_language',e.target.value);document.documentElement.lang=e.target.value;});
+  fontSize?.addEventListener('change',e=>{localStorage.setItem('cunnact_font_scale',e.target.value);applyFontScale();});
   document.addEventListener('keydown',e=>{
     const panelOpen=!root.hidden;
     if(!panelOpen)return;
-    if(e.ctrlKey&&(e.key==='+'||e.key==='='||e.key==='-')){e.preventDefault();const vals=[90,100,110,125],current=Number(fontSize?.value||100),idx=Math.max(0,vals.indexOf(current)),next=vals[Math.min(vals.length-1,Math.max(0,idx+(e.key==='-'?-1:1)))];if(fontSize){fontSize.value=String(next);fontSize.dispatchEvent(new Event('change'));}}
-    if(e.key==='Escape'&&!e.target.closest('input,textarea,select'))document.getElementById('backToChat')?.click();
+    if(e.ctrlKey&&(e.key==='+'||e.key==='='||e.key==='-')){
+      e.preventDefault();
+      const vals=[80,90,100,110,125];
+      const current=Number(fontSize?.value||100);
+      let idx=vals.indexOf(current); if(idx<0)idx=2;
+      const next=vals[Math.min(vals.length-1,Math.max(0,idx+(e.key==='-'?-1:1)))];
+      if(fontSize){fontSize.value=String(next);fontSize.dispatchEvent(new Event('change'));}
+    }
+    if(e.key==='Escape'&&!e.target.closest('input,textarea,select')){
+      if(root.classList.contains('settings-detail-active'))showHome();
+      else document.getElementById('backToChat')?.click();
+    }
   });
   const syncPreview=()=>{
     const name=document.getElementById('profileName')?.value||document.getElementById('heroDisplayName')?.textContent||document.getElementById('settingsSidebarName')?.textContent||'Your name';
     const sidebarName=document.getElementById('settingsSidebarName');
+    const previewName=document.getElementById('settingsPreviewName');
     if(sidebarName)sidebarName.textContent=name;
+    if(previewName)previewName.textContent=name;
   };
   const src=document.getElementById('profileAvatar');
   if(src)new MutationObserver(syncPreview).observe(src,{subtree:true,attributes:true,childList:true});
   const pName=document.getElementById('profileName'); pName?.addEventListener('input',syncPreview);
   window.CUNNACTSettings.syncPreview=syncPreview;
-  // Logout item is intentionally an action, not a detail page.
   const logoutNav=document.getElementById('settingsLogoutNav');
   if(logoutNav)logoutNav.addEventListener('click',()=>window.CUNNACTSettingsLogout?.());
 })();

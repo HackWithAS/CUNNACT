@@ -1148,6 +1148,9 @@ async function openChatById(conversationId,hintedUid=null){
     closeMessageActionMenus();stopTyping();unsubscribeTyping?.();unsubscribeTyping=null;unsubscribeMessages?.();unsubscribeMessages=null;cleanupInterval?.();cleanupInterval=null;
     activeConversationId=conversationId;window.__cunnactActiveConversationId=conversationId;activeConversation={id:conversationId,...data};
 
+    const pendingAttachment=sessionStorage.getItem("cunnact_pending_attachment");
+    if(pendingAttachment==="document")sessionStorage.removeItem("cunnact_pending_attachment");
+
     if(data.type==="group"){
       const profiles=await Promise.all(members.map(async uid=>{
         if(uid===currentUser.uid)return[uid,{uid,name:currentUserData.name||"You",photoURL:currentUserData.photoURL||""}];
@@ -1167,6 +1170,7 @@ async function openChatById(conversationId,hintedUid=null){
     }
 
     $id("app")?.classList.add("chat-open");clearImagePreview();clearReply();$id("chatMoreBtn").disabled=false;$id("chatPopoutBtn")?.removeAttribute("disabled");$id("chatMoreBtn")?.setAttribute("aria-hidden","false");refreshChatHeader();setComposerState();
+    if(pendingAttachment==="document")setTimeout(()=>document.querySelector('[data-attach-action="document"]')?.click(),120);
     const localConv=conversations.find(c=>c.id===conversationId);
     if(localConv){localConv.unread={...(localConv.unread||{}),[currentUser.uid]:0};}
     renderProfileDrawer();renderChatList();
