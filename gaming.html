@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CUNNACT Gaming Zone</title>
+<link rel="icon" href="assets/brand/favicon.svg">
+<script>document.documentElement.dataset.theme=localStorage.getItem('cunnact_theme')==='dark'?'dark':'light';</script>
+<link rel="stylesheet" href="css/gaming.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+</head>
+<body class="game-body">
+<div class="game-app">
+<header class="game-topbar">
+  <a href="index.html" class="game-back" style="margin:0;min-width:34px;" aria-label="Back to CUNNACT"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></a>
+  <div class="game-topbar-brand"><img src="assets/brand/cunnact-mark.svg" alt="CUNNACT"><div><strong>CUNNACT Gaming Zone</strong><span>Play inside CUNNACT</span></div></div>
+  <div class="game-top-actions"><button class="game-icon-btn" id="gameThemeBtn" aria-label="Toggle theme" title="Toggle theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 14.6A8.7 8.7 0 0 1 9.4 3 8.7 8.7 0 1 0 21 14.6Z"/></svg></button></div>
+</header>
+<main class="game-layout">
+  <a href="index.html" class="game-back">Back to CUNNACT</a>
+  <section class="game-hero"><div><h1>Gaming Zone</h1><p>Pick a game and play without leaving CUNNACT. Competitive games support friend-on-the-same-device or computer modes; Snake is a solo game.</p></div></section>
+  <div class="game-grid">
+    <article class="game-card" data-game="chess" data-title="Chess" data-subtitle="Strategy board game"><div class="game-card-top"><span class="game-icon">♟️</span><span class="game-badge">Classic</span></div><h3>Chess</h3><p>Play a complete chess board with a simple computer opponent.</p><button class="game-btn primary game-play-btn">Play</button></article>
+    <article class="game-card" data-game="ludo" data-title="Ludo" data-subtitle="Race to the finish"><div class="game-card-top"><span class="game-icon">🎲</span><span class="game-badge">2 players</span></div><h3>Ludo</h3><p>Race your tokens to 57 with dice and local friend/computer mode.</p><button class="game-btn primary game-play-btn">Play</button></article>
+    <article class="game-card" data-game="ttt" data-title="Tic Tac Toe" data-subtitle="Fast 3×3 match"><div class="game-card-top"><span class="game-icon">❌⭕</span><span class="game-badge">Quick</span></div><h3>Tic Tac Toe</h3><p>Three in a row. Challenge a friend or a minimax computer.</p><button class="game-btn primary game-play-btn">Play</button></article>
+    <article class="game-card" data-game="c4" data-title="Connect 4" data-subtitle="Drop four in a row"><div class="game-card-top"><span class="game-icon">🔴</span><span class="game-badge">Quick</span></div><h3>Connect 4</h3><p>Drop discs and connect four before your opponent does.</p><button class="game-btn primary game-play-btn">Play</button></article>
+    <article class="game-card" data-game="pong" data-title="Pong" data-subtitle="Arcade match"><div class="game-card-top"><span class="game-icon">🏓</span><span class="game-badge">Arcade</span></div><h3>Pong</h3><p>Fast arcade rallies with a computer paddle or local friend.</p><button class="game-btn primary game-play-btn">Play</button></article>
+    <article class="game-card" data-game="checkers" data-title="Checkers" data-subtitle="Capture and king"><div class="game-card-top"><span class="game-icon">⚫🔴</span><span class="game-badge">Classic</span></div><h3>Checkers</h3><p>Capture pieces, promote kings and play locally.</p><button class="game-btn primary game-play-btn">Play</button></article>
+    <article class="game-card" data-game="uno" data-title="UNO-style Cards" data-subtitle="Match color or number"><div class="game-card-top"><span class="game-icon">🃏</span><span class="game-badge">Cards</span></div><h3>UNO-style Cards</h3><p>Match colors and numbers in a lightweight CUNNACT card game.</p><button class="game-btn primary game-play-btn">Play</button></article>
+    <article class="game-card" data-game="snake" data-title="Snake" data-subtitle="Solo high score"><div class="game-card-top"><span class="game-icon">🐍</span><span class="game-badge">Solo</span></div><h3>Snake</h3><p>Grow your snake, avoid walls and chase a high score.</p><button class="game-btn primary game-play-btn">Play</button></article>
+  </div>
+</main>
+<div class="game-overlay" id="gameOverlay" role="dialog" aria-modal="true" aria-labelledby="gameTitle">
+  <div class="game-modal">
+    <header class="game-modal-head"><div class="title-wrap"><h2 id="gameTitle">Game</h2><p id="gameSubtitle"></p></div><button id="gameClose" class="game-close" aria-label="Close">×</button></header>
+    <div id="gameBody" class="game-modal-body"></div>
+  </div>
+</div>
+<script src="js/gaming.js"></script>
+</body>
+</html>

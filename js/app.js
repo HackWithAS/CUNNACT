@@ -647,6 +647,7 @@ function bindStaticControls() {
   $id("navProfileBtn")?.addEventListener("click", () => { playClick(); openSettingsPanel(); });
   $id("accountMenuBtn")?.addEventListener("click", (e) => { e.stopPropagation(); playClick(); toggleDropdown("accountMenu", "accountMenuBtn"); });
   $id("dashboardNewGroupBtn")?.addEventListener("click", () => { playClick(); $id("accountMenu").hidden=true; openNewGroupModal(); });
+  $id("dashboardGamingZoneBtn")?.addEventListener("click", () => { playClick(); if ($id("accountMenu")) $id("accountMenu").hidden=true; window.location.href = "gaming.html"; });
   $id("dashboardStarredBtn")?.addEventListener("click", async () => { playClick(); $id("accountMenu").hidden=true; openModal("savedModal"); await renderSavedMessages(); });
   $id("dashboardSelectChatsBtn")?.addEventListener("click", () => { playClick(); $id("accountMenu").hidden=true; setChatSelectionMode(true); });
   $id("dashboardMarkAllReadBtn")?.addEventListener("click", async () => { playClick(); $id("accountMenu").hidden=true; await markAllChatsRead(); });
@@ -727,7 +728,7 @@ function bindStaticControls() {
     playClick();
     const composer = $id("communityComposerModal");
     if (composer) openModal("communityComposerModal");
-    else $id("navRequestsBtn")?.click();
+    else $id("navChannelsBtn")?.click();
   });
   $id("newChatRequestsBtn")?.addEventListener("click", () => { playClick(); openModal("requestsModal"); });
   $id("newChatContactsBtn")?.addEventListener("click", () => {
@@ -741,7 +742,7 @@ function bindStaticControls() {
   $id("addGroupMembersBtn")?.addEventListener("click", addGroupMembers);
   $id("leaveGroupBtn")?.addEventListener("click", leaveGroupChat);
   $id("requestsBtn")?.addEventListener("click", () => { playClick(); openModal("requestsModal"); });
-  $id("navRequestsBtn")?.addEventListener("click", () => { playClick(); closeOwnProfileView(); closeProfileDrawer(); socialFeatures?.openChannelsPage?.(); });
+  $id("navChannelsBtn")?.addEventListener("click", () => { playClick(); closeOwnProfileView(); closeProfileDrawer(); socialFeatures?.openChannelsPage?.(); });
   $id("navCallsBtn")?.addEventListener("click", () => { playClick(); closeOwnProfileView(); closeProfileDrawer(); openCallsPage(); });
   $id("callsStartBtn")?.addEventListener("click", () => { playClick(); openStartCallPicker(); });
   $id("callsAddBtn")?.addEventListener("click", () => { playClick(); openStartCallPicker(); });
