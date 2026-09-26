@@ -104,6 +104,18 @@ export function initSocialFeatures({ getCurrentUser }) {
   }
   function appendTraceEmoji(emoji){ const input=$("storyTextInput"); if(!input)return; const start=input.selectionStart??input.value.length,end=input.selectionEnd??input.value.length;input.value=input.value.slice(0,start)+emoji+input.value.slice(end);input.focus();input.setSelectionRange(start+emoji.length,start+emoji.length); }
 
+  function syncTraceAvatarRings() {
+    const owners = new Set(stories.filter(s => !isExpired(s)).map(s => String(s.ownerId || "")) .filter(Boolean));
+    document.querySelectorAll(".avatar[data-avatar-user-id]").forEach(el => {
+      el.classList.toggle("has-trace", owners.has(String(el.dataset.avatarUserId || "")));
+    });
+    const ownTrace = !!user()?.uid && owners.has(String(user().uid));
+    ["navProfileAvatar", "currentUserAvatar", "menuUserAvatar", "statusMyAvatar"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle("has-trace", ownTrace);
+    });
+  }
+
   async function fetchStories() {
     const u=user(); if(!u)return [];
     const base = collection(db,"stories");
@@ -115,6 +127,7 @@ export function initSocialFeatures({ getCurrentUser }) {
     try { snaps.push(await getDocs(query(base,where("privacy","==","closeFriends"),where("closeFriendsIds","array-contains",u.uid),where("expiresAt",">",now),limit(80)))); } catch {}
     const map=new Map();snaps.flatMap(s=>s.docs).forEach(d=>{const item={id:d.id,...d.data()};if(!isExpired(item))map.set(d.id,item);});
     stories=[...map.values()].sort((a,b)=>(safeTime(b.createdAt)?.getTime()||0)-(safeTime(a.createdAt)?.getTime()||0));
+    syncTraceAvatarRings();
     if(storyNotificationInitialized){
       stories.filter(story=>!knownStoryIds.has(story.id)&&story.ownerId!==u.uid).slice(0,10).forEach(story=>{
         notifyBrowser({category:"status",title:story.ownerName||"New status",body:storyText(story),conversationId:`status-${story.id}`});

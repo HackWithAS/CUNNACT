@@ -97,6 +97,14 @@ img { max-width: 100%; }
 .icon-btn svg { width:19px; height:19px; }
 
 .avatar { position:relative; display:inline-flex; flex:none; width:44px; height:44px; border-radius:50%; }
+.avatar.has-trace {
+  padding: 2.5px;
+  background: linear-gradient(135deg, #7653FA 0%, #2376FC 52%, #01B3D9 100%);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 12px rgba(139,92,246,.22);
+}
+.avatar.has-trace img,.avatar.has-trace .avatar-fallback {
+  border-radius:50%;
+}
 .avatar img,.avatar .avatar-fallback { width:100%; height:100%; border-radius:50%; object-fit:cover; }
 .avatar img { display:block; }
 .avatar .avatar-fallback { display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; color:#fff; background:var(--avatar-tint,var(--accent)); }

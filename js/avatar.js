@@ -77,7 +77,8 @@ export function paintAvatar(container, { photoURL = "", name = "", email = "", p
   img.src = source;
 }
 
-export function avatarHtml({ name = "", email = "", photoURL = "" } = {}, { size = "", dot = false } = {}) {
+export function avatarHtml({ name = "", email = "", photoURL = "", uid = "" } = {}, { size = "", dot = false } = {}) {
   const fallback = initialsFor(name || email);
-  return `<span class="avatar ${size}" data-avatar-photo="${photoURL ? "1" : "0"}"><img alt="" hidden><span class="avatar-fallback" hidden>${fallback}</span>${dot ? '<span class="status-dot"></span>' : ""}</span>`;
+  const userAttr = uid ? ` data-avatar-user-id="${String(uid).replace(/&/g,"&amp;").replace(/"/g,"&quot;")}"` : "";
+  return `<span class="avatar ${size}" data-avatar-photo="${photoURL ? "1" : "0"}"${userAttr}><img alt="" hidden><span class="avatar-fallback" hidden>${fallback}</span>${dot ? '<span class="status-dot"></span>' : ""}</span>`;
 }
