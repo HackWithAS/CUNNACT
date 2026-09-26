@@ -539,11 +539,11 @@ $("helpPrivacyBtn")?.addEventListener("click",()=>{window.CUNNACTSettings?.open?
     root.classList.toggle('settings-general-active',isGeneral);
     root.classList.toggle('settings-profile-active',target==='#profileSection');
     if(home)home.hidden=false; // Desktop keeps the right-side WhatsApp-style quick-action surface visible.
-    if(head)head.hidden=isGeneral;
+    if(head)head.hidden=false;
     if(window.innerWidth<=820){
       root.classList.add('mobile-detail-open');
       if(home)home.hidden=true;
-      if(head)head.hidden=isGeneral;
+      if(head)head.hidden=false;
     }
     const actions=document.querySelector('.settings-profile-actions');
     if(actions)actions.hidden=target!=='#profileSection';
@@ -563,7 +563,14 @@ $("helpPrivacyBtn")?.addEventListener("click",()=>{window.CUNNACTSettings?.open?
     const btn=items.find(x=>x.dataset.target===target);
     if(btn)go(target,btn);else showHome();
   },go,close:()=>document.getElementById('backToChat')?.click(),home:showHome};
-  items.forEach(btn=>btn.addEventListener('click',()=>go(btn.dataset.target,btn)));
+  // Delegate navigation from the Settings root so every item remains clickable even
+  // when a section redraws or focus changes.
+  root.addEventListener('click',event=>{
+    const btn=event.target.closest?.('.settings-nav-item[data-target]');
+    if(!btn || !root.contains(btn)) return;
+    event.preventDefault();
+    go(btn.dataset.target,btn);
+  });
   document.getElementById('settingsDetailBack')?.addEventListener('click',showHome);
   generalBack?.addEventListener('click',showHome);
   document.getElementById('settingsSearch')?.addEventListener('input',e=>{

@@ -475,3 +475,259 @@ html[data-theme="light"] .profile-wa-input:focus{color:#111b21!important;}
 html[data-theme="light"] .profile-wa-edit:hover{background:#f0f2f5;color:#1ea952;}
 html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-profile-active .settings-profile-actions{background:linear-gradient(to bottom,rgba(255,255,255,0),#fff 24%);}
 html[data-theme="light"] .profile-wa-camera{border-color:#fff;}
+
+/* ================================================================
+   CUNNACT SETTINGS V3 — WhatsApp desktop interaction model
+   Selecting a row replaces the middle settings list with that row's
+   detail screen; the large right workspace stays visible.
+   ================================================================ */
+@media (min-width: 821px){
+  #app.profile-open > .app-shell-body > .own-profile-view.own-settings-in-place{
+    --settings-list-width:408px;
+    position:relative!important;
+    grid-template-columns:var(--settings-list-width) minmax(0,1fr)!important;
+    overflow:visible!important;
+  }
+
+  /* The settings list is the home screen. A selected section overlays exactly
+     the same 408px pane, matching WhatsApp's back-to-list navigation. */
+  #app.profile-open .own-settings-in-place .settings-sidebar{z-index:2!important;}
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-sidebar{
+    visibility:hidden!important;
+    pointer-events:none!important;
+  }
+  #app.profile-open .own-settings-in-place .settings-detail{
+    grid-column:2!important;
+    grid-row:1!important;
+    position:relative!important;
+    min-width:0!important;
+    overflow:visible!important;
+    z-index:1!important;
+    background:#202020!important;
+  }
+  #app.profile-open .own-settings-in-place .settings-home-placeholder{
+    position:absolute!important;inset:0!important;z-index:1!important;
+    background:#202020!important;
+  }
+
+  #app.profile-open .own-settings-in-place .settings-detail-scroll{
+    display:none!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-scroll{
+    display:block!important;
+    position:absolute!important;
+    top:0!important;
+    left:calc(-1 * var(--settings-list-width))!important;
+    width:var(--settings-list-width)!important;
+    height:100dvh!important;
+    max-height:100dvh!important;
+    min-height:0!important;
+    overflow:auto!important;
+    box-sizing:border-box!important;
+    padding:72px 0 0!important;
+    margin:0!important;
+    background:#111b21!important;
+    color:#e9edef!important;
+    z-index:5!important;
+  }
+
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-head{
+    display:flex!important;
+    position:absolute!important;
+    left:calc(-1 * var(--settings-list-width))!important;
+    top:0!important;
+    width:var(--settings-list-width)!important;
+    height:72px!important;
+    min-height:72px!important;
+    box-sizing:border-box!important;
+    padding:0 18px!important;
+    background:#111b21!important;
+    border-bottom:1px solid rgba(134,150,160,.12)!important;
+    z-index:9!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-head .settings-detail-back{
+    width:40px!important;height:40px!important;display:grid!important;place-items:center!important;
+    border:0!important;border-radius:50%!important;background:transparent!important;
+    color:#e9edef!important;cursor:pointer!important;flex:none!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-head .settings-detail-back:hover{
+    background:#202c33!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-head h2{
+    margin:0!important;font-size:20px!important;font-weight:500!important;color:#e9edef!important;line-height:1.2!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-head p,
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-head .eyebrow,
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-actions{display:none!important;}
+
+  /* Selected section itself becomes the WhatsApp-style left pane. */
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-scroll .settings-card-v6{
+    display:block!important;
+    width:100%!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:8px 32px 44px!important;
+    border:0!important;
+    border-radius:0!important;
+    background:#111b21!important;
+    color:#e9edef!important;
+    box-shadow:none!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-scroll .settings-card-v6[hidden]{display:none!important;}
+
+  /* Internal headers/back arrows are redundant because the common header above
+     is the single WhatsApp-style page header. */
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-inline-page-head,
+  #app.profile-open .own-settings-in-place.settings-detail-active .general-page-heading,
+  #app.profile-open .own-settings-in-place.settings-detail-active .account-settings-heading,
+  #app.profile-open .own-settings-in-place.settings-detail-active .section-heading-v6{display:none!important;}
+
+  /* General */
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-general-section{
+    padding:30px 32px 44px!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-general-section .settings-section-label{
+    margin:0 0 12px!important;color:#8696a0!important;font-size:13px!important;font-weight:500!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .general-setting-row{
+    min-height:72px!important;margin:0!important;padding:13px 0!important;
+    border-bottom:1px solid rgba(134,150,160,.12)!important;background:transparent!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .general-setting-row strong{
+    display:block!important;max-width:275px!important;color:#e9edef!important;font-size:15px!important;font-weight:500!important;line-height:1.35!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .general-setting-row p{
+    max-width:270px!important;margin:3px 0 0!important;color:#8696a0!important;font-size:12px!important;line-height:1.35!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .general-subsection-label{margin:30px 0 10px!important;}
+  #app.profile-open .own-settings-in-place.settings-detail-active .general-select-row{
+    min-height:48px!important;padding:0 12px!important;border:1px solid rgba(134,150,160,.14)!important;
+    border-radius:8px!important;background:#202c33!important;color:#e9edef!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .general-select-row select{
+    min-width:0!important;width:100%!important;border:0!important;outline:0!important;
+    background:transparent!important;color:#e9edef!important;font-size:14px!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .general-font-hint{margin:10px 0 0!important;color:#8696a0!important;font-size:12px!important;line-height:1.45!important;}
+
+  /* WhatsApp-like control rows for the rest of Settings. */
+  #app.profile-open .own-settings-in-place.settings-detail-active .preference-row-v6,
+  #app.profile-open .own-settings-in-place.settings-detail-active .device-control-card,
+  #app.profile-open .own-settings-in-place.settings-detail-active .notification-setting-row,
+  #app.profile-open .own-settings-in-place.settings-detail-active .privacy-setting-toggle-row,
+  #app.profile-open .own-settings-in-place.settings-detail-active .privacy-profile-discovery-row{
+    border-bottom:1px solid rgba(134,150,160,.12)!important;
+    background:transparent!important;
+  }
+
+  /* Real switch — label area and slider are both clickable. */
+  #app.profile-open .own-settings-in-place .toggle{
+    position:relative!important;display:inline-flex!important;align-items:center!important;
+    width:44px!important;height:24px!important;min-width:44px!important;flex:0 0 44px!important;
+    cursor:pointer!important;
+  }
+  #app.profile-open .own-settings-in-place .toggle input{
+    position:absolute!important;inset:0!important;width:100%!important;height:100%!important;
+    margin:0!important;opacity:0!important;cursor:pointer!important;z-index:2!important;
+  }
+  #app.profile-open .own-settings-in-place .toggle .toggle-slider{
+    position:absolute!important;inset:0!important;display:block!important;
+    width:44px!important;height:24px!important;border-radius:999px!important;
+    background:#3b474e!important;border:1px solid rgba(233,237,239,.12)!important;
+    box-sizing:border-box!important;transition:background .16s ease,border-color .16s ease!important;
+    pointer-events:none!important;
+  }
+  #app.profile-open .own-settings-in-place .toggle .toggle-slider::before{
+    content:""!important;position:absolute!important;width:18px!important;height:18px!important;
+    left:2px!important;top:2px!important;border-radius:50%!important;background:#dfe5e7!important;
+    box-shadow:0 1px 2px rgba(0,0,0,.25)!important;transition:transform .16s ease,background .16s ease!important;
+  }
+  #app.profile-open .own-settings-in-place .toggle input:checked + .toggle-slider{
+    background:#00a884!important;border-color:#00a884!important;
+  }
+  #app.profile-open .own-settings-in-place .toggle input:checked + .toggle-slider::before{
+    transform:translateX(20px)!important;background:#fff!important;
+  }
+  #app.profile-open .own-settings-in-place .toggle input:focus-visible + .toggle-slider{
+    box-shadow:0 0 0 3px rgba(0,168,132,.24)!important;
+  }
+
+  #app.profile-open .own-settings-in-place.settings-detail-active .privacy-v7-content,
+  #app.profile-open .own-settings-in-place.settings-detail-active .notification-settings-list,
+  #app.profile-open .own-settings-in-place.settings-detail-active .help-list,
+  #app.profile-open .own-settings-in-place.settings-detail-active .shortcut-list{
+    width:100%!important;max-width:none!important;
+  }
+
+  #app.profile-open .own-settings-in-place.settings-detail-active .privacy-group-title{
+    padding:22px 0 8px!important;margin:0!important;color:#00a884!important;font-size:12px!important;font-weight:600!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .privacy-setting-item,
+  #app.profile-open .own-settings-in-place.settings-detail-active .privacy-setting-toggle-row,
+  #app.profile-open .own-settings-in-place.settings-detail-active .privacy-profile-discovery-row{
+    min-height:66px!important;padding:11px 0!important;border-bottom:1px solid rgba(134,150,160,.12)!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .privacy-setting-item:hover,
+  #app.profile-open .own-settings-in-place.settings-detail-active .privacy-setting-toggle-row:hover,
+  #app.profile-open .own-settings-in-place.settings-detail-active .privacy-profile-discovery-row:hover{background:#111b21!important;}
+
+  #app.profile-open .own-settings-in-place.settings-detail-active .account-settings-item,
+  #app.profile-open .own-settings-in-place.settings-detail-active .help-list button,
+  #app.profile-open .own-settings-in-place.settings-detail-active .shortcut-list>div{
+    min-height:66px!important;padding:13px 0!important;border-bottom:1px solid rgba(134,150,160,.12)!important;
+    color:#e9edef!important;background:transparent!important;
+  }
+
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-page-intro{padding:8px 0 16px!important;border-bottom:1px solid rgba(134,150,160,.12)!important;}
+  #app.profile-open .own-settings-in-place.settings-detail-active .device-control-card{min-height:68px!important;padding:13px 0!important;}
+  #app.profile-open .own-settings-in-place.settings-detail-active .notification-setting-row{min-height:64px!important;padding:12px 0!important;}
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-profile-actions{
+    position:sticky!important;bottom:0!important;margin:0 -32px!important;padding:12px 32px!important;
+    background:linear-gradient(to bottom,rgba(17,27,33,0),#111b21 26%)!important;border-top:1px solid rgba(134,150,160,.12)!important;
+  }
+}
+
+@media (max-width:820px){
+  /* Mobile keeps WhatsApp's single-pane pattern: list first, selected detail second. */
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail{
+    display:flex!important;position:fixed!important;inset:0 0 62px 0!important;
+    width:100%!important;height:auto!important;z-index:30!important;background:#111b21!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-sidebar{display:none!important;}
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-home-placeholder{display:none!important;}
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-head{
+    display:flex!important;position:absolute!important;left:0!important;top:0!important;width:100%!important;
+    height:62px!important;min-height:62px!important;padding:0 14px!important;
+    background:#111b21!important;border-bottom:1px solid rgba(134,150,160,.12)!important;z-index:9!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-scroll{
+    display:block!important;position:relative!important;left:auto!important;top:auto!important;
+    width:100%!important;height:100%!important;max-height:none!important;padding:62px 0 0!important;
+    background:#111b21!important;overflow:auto!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-scroll .settings-card-v6{
+    padding:8px 18px 42px!important;background:#111b21!important;
+  }
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-scroll .settings-general-section{padding:22px 18px 42px!important;}
+  #app.profile-open .own-settings-in-place.settings-detail-active .settings-profile-actions{margin:0 -18px!important;padding:12px 18px!important;}
+}
+
+/* Light mode counterpart. */
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-scroll,
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-scroll .settings-card-v6,
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-head{background:#fff!important;color:#111b21!important;}
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-head{border-bottom-color:rgba(17,27,33,.10)!important;}
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .settings-detail-head h2,
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .general-setting-row strong{color:#111b21!important;}
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .general-setting-row p,
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .settings-section-label,
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .general-font-hint{color:#667781!important;}
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .general-select-row,
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .notification-setting-row,
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .device-control-card{border-color:rgba(17,27,33,.10)!important;background:#fff!important;}
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .general-select-row{background:#f0f2f5!important;}
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .general-select-row select{color:#111b21!important;}
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .privacy-setting-item:hover,
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .privacy-setting-toggle-row:hover,
+html[data-theme="light"] #app.profile-open .own-settings-in-place.settings-detail-active .privacy-profile-discovery-row:hover{background:#f0f2f5!important;}
+html[data-theme="light"] #app.profile-open .own-settings-in-place .toggle .toggle-slider{background:#d7dde0!important;border-color:rgba(17,27,33,.16)!important;}
