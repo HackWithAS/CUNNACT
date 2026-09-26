@@ -393,9 +393,11 @@ function hydrateCurrentUserUI() {
   const email = currentUserData.email || currentUser.email || "";
   $id("currentUserName") && ($id("currentUserName").textContent = name);
   $id("currentUserEmail") && ($id("currentUserEmail").textContent = email);
-  paintAvatar($id("currentUserAvatar"), { photoURL: currentUserData.photoURL || currentUser.photoURL || "", name, email });
-  paintAvatar($id("navProfileAvatar"), { photoURL: currentUserData.photoURL || currentUser.photoURL || "", name, email, preset: "avatarSm" });
-  paintAvatar($id("menuUserAvatar"), { photoURL: currentUserData.photoURL || currentUser.photoURL || "", name, email, preset: "avatarSm" });
+  const avatarData={ photoURL: currentUserData.photoURL || currentUser.photoURL || "", name, email };
+  paintAvatar($id("currentUserAvatar"), avatarData);
+  paintAvatar($id("navProfileAvatar"), { ...avatarData, preset: "avatarSm" });
+  paintAvatar($id("menuUserAvatar"), { ...avatarData, preset: "avatarSm" });
+  paintAvatar($id("mobileTraceAvatar"), { ...avatarData, preset: "avatarSm" });
   $id("menuUserName") && ($id("menuUserName").textContent = name);
   $id("menuUserEmail") && ($id("menuUserEmail").textContent = email);
 }
@@ -712,6 +714,7 @@ function bindStaticControls() {
   // The reference uses a dedicated in-sidebar New chat screen rather than a modal.
   // Keep the existing dropdown DOM only as a legacy fallback, but don't open it.
   $id("newChatBtn")?.addEventListener("click", newChat);
+  $id("mobileTraceQuickBtn")?.addEventListener("click", () => { playClick(); socialFeatures?.openMyTraceOrCompose?.(); });
   $id("newChatMenuMessage")?.addEventListener("click", () => { newChat(); });
   $id("newChatMenuGroup")?.addEventListener("click", () => { playClick(); openNewGroupModal(); });
   $id("navNewChatBtn")?.addEventListener("click", () => { closeOwnProfileView(); newChat(); });

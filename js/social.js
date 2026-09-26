@@ -116,7 +116,7 @@ export function initSocialFeatures({ getCurrentUser }) {
       el.classList.toggle("has-trace", owners.has(String(el.dataset.avatarUserId || "")));
     });
     const ownTrace = !!user()?.uid && owners.has(String(user().uid));
-    ["navProfileAvatar", "currentUserAvatar", "menuUserAvatar", "statusMyAvatar"].forEach(id => {
+    ["navProfileAvatar", "currentUserAvatar", "menuUserAvatar", "statusMyAvatar", "mobileTraceAvatar"].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.classList.toggle("has-trace", ownTrace);
     });
@@ -578,6 +578,15 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
     const app=$("app"),base=$("sidebarDefaultView"),newChat=$("newChatView"),status=$("statusView"),view=$("channelsView"),chat=document.querySelector(".chat-panel"),statusPanel=$("statusPanel"),panel=$("channelsPanel");
     if(!app||!view||!panel)return;base?.setAttribute("hidden","");newChat?.setAttribute("hidden","");status?.setAttribute("hidden","");view.hidden=false;chat?.setAttribute("hidden","");statusPanel?.setAttribute("hidden","");panel.hidden=false;app.classList.add("channels-open");app.classList.remove("chat-open","status-open");document.querySelectorAll(".nav-rail-btn").forEach(b=>b.classList.remove("active"));document.getElementById("navChannelsBtn")?.classList.add("active");if(location.hash !== "#channels") history.replaceState(null,"",`${location.pathname}${location.search}#channels`);try{await fetchChannels();startChannelRealtime();}catch(e){console.warn("Channels load failed",e);renderChannelList($("channelsViewSearch")?.value||"");}
   }
+  async function openMyTraceOrCompose(){
+    const u=user();
+    if(!u)return;
+    try{await fetchStories();}catch{}
+    const active=[...myTraceCache,...stories.filter(s=>s.ownerId===u.uid)].filter(s=>!isExpired(s));
+    if(active.length) openStoryViewer(u.uid);
+    else openTraceComposer("text");
+  }
+
   function bind(){
     if(socialBound)return;socialBound=true;
     $("navStoriesBtn")?.addEventListener("click",()=>{closeChannelsPage();openStatusPage();});
@@ -650,5 +659,5 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
   };
   bind();
   loadTraceAudienceDefault().catch(()=>{});
-  return { refresh:()=>{fetchStories().then(renderStoryList);fetchCommunities();fetchChannels();}, openStatusPage, closeStatusPage, openChannelsPage, closeChannelsPage, openCommunity, openChannel, openChannelManage, destroy:()=>{storyUnsub?.();communityUnsub?.();channelUnsub?.();channelOwnerUnsub?.();} };
+  return { refresh:()=>{fetchStories().then(renderStoryList);fetchCommunities();fetchChannels();}, openStatusPage, closeStatusPage, openMyTraceOrCompose, openChannelsPage, closeChannelsPage, openCommunity, openChannel, openChannelManage, destroy:()=>{storyUnsub?.();communityUnsub?.();channelUnsub?.();channelOwnerUnsub?.();} };
 }

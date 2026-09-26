@@ -2686,3 +2686,67 @@ html[data-theme="light"] .channel-post-actions button:hover{background:#e5e9ec!i
 html[data-theme="light"] .channel-comments{border-top-color:rgba(17,24,39,.10)!important;}
 html[data-theme="light"] .channel-comment{color:#111827!important;}
 html[data-theme="light"] .channel-comment-form input{background:#ffffff!important;color:#111827!important;border-color:rgba(17,24,39,.12)!important;}
+
+/* ============================================================
+   MOBILE UX PASS — dashboard reference alignment
+   ============================================================ */
+.mobile-trace-quick-btn{display:none;}
+.mobile-trace-quick-btn .avatar{width:40px!important;height:40px!important;}
+.mobile-trace-quick-btn .avatar.has-trace{padding:2.5px!important;}
+
+/* On the chat list, the compact profile avatar replaces the top-right new-chat shortcut.
+   The bottom navigation still exposes New chat, so no chat creation capability is lost. */
+@media(max-width:820px){
+  #newChatBtn{display:none!important;}
+  .mobile-trace-quick-btn{
+    display:grid!important;
+    place-items:center!important;
+    width:40px!important;
+    height:40px!important;
+    border-radius:50%!important;
+    padding:0!important;
+    background:transparent!important;
+    border:0!important;
+  }
+  .mobile-trace-quick-btn:hover{background:transparent!important;}
+
+  /* Remove the extra saved/request utility strip above the mobile bottom navigation. */
+  .sidebar-bottom,
+  .sidebar-brand-note{display:none!important;}
+
+  /* WhatsApp-style mobile chat: once a conversation is open, use the whole viewport.
+     The bottom navigation is hidden; the chat header's back button is the exit path. */
+  #app.chat-open{
+    grid-template-rows:1fr!important;
+  }
+  #app.chat-open .nav-rail{display:none!important;}
+  #app.chat-open .chat-panel{
+    grid-row:1!important;
+    height:100dvh!important;
+  }
+}
+
+/* Contact-info light theme: the lower action/list rows must switch with the drawer too. */
+html[data-theme="light"] .profile-drawer,
+html[data-theme="light"] .profile-drawer-head,
+html[data-theme="light"] .profile-drawer-body,
+html[data-theme="light"] #drawerContactDetails{background:#ffffff!important;color:#111827!important;}
+html[data-theme="light"] .drawer-contact-actions{color:#111827!important;}
+html[data-theme="light"] .drawer-action-btn{color:#2346D5!important;}
+html[data-theme="light"] .drawer-action-icon{background:#f0f2f5!important;color:#111827!important;}
+html[data-theme="light"] .drawer-action-btn small{color:#54656f!important;}
+html[data-theme="light"] .drawer-info-list{border-top-color:rgba(17,24,39,.10)!important;background:#ffffff!important;}
+html[data-theme="light"] .drawer-info-row{
+  background:#ffffff!important;
+  color:#111827!important;
+  border-bottom-color:rgba(17,24,39,.08)!important;
+}
+html[data-theme="light"] .drawer-info-row:hover{background:#f0f2f5!important;}
+html[data-theme="light"] .drawer-info-icon{color:#667781!important;}
+html[data-theme="light"] .drawer-info-copy strong{color:#111827!important;}
+html[data-theme="light"] .drawer-info-copy small{color:#667781!important;}
+html[data-theme="light"] .drawer-info-chevron{color:#83909a!important;}
+html[data-theme="light"] .drawer-danger-row .drawer-info-icon,
+html[data-theme="light"] .drawer-danger-row .drawer-info-copy strong{color:#d9363e!important;}
+html[data-theme="light"] .drawer-stats-row .stat-card{background:#f7f9fa!important;border-color:rgba(17,24,39,.08)!important;color:#111827!important;}
+
