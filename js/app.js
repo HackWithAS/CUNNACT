@@ -603,7 +603,7 @@ async function openCallsPage() {
 }
 
 
-function openSettingsPanel(target='#generalSection'){
+function openSettingsPanel(target=null){
   const app=$id('app'),view=$id('ownProfileView');
   if(!app||!view||!currentUser)return;
   $id('accountMenu')?.setAttribute('hidden','');
@@ -627,7 +627,7 @@ function closeSettingsPanel(){
   $id('sidebarDefaultView')?.removeAttribute('hidden');
   $id('navChatsBtn')?.classList.add('active');
 }
-const openOwnProfileView=(target='#generalSection')=>openSettingsPanel(target);
+const openOwnProfileView=(target=null)=>openSettingsPanel(target);
 const closeOwnProfileView=()=>closeSettingsPanel();
 
 /* Static controls */
@@ -635,7 +635,7 @@ window.CUNNACTSettingsLogout=()=>logout();
 
 function bindStaticControls() {
   if (staticBound) return; staticBound = true;
-    $id("topbarAccountBtn")?.addEventListener("click", () => { if (currentUser) { playClick(); openSettingsPanel("#generalSection"); } });
+    $id("topbarAccountBtn")?.addEventListener("click", () => { if (currentUser) { playClick(); openSettingsPanel(); } });
   
   $id("appLockUnlockBtn")?.addEventListener("click",async()=>{const pin=$id("appLockPinInput")?.value||"";const ok=await verifyPin(pin,currentUserSettings.appLockSalt,currentUserSettings.appLockHash);if(ok){closeAppLock();}else{$id("appLockError").textContent="Incorrect PIN.";}});
   $id("appLockPinInput")?.addEventListener("keydown",e=>{if(e.key==="Enter")$id("appLockUnlockBtn")?.click();});
@@ -644,7 +644,7 @@ function bindStaticControls() {
   updateSoundToggle();
   $id("logoutBtn")?.addEventListener("click", logout);
   $id("navThemeBtn")?.addEventListener("click", () => { playClick(); applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"); });
-  $id("navProfileBtn")?.addEventListener("click", () => { playClick(); openSettingsPanel("#generalSection"); });
+  $id("navProfileBtn")?.addEventListener("click", () => { playClick(); openSettingsPanel(); });
   $id("accountMenuBtn")?.addEventListener("click", (e) => { e.stopPropagation(); playClick(); toggleDropdown("accountMenu", "accountMenuBtn"); });
   $id("dashboardNewGroupBtn")?.addEventListener("click", () => { playClick(); $id("accountMenu").hidden=true; openNewGroupModal(); });
   $id("dashboardStarredBtn")?.addEventListener("click", async () => { playClick(); $id("accountMenu").hidden=true; openModal("savedModal"); await renderSavedMessages(); });

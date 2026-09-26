@@ -36,6 +36,10 @@ const suggestedUsername = (name, email) => {
 function setStatus(text="", type="") { const el=$("profileMessage"); if(el){el.textContent=text;el.className=`profile-status ${type}`.trim();} }
 function escapeHtml(value){return String(value??"").replace(/[&<>"\']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","\'":"&#039;"}[ch]));}
 function updateBioCount(){const b=$("profileBio"),c=$("bioCount");if(b&&c)c.textContent=String(b.value.length);}
+function syncProfilePhotoEditor(){
+  const avatar=$("profileSettingsAvatar");
+  if(avatar)paintAvatar(avatar,{photoURL:currentPhotoURL,name:$("profileName")?.value||currentUser?.displayName,email:currentUser?.email});
+}
 function updatePreview(){const name=$("profileName")?.value.trim()||"Your name", u=normalizeUsername($("profileUsername")?.value)||"username";$("heroDisplayName")?.textContent=name;$("heroUsername")?.textContent=`@${u}`;$("publicProfileState")?.textContent=`@${u}`;}
 async function usernameAvailable(value){
   const username=normalizeUsername(value),status=$("usernameStatus");
@@ -72,10 +76,11 @@ onAuthStateChanged(auth,async(user)=>{
     profileSettings=settings;
     currentUserData = data || {};
     const name=data.name||user.displayName||user.email||"User", username=normalizeUsername(data.username||""), bio=data.bio||"";
+    $("settingsSidebarName")?.replaceChildren(document.createTextNode(name));
     currentPhotoURL=data.photoURL||user.photoURL||"";pendingTheme=settings.theme||localStorage.getItem("cunnact_theme")||"light";applyLocalTheme(pendingTheme);
     original={name,username,bio,photoURL:currentPhotoURL,retention:settings.retentionMode||"24hours",sound:settings.soundEnabled!==false,theme:pendingTheme};
     $("profileName").value=name;$("profileEmail").value=user.email||data.email||"";$("profileUsername").value=username;$("profileBio").value=bio;if(!username)$("profileUsername").placeholder=suggestedUsername(name,user.email);
-    updateBioCount();updatePreview();paintAvatar($("profileAvatar"),{photoURL:currentPhotoURL,name,email:user.email});
+    updateBioCount();updatePreview();paintAvatar($("profileAvatar"),{photoURL:currentPhotoURL,name,email:user.email});syncProfilePhotoEditor();
     const retention=await loadRetentionMode(user.uid);const retentionRadio=document.querySelector(`input[name="retention"][value="${retention}"]`); if(retentionRadio) retentionRadio.checked=true;
     $("settingsSoundToggle").checked=settings.soundEnabled!==false;
     if($("lastSeenToggle"))$("lastSeenToggle").checked=!data.hideLastSeen;
@@ -98,13 +103,15 @@ $("profileName")?.addEventListener("input",updatePreview);
 $("profileBio")?.addEventListener("input",updateBioCount);
 $("profileUsername")?.addEventListener("input",debounce(()=>{updatePreview();usernameAvailable($("profileUsername").value);},480));
 const openPicker=()=>{$("photoInput")?.click();};
+$("profileSettingsPhotoButton")?.addEventListener("click",openPicker);
+$("profileSettingsPhotoTextButton")?.addEventListener("click",openPicker);
 $("avatarButton")?.addEventListener("click",openPicker);$("changePhotoBtn")?.addEventListener("click",openPicker);
 $("photoInput")?.addEventListener("change",async()=>{
   const file=$("photoInput").files?.[0];$("photoInput").value="";if(!file||!currentUser)return;
   uploadController?.abort();uploadController=new AbortController();const prev=currentPhotoURL, objectUrl=URL.createObjectURL(file),stage=$("profileAvatar")?.closest(".profile-hero-avatar");
   stage?.classList.add("uploading");paintAvatar($("profileAvatar"),{photoURL:objectUrl,name:$("profileName").value,email:currentUser.email});$("uploadStatus").textContent="Uploading photo…";
-  try{const url=await uploadImageToCloudinary(file,{signal:uploadController.signal,onProgress:p=>$("uploadProgressFill").style.width=`${Math.round(p*100)}%`});currentPhotoURL=url;await updateProfile(currentUser,{photoURL:url});await updateDoc(doc(db,"users",currentUser.uid),{photoURL:url});const username=normalizeUsername($("profileUsername").value);if(username)await savePublicProfile($("profileName").value.trim(),$("profileBio").value.trim(),username);paintAvatar($("profileAvatar"),{photoURL:url,name:$("profileName").value,email:currentUser.email});$("uploadStatus").textContent="Profile photo updated ✓";playSuccess();showToast("Profile photo updated","success");}
-  catch(e){if(e?.kind!=="aborted"){console.error(e);$("uploadStatus").textContent=e instanceof UploadError?e.userMessage:"Couldn't upload image.";paintAvatar($("profileAvatar"),{photoURL:prev,name:$("profileName").value,email:currentUser.email});showToast($("uploadStatus").textContent,"error");}}
+  try{const url=await uploadImageToCloudinary(file,{signal:uploadController.signal,onProgress:p=>$("uploadProgressFill").style.width=`${Math.round(p*100)}%`});currentPhotoURL=url;syncProfilePhotoEditor();await updateProfile(currentUser,{photoURL:url});await updateDoc(doc(db,"users",currentUser.uid),{photoURL:url});const username=normalizeUsername($("profileUsername").value);if(username)await savePublicProfile($("profileName").value.trim(),$("profileBio").value.trim(),username);paintAvatar($("profileAvatar"),{photoURL:url,name:$("profileName").value,email:currentUser.email});$("uploadStatus").textContent="Profile photo updated ✓";playSuccess();showToast("Profile photo updated","success");}
+  catch(e){if(e?.kind!=="aborted"){console.error(e);$("uploadStatus").textContent=e instanceof UploadError?e.userMessage:"Couldn't upload image.";currentPhotoURL=prev;syncProfilePhotoEditor();paintAvatar($("profileAvatar"),{photoURL:prev,name:$("profileName").value,email:currentUser.email});showToast($("uploadStatus").textContent,"error");}}
   finally{URL.revokeObjectURL(objectUrl);stage?.classList.remove("uploading");setTimeout(()=>{$("uploadStatus").textContent="";$("uploadProgressFill").style.width="0%"},2200);}
 });
 
@@ -432,15 +439,17 @@ $("helpPrivacyBtn")?.addEventListener("click",()=>{window.CUNNACTSettings?.open?
 
 
 // In-place Settings navigation (WhatsApp Web-style: settings list on the left,
-// selected details on the right, all inside index.html).
+// details open only after a setting is selected; the default right pane stays the quiet home surface).
 (function initInPlaceSettingsNavigation(){
   const root=document.getElementById('ownProfileView');
   if(!root)return;
+  const detail=document.getElementById('settingsDetail');
+  const home=document.getElementById('settingsHomePlaceholder');
+  const head=document.querySelector('#ownProfileView .settings-detail-head');
   const title=document.getElementById('settingsDetailTitle');
   const subtitle=document.getElementById('settingsDetailSubtitle');
   const items=[...document.querySelectorAll('#ownProfileView .settings-nav-item')];
   const sections=[...document.querySelectorAll('#ownProfileView .settings-detail-scroll .settings-card-v6')];
-  const profilePreview=document.getElementById('settingsProfilePreview');
   const meta={
     '#generalSection':['General','Startup and close'],
     '#profileSection':['Profile','Name, profile picture and username'],
@@ -453,43 +462,48 @@ $("helpPrivacyBtn")?.addEventListener("click",()=>{window.CUNNACTSettings?.open?
     '#keyboardShortcutsSection':['Keyboard shortcuts','Quick actions'],
     '#helpSection':['Help and feedback','Help centre, contact us, privacy policy'],
   };
+  function showHome(){
+    sections.forEach(section=>{section.hidden=true;});
+    items.forEach(x=>x.classList.remove('active'));
+    if(home)home.hidden=false;
+    if(head)head.hidden=true;
+    root.classList.remove('mobile-detail-open');
+    if(detail)detail.scrollTo({top:0,behavior:'auto'});
+    if(root.dataset.settingsReady==='true' && location.hash && ['#settings','#profile','#privacy','#generalSection','#privacySection','#securitySection','#dataSection','#preferencesSection','#videoVoiceSection','#notificationsSection','#keyboardShortcutsSection','#helpSection'].includes(location.hash)){
+      history.replaceState(null,'',`${location.pathname}${location.search}`);
+    }
+  }
   function go(target,button){
     const node=document.querySelector(target);
     if(!node)return;
+    if(home)home.hidden=true;
+    if(head)head.hidden=false;
     sections.forEach(section=>{section.hidden=section!==node;});
+    items.forEach(x=>x.classList.toggle('active',x===button));
     if(window.innerWidth<=820)root.classList.add('mobile-detail-open');
-    // Profile action bar only applies to the personal information editor.
     const actions=document.querySelector('.settings-profile-actions');
     if(actions)actions.hidden=target!=='#profileSection';
-    items.forEach(x=>x.classList.toggle('active',x===button));
-    profilePreview?.classList.toggle('active',target==='#profileSection');
     const m=meta[target]||['Settings','CUNNACT preferences'];
     if(title)title.textContent=m[0];
     if(subtitle)subtitle.textContent=m[1];
-    document.getElementById('settingsDetail')?.scrollTo({top:0,behavior:'auto'});
+    detail?.scrollTo({top:0,behavior:'auto'});
     if(root.dataset.settingsReady==='true'){
-      const hash=target==='#generalSection'?'#settings':target==='#profileSection'?'#profile':target.replace('Section','');
+      const hash=target==='#generalSection'?'#general':target==='#profileSection'?'#profile':target==='#privacySection'?'#privacy':target.replace('Section','');
       if(location.hash!==hash)history.replaceState(null,'',`${location.pathname}${location.search}${hash}`);
     }
   }
-  window.CUNNACTSettings={open:(target='#generalSection')=>{
+  window.CUNNACTSettings={open:(target=null)=>{
     root.hidden=false;
     document.getElementById('app')?.classList.add('profile-open');
-    const btn=items.find(x=>x.dataset.target===target) || items[0];
-    go(target,btn);
-  },go,close:()=>document.getElementById('backToChat')?.click()};
+    if(!target || target==='#settings' || target==='home'){showHome();return;}
+    const btn=items.find(x=>x.dataset.target===target);
+    if(btn)go(target,btn);else showHome();
+  },go,close:()=>document.getElementById('backToChat')?.click(),home:showHome};
   items.forEach(btn=>btn.addEventListener('click',()=>go(btn.dataset.target,btn)));
-  const openProfilePreview=()=>go('#profileSection',null);
-  profilePreview?.addEventListener('click',openProfilePreview);
-  document.getElementById('settingsAvatarButton')?.addEventListener('click',e=>e.stopPropagation());
-  profilePreview?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openProfilePreview();}});
-  document.querySelectorAll('#ownProfileView .settings-section-back').forEach(btn=>btn.addEventListener('click',()=>go(btn.dataset.target||'#generalSection',items.find(x=>x.dataset.target===(btn.dataset.target||'#generalSection')))));
+  document.getElementById('settingsDetailBack')?.addEventListener('click',showHome);
   document.getElementById('settingsSearch')?.addEventListener('input',e=>{
     const q=String(e.target.value||'').trim().toLowerCase();
     items.forEach(btn=>btn.hidden=!!q&&!btn.textContent.toLowerCase().includes(q));
-  });
-  document.getElementById('settingsDetailBack')?.addEventListener('click',()=>{
-    if(window.innerWidth<=820){root.classList.remove('mobile-detail-open');sections.forEach(section=>{section.hidden=true;});const general=document.getElementById('generalSection');if(general)general.hidden=false;items.forEach((x,i)=>x.classList.toggle('active',i===0));}
   });
   document.getElementById('backToChat')?.addEventListener('click',()=>{
     root.classList.remove('mobile-detail-open');
@@ -500,6 +514,14 @@ $("helpPrivacyBtn")?.addEventListener("click",()=>{window.CUNNACTSettings?.open?
     if(location.hash)history.replaceState(null,'',location.pathname+location.search);
   });
   root.dataset.settingsReady='true';
+  const sendDocument=()=>document.getElementById('attachmentBtn')?.click();
+  const addContact=()=>document.getElementById('navNewChatBtn')?.click();
+  document.querySelector('[data-settings-home-action="send-document"]')?.addEventListener('click',sendDocument);
+  document.querySelector('[data-settings-home-action="add-contact"]')?.addEventListener('click',addContact);
+  document.querySelector('[data-settings-home-action="start-chat"]')?.addEventListener('click',addContact);
+  const hash=location.hash;
+  const route={'#profile':'#profileSection','#privacy':'#privacySection','#general':'#generalSection','#generalSection':'#generalSection','#privacySection':'#privacySection','#securitySection':'#securitySection','#dataSection':'#dataSection','#preferencesSection':'#preferencesSection','#videoVoiceSection':'#videoVoiceSection','#notificationsSection':'#notificationsSection','#keyboardShortcutsSection':'#keyboardShortcutsSection','#helpSection':'#helpSection'};
+  if(window.CUNNACTSettings){setTimeout(()=>{if(route[hash])window.CUNNACTSettings.open(route[hash]);else if(hash==='#settings')window.CUNNACTSettings.open(null);},0);}
   // General controls persisted locally, just like the former page.
   const startAtLogin=document.getElementById('startAtLoginToggle');
   const minimizeToTray=document.getElementById('minimizeToTrayToggle');
@@ -520,14 +542,9 @@ $("helpPrivacyBtn")?.addEventListener("click",()=>{window.CUNNACTSettings?.open?
     if(e.key==='Escape'&&!e.target.closest('input,textarea,select'))document.getElementById('backToChat')?.click();
   });
   const syncPreview=()=>{
-    const src=document.getElementById('profileAvatar'), dst=document.getElementById('settingsSidebarAvatar');
-    const srcImg=src?.querySelector('img'),srcFallback=src?.querySelector('.avatar-fallback');
-    const dstImg=dst?.querySelector('img'),dstFallback=dst?.querySelector('.avatar-fallback');
-    if(srcImg&&dstImg){dstImg.src=srcImg.src;dstImg.hidden=srcImg.hidden;}
-    if(srcFallback&&dstFallback){dstFallback.textContent=srcFallback.textContent;dstFallback.hidden=srcFallback.hidden;}
-    const name=document.getElementById('heroDisplayName')?.textContent||document.getElementById('profileName')?.value||'Your name';
-    const previewName=document.getElementById('settingsPreviewName'),sidebarName=document.getElementById('settingsSidebarName');
-    if(previewName)previewName.textContent=name;if(sidebarName&&sidebarName.textContent!=='Settings')sidebarName.textContent='Settings';
+    const name=document.getElementById('profileName')?.value||document.getElementById('heroDisplayName')?.textContent||document.getElementById('settingsSidebarName')?.textContent||'Your name';
+    const sidebarName=document.getElementById('settingsSidebarName');
+    if(sidebarName)sidebarName.textContent=name;
   };
   const src=document.getElementById('profileAvatar');
   if(src)new MutationObserver(syncPreview).observe(src,{subtree:true,attributes:true,childList:true});
@@ -536,8 +553,4 @@ $("helpPrivacyBtn")?.addEventListener("click",()=>{window.CUNNACTSettings?.open?
   // Logout item is intentionally an action, not a detail page.
   const logoutNav=document.getElementById('settingsLogoutNav');
   if(logoutNav)logoutNav.addEventListener('click',()=>window.CUNNACTSettingsLogout?.());
-  // Open from an index hash after auth bootstrap.
-  const hash=location.hash;
-  const route={'#settings':'#generalSection','#profile':'#profileSection','#privacy':'#privacySection','#generalSection':'#generalSection','#privacySection':'#privacySection','#securitySection':'#securitySection','#dataSection':'#dataSection','#preferencesSection':'#preferencesSection','#videoVoiceSection':'#videoVoiceSection','#notificationsSection':'#notificationsSection','#keyboardShortcutsSection':'#keyboardShortcutsSection','#helpSection':'#helpSection'};
-  if(route[hash] && window.CUNNACTSettings){setTimeout(()=>window.CUNNACTSettings.open(route[hash]),0);}
 })();

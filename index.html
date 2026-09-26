@@ -549,33 +549,45 @@
     <section id="ownProfileView" class="own-profile-view own-settings-in-place" hidden aria-label="CUNNACT Settings">
 <aside aria-label="Profile and settings" class="settings-sidebar">
 <header class="settings-sidebar-head">
-<div><h1 id="settingsSidebarName">Settings</h1></div>
-<button aria-label="Back to chats" class="settings-back-btn" id="backToChat" title="Back to chats" type="button"><svg fill="none" stroke="currentColor" stroke-width="2.2" viewbox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg></button>
+<h1 id="settingsSidebarName">Settings</h1>
+<button aria-label="Back to chats" class="settings-back-btn" id="backToChat" title="Back to chats" type="button"><svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg></button>
 </header>
 <div class="settings-sidebar-search">
-<svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
 <input aria-label="Search settings" autocomplete="off" id="settingsSearch" placeholder="Search" type="search"/>
 </div>
-<div aria-label="Open your profile" class="settings-profile-preview settings-profile-preview-button" data-target="#profileSection" id="settingsProfilePreview" role="button" tabindex="0">
-<button aria-label="Change profile picture" class="settings-profile-avatar-btn" id="settingsAvatarButton" type="button"><span class="avatar avatar-settings-v6" id="settingsSidebarAvatar"><img alt="" hidden=""/><span class="avatar-fallback"></span></span></button>
-<div class="settings-profile-preview-bubble">What's happening?</div>
-<strong id="settingsPreviewName">Your name</strong>
-</button>
 <nav aria-label="Settings sections" class="settings-nav-list">
-<button class="settings-nav-item active" data-target="#generalSection" type="button"><span class="settings-nav-icon">⌂</span><span><b>General</b><small>Startup and close</small></span></button>
-<button class="settings-nav-item" data-target="#dataSection" type="button"><span class="settings-nav-icon">▣</span><span><b>Account</b><small>Security notifications, account info</small></span></button>
-<button class="settings-nav-item" data-target="#privacySection" type="button"><span class="settings-nav-icon">▢</span><span><b>Privacy</b><small>Blocked contacts, discovery and visibility</small></span></button>
-<button class="settings-nav-item" data-target="#preferencesSection" type="button"><span class="settings-nav-icon">▤</span><span><b>Chats</b><small>Theme, wallpaper, chat settings</small></span></button>
-<button class="settings-nav-item" data-target="#videoVoiceSection" type="button"><span class="settings-nav-icon">◻</span><span><b>Video &amp; voice</b><small>Camera, microphone &amp; speakers</small></span></button>
-<button class="settings-nav-item" data-target="#notificationsSection" type="button"><span class="settings-nav-icon">♧</span><span><b>Notifications</b><small>Messages, groups, sounds</small></span></button>
-<button class="settings-nav-item" data-target="#securitySection" type="button"><span class="settings-nav-icon">▣</span><span><b>Security</b><small>App lock, 2-step verification, devices</small></span></button>
-<button class="settings-nav-item" data-target="#keyboardShortcutsSection" type="button"><span class="settings-nav-icon">⌨</span><span><b>Keyboard shortcuts</b><small>Quick actions</small></span></button>
-<button class="settings-nav-item" data-target="#helpSection" type="button"><span class="settings-nav-icon">?</span><span><b>Help and feedback</b><small>Help centre, contact us, privacy policy</small></span></button>
-<button class="settings-nav-item danger" data-settings-action="logout" id="settingsLogoutNav" type="button"><span class="settings-nav-icon">→</span><span><b>Log out</b><small></small></span></button>
+<button class="settings-nav-item" data-target="#generalSection" type="button"><span class="settings-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 3v4M16 3v4M7 10h10M8 14h.01M12 14h.01M16 14h.01"/></svg></span><span><b>General</b><small>Startup and close</small></span></button>
+<button class="settings-nav-item" data-target="#profileSection" type="button"><span class="settings-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c.8-3.1 3.1-5 7-5s6.2 1.9 7 5"/></svg></span><span><b>Profile</b><small>Name, profile picture, username</small></span></button>
+<button class="settings-nav-item" data-target="#dataSection" type="button"><span class="settings-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="7.5" cy="12" r="3.2"/><path d="M10.7 12H21l-2.1-2.1M17 12v3M14.3 12v2"/></svg></span><span><b>Account</b><small>Security notifications, account info</small></span></button>
+<button class="settings-nav-item" data-target="#privacySection" type="button"><span class="settings-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><span><b>Privacy</b><small>Blocked contacts, disappearing messages</small></span></button>
+<button class="settings-nav-item" data-target="#preferencesSection" type="button"><span class="settings-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M5 5h14v14H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><span><b>Chats</b><small>Theme, wallpaper, chat settings</small></span></button>
+<button class="settings-nav-item" data-target="#videoVoiceSection" type="button"><span class="settings-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 10 5-3v10l-5-3"/></svg></span><span><b>Video &amp; voice</b><small>Camera, microphone &amp; speakers</small></span></button>
+<button class="settings-nav-item" data-target="#notificationsSection" type="button"><span class="settings-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg></span><span><b>Notifications</b><small>Messages, groups, sounds</small></span></button>
+<button class="settings-nav-item" data-target="#securitySection" type="button"><span class="settings-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3 19 6v5c0 4.7-2.9 8.1-7 10-4.1-1.9-7-5.3-7-10V6l7-3Z"/><path d="m9 12 2 2 4-4"/></svg></span><span><b>Security</b><small>App lock, 2-step verification, devices</small></span></button>
+<button class="settings-nav-item" data-target="#keyboardShortcutsSection" type="button"><span class="settings-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M6.5 10h.01M9.5 10h.01M12.5 10h.01M15.5 10h.01M18.5 10h.01M7 14h10"/></svg></span><span><b>Keyboard shortcuts</b><small>Quick actions</small></span></button>
+<button class="settings-nav-item" data-target="#helpSection" type="button"><span class="settings-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M9.7 9a2.4 2.4 0 1 1 4.2 1.6c-.8.8-1.9 1.2-1.9 2.7"/><path d="M12 17h.01"/></svg></span><span><b>Help and feedback</b><small>Help centre, contact us, privacy policy</small></span></button>
+<button class="settings-nav-item danger" data-settings-action="logout" id="settingsLogoutNav" type="button"><span class="settings-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M21 19V5a2 2 0 0 0-2-2h-6"/></svg></span><span><b>Log out</b><small></small></span></button>
 </nav>
 </aside>
 <main class="settings-detail" id="settingsDetail">
-<header class="settings-detail-head">
+<div class="settings-home-placeholder" id="settingsHomePlaceholder" aria-label="Settings home">
+  <div class="settings-home-actions">
+    <button type="button" class="settings-home-action" data-settings-home-action="send-document">
+      <span class="settings-home-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9.5 12h5M9.5 15h5M9.5 18h3"/></svg></span>
+      <strong>Send document</strong>
+    </button>
+    <button type="button" class="settings-home-action" data-settings-home-action="add-contact">
+      <span class="settings-home-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10" cy="8" r="3.2"/><path d="M4 20c.7-3.3 2.8-5 6-5s5.3 1.7 6 5M18 8v6M15 11h6"/></svg></span>
+      <strong>Add contact</strong>
+    </button>
+    <button type="button" class="settings-home-action" data-settings-home-action="start-chat">
+      <span class="settings-home-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.4c-1.3 0-2.5-.3-3.6-.9L4 20l1.4-3.7A7.3 7.3 0 0 1 4.5 12 7.5 7.5 0 0 1 12 4.5c4.1 0 7.5 3.1 8 7Z"/><path d="M9 12h6"/></svg></span>
+      <strong>Start a chat</strong>
+    </button>
+  </div>
+</div>
+<header class="settings-detail-head" hidden>
 <button id="settingsDetailBack" class="settings-detail-back" type="button" aria-label="Back to settings" title="Back to settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="m15 18-6-6 6-6"/></svg></button>
 <div><span class="eyebrow">CUNNACT SETTINGS</span><h2 id="settingsDetailTitle">General</h2><p id="settingsDetailSubtitle">Startup and close</p></div>
 <div class="settings-detail-actions"><button aria-label="Share profile" class="settings-icon-action" id="shareProfileTopBtn" title="Share profile" type="button">↗</button></div>
@@ -639,6 +651,13 @@
 <div class="section-heading-v6">
 <div class="section-icon purple"><svg fill="none" stroke="currentColor" stroke-width="1.9" viewbox="0 0 24 24"><circle cx="12" cy="8" r="3.2"></circle><path d="M5 20c.8-3.2 3.1-5 7-5s6.2 1.8 7 5"></path></svg></div>
 <div><h2>Personal information</h2><p>What other people see when they find you.</p></div>
+</div>
+<div class="profile-photo-settings-row">
+<button type="button" class="profile-settings-avatar-btn" id="profileSettingsPhotoButton" aria-label="Change profile picture">
+<span class="avatar avatar-settings-editor" id="profileSettingsAvatar"><img alt="" hidden><span class="avatar-fallback"></span></span>
+</button>
+<div class="profile-photo-settings-copy"><strong>Profile picture</strong><small>Choose the photo shown on your CUNNACT profile.</small></div>
+<button type="button" class="btn btn-soft btn-sm profile-photo-change-btn" id="profileSettingsPhotoTextButton">Change</button>
 </div>
 <div class="profile-fields-v6">
 <label class="profile-field-v6"><span>Display name</span><input autocomplete="name" id="profileName" maxlength="60" placeholder="Your name" required="" type="text"/></label>
