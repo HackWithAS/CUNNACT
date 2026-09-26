@@ -43,6 +43,8 @@ export function initSocialFeatures({ getCurrentUser }) {
   let storyUnsub = null;
   let communityUnsub = null;
   let channelUnsub = null;
+  let channelOwnerUnsub = null;
+  let channelCatalog = new Map();
   let storyCursor = 0;
   let storyCandidates = [];
   let storyNotificationInitialized = false;
@@ -315,8 +317,44 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
     if(!activeCommunity)return;const u=user();if(!u)return;const name=$("subgroupNameInput")?.value.trim();const description=$("subgroupDescriptionInput")?.value.trim()||"";const contacts=await getConnectedUsers();const selected=[...document.querySelectorAll('#subgroupMemberPicker input[type="checkbox"]:checked')].map(x=>x.value).filter(x=>x!==u.uid);if(selected.length<2){showToast("Pick at least 2 connected people for a group.","error");return;}const memberIds=[u.uid,...selected.slice(0,49)];try{const ref=doc(collection(db,"conversations"));await setDoc(ref,{type:"group",members:memberIds,createdBy:u.uid,groupName:name||`${activeCommunity.name} group`,groupDescription:description,groupPhotoURL:"",groupAdmins:[u.uid],groupModerators:[u.uid],groupRoles:Object.fromEntries(memberIds.map(id=>[id,id===u.uid?"admin":"member"])),joinApproval:true,unread:Object.fromEntries(memberIds.map(id=>[id,0])),lastMessage:"",lastMessageType:"text",lastMessageSenderId:"",lastMessageId:"",lastMessageTime:serverTimestamp(),createdAt:serverTimestamp(),communityId:activeCommunity.id},{});await updateDoc(doc(db,"communities",activeCommunity.id),{groupIds:arrayUnion(ref.id),updatedAt:serverTimestamp()});closeModal("subgroupComposerModal");showToast("Community group created","success");activeCommunity={...activeCommunity,groupIds:[...(activeCommunity.groupIds||[]),ref.id]};await loadCommunityChildren();}catch(e){console.error(e);showToast(e?.code==="permission-denied"?"Firebase blocked sub-group creation. Deploy the latest rules.":"Could not create sub-group.","error");}}
   function renderSubgroupPicker(){const box=$("subgroupMemberPicker");if(!box)return;getConnectedUsers().then(contacts=>{if(!contacts.length){box.innerHTML='<div class="empty-state">Start a few 1:1 chats before creating a community group.</div>';return;}box.innerHTML=contacts.map(c=>`<label class="checkbox-line"><input type="checkbox" value="${escapeHtml(c.uid)}"><span>${escapeHtml(c.name||c.email||"Contact")}</span></label>`).join("");});}
 
+  function refreshChannelArray(){
+    channels=[...channelCatalog.values()].sort((a,b)=>(safeTime(b.updatedAt||b.createdAt)?.getTime()||0)-(safeTime(a.updatedAt||a.createdAt)?.getTime()||0));
+    renderChannelList($('channelsViewSearch')?.value||'');
+  }
+  function applyChannelDocs(snaps){
+    const map=new Map(channelCatalog);
+    snaps.flatMap(s=>s.docs).forEach(d=>map.set(d.id,{id:d.id,...d.data()}));
+    channelCatalog=map;
+    refreshChannelArray();
+  }
+  function applyChannelSnapshot(snap){
+    const map=new Map(channelCatalog);
+    snap.docChanges().forEach(change=>{
+      if(change.type==="removed")map.delete(change.doc.id);
+      else map.set(change.doc.id,{id:change.doc.id,...change.doc.data()});
+    });
+    channelCatalog=map;
+    refreshChannelArray();
+  }
   async function fetchChannels(){
-    const u=user();if(!u)return;const snaps=[];try{snaps.push(await getDocs(query(collection(db,"channels"),where("privacy","==","public"),limit(80))));}catch{}try{snaps.push(await getDocs(query(collection(db,"channels"),where("subscriberIds","array-contains",u.uid),limit(80))));}catch{}const map=new Map();snaps.flatMap(s=>s.docs).forEach(d=>map.set(d.id,{id:d.id,...d.data()}));channels=[...map.values()].sort((a,b)=>(safeTime(b.createdAt)?.getTime()||0)-(safeTime(a.createdAt)?.getTime()||0));renderChannelList();
+    const u=user();if(!u)return;
+    channelCatalog=new Map();
+    const snaps=[];
+    try{snaps.push(await getDocs(query(collection(db,"channels"),where("privacy","==","public"),limit(200))));}
+    catch(e){console.warn("Public channel discovery failed",e);}
+    try{snaps.push(await getDocs(query(collection(db,"channels"),where("ownerId","==",u.uid),limit(50))));}
+    catch(e){console.warn("Own channel discovery failed",e);}
+    applyChannelDocs(snaps);
+  }
+  function startChannelRealtime(){
+    const u=user();if(!u)return;
+    channelUnsub?.();channelOwnerUnsub?.();
+    try{
+      channelUnsub=onSnapshot(query(collection(db,"channels"),where("privacy","==","public"),limit(200)),snap=>applyChannelSnapshot(snap),e=>console.warn("Public channel live refresh failed",e));
+    }catch(e){console.warn("Could not start public channel listener",e);}
+    try{
+      channelOwnerUnsub=onSnapshot(query(collection(db,"channels"),where("ownerId","==",u.uid),limit(50)),snap=>applyChannelSnapshot(snap),e=>console.warn("Own channel live refresh failed",e));
+    }catch(e){console.warn("Could not start own channel listener",e);}
   }
   function channelAvatarHtml(channel){
     const photo=channel?.photoURL||channel?.imageURL||channel?.avatarURL||"";
@@ -325,34 +363,44 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
   function bindChannelListInteractions(box){
     if(!box)return;
     box.querySelectorAll("[data-channel-open]").forEach(b=>b.addEventListener("click",()=>openChannel(b.dataset.channelOpen)));
-    box.querySelectorAll("[data-channel-follow]").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();followChannel(b.dataset.channelFollow,true)}));
-    box.querySelectorAll("[data-channel-unfollow]").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();followChannel(b.dataset.channelUnfollow,false)}));
+    box.querySelectorAll("[data-channel-join]").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();followChannel(b.dataset.channelJoin,true)}));
+    box.querySelectorAll("[data-channel-leave]").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();followChannel(b.dataset.channelLeave,false)}));
   }
   function renderChannelList(filter=""){
     const term=String(filter||"").trim().toLowerCase();
     const list=channels.filter(c=>!term||String(c.nameLower||c.name||"").toLowerCase().includes(term)||String(c.description||"").toLowerCase().includes(term));
-    const boxes=[$("channelsList"),$("channelsViewList")].filter(Boolean);
-    boxes.forEach(box=>{
-      if(!list.length){box.innerHTML='<div class="channels-list-empty"><strong>No channels found</strong><span>Follow a channel or create your own.</span></div>';return;}
-      const isDedicated=box.id==="channelsViewList";
-      box.innerHTML=list.map(c=>{
-        const followed=(c.subscriberIds||[]).includes(user()?.uid);const admin=(c.adminIds||[]).includes(user()?.uid);
-        const title=escapeHtml(c.name||"Channel");
-        const preview=escapeHtml(String(c.lastMessage||c.latestPost||c.description||"No updates yet"));
-        const count=Number((c.subscriberIds||[]).length);
-        if(isDedicated){
-          return `<button type="button" class="channel-side-row ${activeChannel?.id===c.id?"active":""}" data-channel-open="${escapeHtml(c.id)}">
-            <span class="channel-side-avatar">${channelAvatarHtml(c)}</span>
-            <span class="channel-side-copy"><strong>${title}</strong><small>${preview}</small></span>
-            <span class="channel-side-meta"><time>${safeTime(c.updatedAt||c.createdAt)?escapeHtml(formatTime(safeTime(c.updatedAt||c.createdAt))):""}</time>${Number(c.unreadCount||0)>0?`<b>${Number(c.unreadCount)}</b>`:""}</span>
-          </button>`;
-        }
-        return `<div class="social-list-card"><div class="social-card-main"><div class="social-icon">📣</div><div><strong># ${title}</strong><small>${escapeHtml(c.description||"No description")}</small><small>${count} followers · ${c.privacy==="public"?"Public":"Private"}</small></div></div><div class="social-card-actions"><button type="button" class="btn btn-soft btn-sm" data-channel-open="${escapeHtml(c.id)}">Open</button>${admin?"":(followed?`<button type="button" class="btn btn-soft btn-sm" data-channel-unfollow="${escapeHtml(c.id)}">Unfollow</button>`:`<button type="button" class="btn btn-primary btn-sm" data-channel-follow="${escapeHtml(c.id)}">Follow</button>`)}</div></div>`;
-      }).join("");
-      bindChannelListInteractions(box);
-    });
+    const box=$("channelsViewList");
+    if(!box)return;
+    if(!list.length){box.innerHTML='<div class="channels-list-empty"><strong>No channels found</strong><span>Search a public channel to join it, or create your own.</span></div>';return;}
+    box.innerHTML=list.map(c=>{
+      const followed=(c.subscriberIds||[]).includes(user()?.uid);
+      const admin=(c.adminIds||[]).includes(user()?.uid);
+      const title=escapeHtml(c.name||"Channel");
+      const preview=escapeHtml(String(c.lastMessage||c.latestPost||c.description||"No updates yet").slice(0,78));
+      const count=Number((c.subscriberIds||[]).length);
+      const membership=admin?'<span class="channel-membership-label owner">Owner</span>':followed?`<button type="button" class="btn btn-soft btn-sm" data-channel-leave="${escapeHtml(c.id)}">Joined</button>`:(c.privacy==="public"?`<button type="button" class="btn btn-primary btn-sm" data-channel-join="${escapeHtml(c.id)}">Join</button>`:'<span class="channel-membership-label private">Private</span>');
+      return `<div class="channel-side-row-wrap">
+        <button type="button" class="channel-side-row ${activeChannel?.id===c.id?"active":""}" data-channel-open="${escapeHtml(c.id)}">
+          <span class="channel-side-avatar">${channelAvatarHtml(c)}</span>
+          <span class="channel-side-copy"><strong>${title}</strong><small>${preview}</small><em>${count} ${count===1?"follower":"followers"}</em></span>
+          <span class="channel-side-meta"><time>${safeTime(c.updatedAt||c.createdAt)?escapeHtml(formatTime(safeTime(c.updatedAt||c.createdAt))):""}</time>${Number(c.unreadCount||0)>0?`<b>${Number(c.unreadCount)}</b>`:""}</span>
+        </button>
+        <span class="channel-side-membership">${membership}</span>
+      </div>`;
+    }).join("");
+    bindChannelListInteractions(box);
   }
-  async function followChannel(id,follow){const u=user();if(!u)return;try{await updateDoc(doc(db,"channels",id),{subscriberIds:follow?arrayUnion(u.uid):arrayRemove(u.uid),updatedAt:serverTimestamp()});await fetchChannels();showToast(follow?"Channel followed":"Channel unfollowed","success");}catch(e){showToast("Could not update channel follow state.","error");}}
+  async function followChannel(id,follow){
+    const u=user();if(!u)return;
+    try{
+      await updateDoc(doc(db,"channels",id),{subscriberIds:follow?arrayUnion(u.uid):arrayRemove(u.uid),updatedAt:serverTimestamp()});
+      await fetchChannels();
+      showToast(follow?"Channel joined":"Channel left","success");
+    }catch(e){
+      console.error("Channel membership update failed",e);
+      showToast(e?.code==="permission-denied"?"Could not join this channel. Make sure the latest Firestore rules are deployed.":"Could not update channel membership.","error");
+    }
+  }
   async function createChannel(){
     const u=user();if(!u)return;const name=$("channelNameInput")?.value.trim();const description=$("channelDescriptionInput")?.value.trim()||"";const privacy=$("channelPrivacy")?.value||"public";const communityId=activeCommunity?.id||null;if(name.length<2){showToast("Channel name is too short.","error");return;}const btn=$("createChannelBtn");if(btn)btn.disabled=true;try{const ref=await addDoc(collection(db,"channels"),{name:name.slice(0,80),nameLower:name.toLowerCase().slice(0,80),description:description.slice(0,500),privacy,ownerId:u.uid,adminIds:[u.uid],subscriberIds:[u.uid],communityId,maxAdmins:10,maxFollowers:0,settings:{comments:"followers",reactions:true},createdAt:serverTimestamp(),updatedAt:serverTimestamp()});if(communityId)await updateDoc(doc(db,"communities",communityId),{channelIds:arrayUnion(ref.id),updatedAt:serverTimestamp()});closeModal("channelComposerModal");await fetchChannels();await openChannel(ref.id);showToast("Channel created","success");}catch(e){console.error(e);showToast(e?.code==="permission-denied"?"Firebase blocked channel creation. Deploy the latest rules.":"Could not create channel.","error");}finally{if(btn)btn.disabled=false;}}
 
@@ -512,7 +560,13 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
     const app=document.getElementById("app"),base=document.getElementById("sidebarDefaultView"),view=document.getElementById("statusView"),chat=document.querySelector(".chat-panel"),panel=document.getElementById("statusPanel");
     if(!view)return;view.hidden=true;base?.removeAttribute("hidden");chat?.removeAttribute("hidden");if(panel)panel.hidden=true;app?.classList.remove("status-open");document.querySelectorAll(".nav-rail-btn").forEach(b=>b.classList.remove("active"));document.getElementById("navChatsBtn")?.classList.add("active");
   }
-  function openSocialTab(tab){document.querySelectorAll(".social-tab").forEach(b=>b.classList.toggle("active",b.dataset.socialTab===tab));document.querySelectorAll(".social-panel").forEach(p=>p.hidden=p.dataset.socialPanel!==tab);if(tab==="stories")fetchStories().then(renderStoryList);if(tab==="communities")fetchCommunities();if(tab==="channels")fetchChannels();}
+  function openSocialTab(tab){
+    if(tab==="channels"){closeModal("socialHubModal");openChannelsPage();return;}
+    document.querySelectorAll(".social-tab").forEach(b=>b.classList.toggle("active",b.dataset.socialTab===tab));
+    document.querySelectorAll(".social-panel").forEach(p=>p.hidden=p.dataset.socialPanel!==tab);
+    if(tab==="stories")fetchStories().then(renderStoryList);
+    if(tab==="communities")fetchCommunities();
+  }
   function openSocialHub(tab="stories"){openModal("socialHubModal");openSocialTab(tab);}
   function closeChannelsPage(){
     const app=$("app"),base=$("sidebarDefaultView"),view=$("channelsView"),panel=$("channelsPanel"),chat=document.querySelector(".chat-panel");
@@ -521,13 +575,14 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
   async function openChannelsPage(){
     window.closeCallsPage?.();
     const app=$("app"),base=$("sidebarDefaultView"),newChat=$("newChatView"),status=$("statusView"),view=$("channelsView"),chat=document.querySelector(".chat-panel"),statusPanel=$("statusPanel"),panel=$("channelsPanel");
-    if(!app||!view||!panel)return;base?.setAttribute("hidden","");newChat?.setAttribute("hidden","");status?.setAttribute("hidden","");view.hidden=false;chat?.setAttribute("hidden","");statusPanel?.setAttribute("hidden","");panel.hidden=false;app.classList.add("channels-open");app.classList.remove("chat-open","status-open");document.querySelectorAll(".nav-rail-btn").forEach(b=>b.classList.remove("active"));document.getElementById("navRequestsBtn")?.classList.add("active");try{await fetchChannels();}catch(e){console.warn("Channels load failed",e);renderChannelList($("channelsViewSearch")?.value||"");}
+    if(!app||!view||!panel)return;base?.setAttribute("hidden","");newChat?.setAttribute("hidden","");status?.setAttribute("hidden","");view.hidden=false;chat?.setAttribute("hidden","");statusPanel?.setAttribute("hidden","");panel.hidden=false;app.classList.add("channels-open");app.classList.remove("chat-open","status-open");document.querySelectorAll(".nav-rail-btn").forEach(b=>b.classList.remove("active"));document.getElementById("navRequestsBtn")?.classList.add("active");try{await fetchChannels();startChannelRealtime();}catch(e){console.warn("Channels load failed",e);renderChannelList($("channelsViewSearch")?.value||"");}
   }
   function bind(){
     if(socialBound)return;socialBound=true;
     $("navStoriesBtn")?.addEventListener("click",()=>{closeChannelsPage();openStatusPage();});
     $("navChatsBtn")?.addEventListener("click",()=>{window.closeCallsPage?.();closeStatusPage();closeChannelsPage();});$("navNewChatBtn")?.addEventListener("click",()=>{window.closeCallsPage?.();closeStatusPage();closeChannelsPage();});$("newChatBtn")?.addEventListener("click",()=>{window.closeCallsPage?.();closeStatusPage();closeChannelsPage();});
     $("channelsCreateBtn")?.addEventListener("click",()=>openModal("channelComposerModal"));
+    $("channelsJoinBtn")?.addEventListener("click",()=>{const input=$("channelsViewSearch");input?.focus();input?.select();showToast("Search public channels and tap Join","info");});
     $("channelsViewSearch")?.addEventListener("input",e=>renderChannelList(e.target.value));
     $("channelsMobileBackBtn")?.addEventListener("click",()=>{
       if(window.innerWidth<=820){
@@ -579,7 +634,7 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
     setupTracePrivacyInputs();
     document.addEventListener("click",e=>{if(!e.target.closest(".trace-composer-tools")&&!e.target.closest("#traceEmojiPanel"))$("traceEmojiPanel")?.setAttribute("hidden","");});
     $("createCommunityBtn")?.addEventListener("click",createCommunity);$("createCommunityOpenBtn")?.addEventListener("click",()=>openModal("communityComposerModal"));$("communitySearchInput")?.addEventListener("input",e=>renderCommunityList(e.target.value));$("communitySubgroupBtn")?.addEventListener("click",()=>{openModal("subgroupComposerModal");renderSubgroupPicker();});$("communityJoinRequestsBtn")?.addEventListener("click",openCommunityJoinRequests);$("createSubgroupBtn")?.addEventListener("click",createCommunityGroup);$("communityChannelBtn")?.addEventListener("click",()=>{openModal("channelComposerModal");$("channelCommunityLabel").textContent=activeCommunity?`Inside ${activeCommunity.name}`:"Standalone channel";});
-    $("createChannelBtn")?.addEventListener("click",createChannel);$("createChannelBtnTop")?.addEventListener("click",()=>{openModal("channelComposerModal");$("channelCommunityLabel").textContent="Standalone channel";});$("channelSearchInput")?.addEventListener("input",e=>renderChannelList(e.target.value));$("channelPostSendBtn")?.addEventListener("click",createChannelPost);$("saveChannelControlsBtn")?.addEventListener("click",saveChannelControls);$("channelManageOpenBtn")?.addEventListener("click",openChannelManage);
+    $("createChannelBtn")?.addEventListener("click",createChannel);$("channelPostSendBtn")?.addEventListener("click",createChannelPost);$("saveChannelControlsBtn")?.addEventListener("click",saveChannelControls);$("channelManageOpenBtn")?.addEventListener("click",openChannelManage);
     document.querySelectorAll(".social-tab").forEach(b=>b.addEventListener("click",()=>openSocialTab(b.dataset.socialTab)));
     document.querySelectorAll("[data-social-open]").forEach(b=>b.addEventListener("click",()=>openSocialHub(b.dataset.socialOpen)));
   }
@@ -594,5 +649,5 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
   };
   bind();
   loadTraceAudienceDefault().catch(()=>{});
-  return { refresh:()=>{fetchStories().then(renderStoryList);fetchCommunities();fetchChannels();}, openStatusPage, closeStatusPage, openChannelsPage, closeChannelsPage, openCommunity, openChannel, openChannelManage, destroy:()=>{storyUnsub?.();communityUnsub?.();channelUnsub?.();} };
+  return { refresh:()=>{fetchStories().then(renderStoryList);fetchCommunities();fetchChannels();}, openStatusPage, closeStatusPage, openChannelsPage, closeChannelsPage, openCommunity, openChannel, openChannelManage, destroy:()=>{storyUnsub?.();communityUnsub?.();channelUnsub?.();channelOwnerUnsub?.();} };
 }

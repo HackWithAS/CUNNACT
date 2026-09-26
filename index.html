@@ -304,14 +304,17 @@
     <section id="channelsView" class="channels-side-view" hidden aria-label="Channels">
       <header class="channels-side-header">
         <h2>Channels</h2>
-        <button id="channelsCreateBtn" class="icon-btn channels-create-btn" type="button" aria-label="Create channel" title="Create channel">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8.7"/><path d="M12 8v8M8 12h8"/></svg>
-        </button>
+        <div class="channels-side-header-actions">
+          <button id="channelsJoinBtn" class="channels-text-action" type="button">Join</button>
+          <button id="channelsCreateBtn" class="icon-btn channels-create-btn" type="button" aria-label="Create channel" title="Create channel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8.7"/><path d="M12 8v8M8 12h8"/></svg>
+          </button>
+        </div>
       </header>
       <div class="channels-side-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
         <label class="sr-only" for="channelsViewSearch">Search channels</label>
-        <input id="channelsViewSearch" type="search" placeholder="Search" autocomplete="off">
+        <input id="channelsViewSearch" type="search" placeholder="Search channels to join…" autocomplete="off">
       </div>
       <div id="channelsViewList" class="channels-side-list">
         <div class="channels-list-empty">Loading channels…</div>
@@ -1169,7 +1172,6 @@
         <div class="social-tabs" role="tablist">
           <button class="social-tab active" type="button" data-social-tab="stories">Trace</button>
           <button class="social-tab" type="button" data-social-tab="communities">Communities</button>
-          <button class="social-tab" type="button" data-social-tab="channels">Channels</button>
         </div>
         <section class="social-panel" data-social-panel="stories">
           <div class="social-panel-head"><div><strong>24-hour traces</strong><span>Photos, videos, text, stickers, links and polls.</span></div><button id="createStoryBtn" type="button" class="btn btn-primary btn-sm">+ Leave a trace</button></div>
@@ -1179,11 +1181,6 @@
           <div class="social-panel-head"><div><strong>Communities</strong><span>Bring groups and channels together.</span></div><button id="createCommunityOpenBtn" type="button" class="btn btn-primary btn-sm">+ Create community</button></div>
           <div class="search-row compact-search"><input id="communitySearchInput" type="search" placeholder="Search public communities…" autocomplete="off"></div>
           <div id="communitiesList" class="social-list"><div class="empty-state">Loading communities…</div></div>
-        </section>
-        <section class="social-panel" data-social-panel="channels" hidden>
-          <div class="social-panel-head"><div><strong>Channels</strong><span>Follow updates, announcements and creator posts.</span></div><button id="createChannelBtnTop" type="button" class="btn btn-primary btn-sm">+ Create channel</button></div>
-          <div class="search-row compact-search"><input id="channelSearchInput" type="search" placeholder="Search public channels…" autocomplete="off"></div>
-          <div id="channelsList" class="social-list"><div class="empty-state">Loading channels…</div></div>
         </section>
       </div>
     </div>

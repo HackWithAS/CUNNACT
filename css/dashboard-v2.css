@@ -2618,3 +2618,71 @@ html[data-theme="light"] .settings-detail,
 html[data-theme="light"] .settings-home-placeholder{background:#ffffff!important;color:#111827!important;}
 html[data-theme="light"] .emoji-grid::-webkit-scrollbar-thumb{background:#c5cdd2!important;}
 html[data-theme="light"] .emoji-grid::-webkit-scrollbar-thumb:hover{background:#aeb8be!important;}
+
+/* ============================================================
+   CUNNACT CHANNELS — in-index workspace polish + Join flow
+   ============================================================ */
+.channels-side-header-actions{display:flex;align-items:center;gap:7px;}
+.channels-text-action{border:0;background:transparent;color:#8da2ff;font:inherit;font-size:11px;font-weight:750;padding:7px 8px;border-radius:8px;cursor:pointer;}
+.channels-text-action:hover{background:rgba(91,108,255,.10);color:#fff;}
+.channel-side-row-wrap{position:relative;display:flex;align-items:center;gap:2px;margin:2px 0;border-radius:8px;}
+.channel-side-row-wrap .channel-side-row{flex:1;min-width:0;}
+.channel-side-membership{flex:none;margin-right:7px;}
+.channel-side-membership .btn{min-height:29px;padding:5px 9px;font-size:9px;line-height:1;border-radius:999px;}
+.channel-membership-label{display:inline-flex;align-items:center;min-height:26px;padding:4px 7px;border-radius:999px;font-size:8.5px;font-weight:750;white-space:nowrap;}
+.channel-membership-label.owner{color:#9db0ff;background:rgba(91,108,255,.12);}
+.channel-membership-label.private{color:#98a4ab;background:rgba(152,164,171,.10);}
+.channel-side-copy em{display:block;font-style:normal;font-size:9px;color:#7f8a90;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.channel-side-row.active + .channel-side-membership .channel-membership-label.owner{background:rgba(255,255,255,.12);}
+@media(max-width:520px){
+  .channels-side-header{padding-left:14px;padding-right:10px;}
+  .channels-side-header-actions{gap:4px;}
+  .channel-side-row{padding-left:8px;padding-right:4px;}
+  .channel-side-membership{margin-right:3px;}
+}
+
+/* Channels are part of index.html; no legacy social channel pane is needed. */
+html[data-theme="light"] .channels-side-view,
+html[data-theme="light"] .channels-main-panel{background:#ffffff!important;color:#111827!important;}
+html[data-theme="light"] .channels-side-header,
+html[data-theme="light"] .channels-main-header{background:#ffffff!important;border-bottom-color:rgba(17,24,39,.10)!important;}
+html[data-theme="light"] .channels-side-header h2,
+html[data-theme="light"] .channels-main-title-wrap strong{color:#111827!important;}
+html[data-theme="light"] .channels-text-action{color:#3451d1!important;}
+html[data-theme="light"] .channels-text-action:hover{background:#eef2ff!important;color:#2346d5!important;}
+html[data-theme="light"] .channels-create-btn{color:#54656f!important;}
+html[data-theme="light"] .channels-create-btn:hover{background:#f0f2f5!important;color:#111827!important;}
+html[data-theme="light"] .channels-side-search{background:#f0f2f5!important;border:1px solid rgba(17,24,39,.06)!important;}
+html[data-theme="light"] .channels-side-search input{color:#111827!important;}
+html[data-theme="light"] .channels-side-search input::placeholder{color:#667781!important;}
+html[data-theme="light"] .channel-side-row{color:#111827!important;}
+html[data-theme="light"] .channel-side-row:hover{background:#f0f2f5!important;}
+html[data-theme="light"] .channel-side-row.active{background:#e9edef!important;}
+html[data-theme="light"] .channel-side-avatar,
+html[data-theme="light"] .channel-main-avatar{background:#eef1f4!important;color:#111827!important;}
+html[data-theme="light"] .channel-side-copy strong{color:#111827!important;}
+html[data-theme="light"] .channel-side-copy small,
+html[data-theme="light"] .channel-side-copy em,
+html[data-theme="light"] .channel-side-meta time{color:#667781!important;}
+html[data-theme="light"] .channel-side-meta b{background:#dff7e7!important;color:#126437!important;}
+html[data-theme="light"] .channel-membership-label.owner{color:#3451d1!important;background:#eef2ff!important;}
+html[data-theme="light"] .channel-membership-label.private{color:#667781!important;background:#f0f2f5!important;}
+html[data-theme="light"] .channels-main-actions .icon-btn{color:#54656f!important;}
+html[data-theme="light"] .channels-main-actions .icon-btn:hover{background:#f0f2f5!important;color:#111827!important;}
+html[data-theme="light"] .channels-main-posts{background:#f7f9fa!important;}
+html[data-theme="light"] .channels-main-empty{color:#667781!important;}
+html[data-theme="light"] .channels-main-empty strong,
+html[data-theme="light"] .channels-main-empty h2{color:#111827!important;}
+html[data-theme="light"] .channel-inline-composer,
+html[data-theme="light"] .channel-post{background:#ffffff!important;border-color:rgba(17,24,39,.09)!important;}
+html[data-theme="light"] .channel-inline-composer textarea{background:#f0f2f5!important;color:#111827!important;}
+html[data-theme="light"] .channel-inline-composer input[type=file]{color:#667781!important;}
+html[data-theme="light"] .channel-post-head strong,
+html[data-theme="light"] .channel-post>p{color:#111827!important;}
+html[data-theme="light"] .channel-post-head time{color:#667781!important;}
+html[data-theme="light"] .channel-post-actions{border-top-color:rgba(17,24,39,.08)!important;}
+html[data-theme="light"] .channel-post-actions button{background:#f0f2f5!important;color:#111827!important;}
+html[data-theme="light"] .channel-post-actions button:hover{background:#e5e9ec!important;color:#111827!important;}
+html[data-theme="light"] .channel-comments{border-top-color:rgba(17,24,39,.10)!important;}
+html[data-theme="light"] .channel-comment{color:#111827!important;}
+html[data-theme="light"] .channel-comment-form input{background:#ffffff!important;color:#111827!important;border-color:rgba(17,24,39,.12)!important;}

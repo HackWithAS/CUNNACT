@@ -205,7 +205,7 @@ service cloud.firestore {
         )
         ||
         (
-          request.auth.uid in resource.data.adminIds
+          resource.data.privacy == "public"
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["subscriberIds","updatedAt"])
           && (
             (!(request.auth.uid in resource.data.get("subscriberIds", []))
