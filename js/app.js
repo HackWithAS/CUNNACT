@@ -718,7 +718,6 @@ function renderOwnProfileSettings(){
     ["Chats","Theme, wallpaper, chat settings","▤","chats"],
     ["Video & voice","Camera, microphone & speakers","◫","calls"],
     ["Notifications","Messages, groups, sounds","♧","notifications"],
-    ["Security","App lock, verification, connected devices","▣","security"],
     ["Keyboard shortcuts","Quick actions","⌨","shortcuts"],
     ["Help and feedback","Help centre, contact us, privacy policy","?","help"]
   ];
@@ -742,7 +741,6 @@ function renderOwnProfileSettings(){
     chats:"#preferencesSection",
     calls:"#videoVoiceSection",
     notifications:"#notificationsSection",
-    security:"#securitySection",
     shortcuts:"#keyboardShortcutsSection",
     help:"#helpSection"
   };
@@ -1912,7 +1910,7 @@ function showChatItemContextMenu(conversationId,anchorEl,clientX,clientY){
   setTimeout(()=>document.addEventListener("click",closeChatItemContextMenu,{once:true}),0);
 }
 async function loadBlockedUsers(){currentBlockedUsers=new Set();if(!currentUser)return;try{const snap=await getDocs(collection(db,"users",currentUser.uid,"blockedUsers"));snap.docs.forEach(d=>currentBlockedUsers.add(d.id));}catch(e){console.warn(e);}}
-async function toggleBlockUser(uid,shouldBlock){try{const ref=doc(db,"users",currentUser.uid,"blockedUsers",uid);if(shouldBlock)await setDoc(ref,{uid,createdAt:serverTimestamp()});else await deleteDoc(ref);shouldBlock?currentBlockedUsers.add(uid):currentBlockedUsers.delete(uid);renderChatList();refreshChatHeader();setComposerState();showToast(shouldBlock?"User blocked":"User unblocked","success");}catch(e){console.error(e);showToast("Could not update block setting.","error");}}
+async function toggleBlockUser(uid,shouldBlock){try{const ref=doc(db,"users",currentUser.uid,"blockedUsers",uid);if(shouldBlock)await setDoc(ref,{uid,name:activeUser?.name||"User",username:activeUser?.username||"",email:activeUser?.email||"",photoURL:activeUser?.photoURL||"",createdAt:serverTimestamp()});else await deleteDoc(ref);shouldBlock?currentBlockedUsers.add(uid):currentBlockedUsers.delete(uid);renderChatList();refreshChatHeader();setComposerState();showToast(shouldBlock?"User blocked":"User unblocked","success");}catch(e){console.error(e);showToast("Could not update block setting.","error");}}
 
 /* Typing */
 function listenTyping(){unsubscribeTyping?.();if(!activeConversationId||currentUserData.showTypingIndicators===false)return;const dots='<i></i><i></i><i></i> ';unsubscribeTyping=onSnapshot(collection(db,"conversations",activeConversationId,"typing"),snap=>{const el=$id("chatTyping");if(!el)return;if(activeUser?.isGroup){const typers=snap.docs.filter(d=>d.id!==currentUser.uid&&d.data()?.typing===true).map(d=>(activeGroupMembers.get(d.id)?.name||"Someone").split(" ")[0]);el.hidden=!typers.length;if(typers.length)el.innerHTML=dots+escapeHtml(`${typers.slice(0,2).join(", ")}${typers.length>1?" are":" is"} typing…`);return;}const other=activeUser?.uid;const state=snap.docs.some(d=>d.id===other&&d.data()?.typing===true);el.hidden=!state;el.innerHTML=dots+"typing…";},()=>{const el=$id("chatTyping");if(el)el.hidden=true;});}

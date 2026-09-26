@@ -4,7 +4,7 @@ import { db, doc, getDoc, updateDoc, serverTimestamp, writeBatch, arrayUnion } f
 const RETENTION_KEY = "cunnact_retention_mode";
 const DEFAULT_RETENTION = "24hours";
 let retentionMode = localStorage.getItem(RETENTION_KEY) || DEFAULT_RETENTION;
-const validMode = (m) => m === "seen" || m === "24hours";
+const validMode = (m) => m === "off" || m === "seen" || m === "24hours";
 
 export function getRetentionMode() { return validMode(retentionMode) ? retentionMode : DEFAULT_RETENTION; }
 
@@ -53,6 +53,7 @@ export function shouldExpireMessage(message, uid) {
   if (!message || isDeletedForUser(message, uid) || isSavedByUser(message, uid)) return false;
   const explicitExpiry = message.expiresAt?.toDate?.() || (message.expiresAt instanceof Date ? message.expiresAt : null);
   if (explicitExpiry && Date.now() >= explicitExpiry.getTime()) return true;
+  if (getRetentionMode() === "off") return false;
   if (getRetentionMode() === "24hours") {
     const created = message.createdAt?.toDate?.();
     return !!created && (Date.now() - created.getTime() >= 24 * 60 * 60 * 1000);

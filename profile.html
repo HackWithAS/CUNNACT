@@ -93,11 +93,11 @@
         </div>
         <div class="settings-section-label">Startup and close</div>
         <div class="preference-row-v6 general-setting-row">
-          <div><strong>Remember CUNNACT session</strong></div>
+          <div><strong>Start CUNNACT at login</strong></div>
           <label class="toggle"><input id="startAtLoginToggle" type="checkbox"><span class="toggle-slider"></span></label>
         </div>
         <div class="preference-row-v6 general-setting-row">
-          <div><strong>Keep CUNNACT active in background</strong><p>Keep browser notifications and background activity enabled when this tab is not focused</p></div>
+          <div><strong>Minimise to system tray</strong><p>Keep CUNNACT running after closing the application window</p></div>
           <label class="toggle"><input id="minimizeToTrayToggle" type="checkbox"><span class="toggle-slider"></span></label>
         </div>
         <div class="settings-section-label general-subsection-label">Language</div>
@@ -119,7 +119,6 @@
           </select>
         </label>
         <p class="general-font-hint">Use Ctrl + / - to increase or decrease text size</p>
-        <p class="general-font-hint">These settings are saved for this browser. OS-level auto-start and system-tray controls are not available to a normal website.</p>
       </section>
 
       <section id="profileSection" class="settings-card-v6" hidden>
@@ -173,8 +172,8 @@
           <button class="privacy-setting-item" type="button" data-privacy-dialog="about">
             <span class="privacy-setting-copy"><strong>About</strong><small id="aboutSummary">Everyone</small></span><span class="privacy-chevron">›</span>
           </button>
-          <button class="privacy-setting-item" type="button" data-privacy-dialog="status">
-            <span class="privacy-setting-copy"><strong>Status</strong><small id="statusSummary">My traces use their own audience</small></span><span class="privacy-chevron">›</span>
+          <button class="privacy-setting-item" type="button" data-privacy-dialog="trace">
+            <span class="privacy-setting-copy"><strong>Trace</strong><small id="statusSummary">Everyone</small></span><span class="privacy-chevron">›</span>
           </button>
           <div class="privacy-setting-toggle-row">
             <div class="privacy-setting-copy"><strong>Read receipts</strong><small>If turned off, you won't send or receive read receipts. Read receipts are always sent for group chats.</small></div>
@@ -370,12 +369,6 @@
     document.getElementById('settingsDetail')?.scrollTo({top:0,behavior:'auto'});
   }
   items.forEach(btn=>btn.addEventListener('click',()=>go(btn.dataset.target,btn)));
-  const initialHash=window.location.hash;
-  if(initialHash && document.querySelector(initialHash) && items.some(x=>x.dataset.target===initialHash)){
-    const match=items.find(x=>x.dataset.target===initialHash);
-    go(initialHash,match);
-  }
-
   document.querySelectorAll('.settings-section-back').forEach(btn=>btn.addEventListener('click',()=>{ const target=btn.dataset.target || '#generalSection'; const match=items.find(x=>x.dataset.target===target); go(target,match); }));
   document.getElementById('settingsSearch')?.addEventListener('input',e=>{
     const q=e.target.value.trim().toLowerCase();
@@ -400,15 +393,8 @@
     fontSize.value=saved;
     document.documentElement.style.setProperty('--cunnact-font-scale',(Number(saved)/100).toFixed(2));
   }
-  startAtLogin?.addEventListener('change',e=>{
-    localStorage.setItem('cunnact_start_at_login',String(e.target.checked));
-  });
-  minimizeToTray?.addEventListener('change',async e=>{
-    localStorage.setItem('cunnact_minimize_to_tray',String(e.target.checked));
-    if(e.target.checked && 'Notification' in window && Notification.permission==='default'){
-      try{await Notification.requestPermission();}catch{}
-    }
-  });
+  startAtLogin?.addEventListener('change',e=>localStorage.setItem('cunnact_start_at_login',String(e.target.checked)));
+  minimizeToTray?.addEventListener('change',e=>localStorage.setItem('cunnact_minimize_to_tray',String(e.target.checked)));
   language?.addEventListener('change',e=>localStorage.setItem('cunnact_language',e.target.value));
   fontSize?.addEventListener('change',e=>{
     localStorage.setItem('cunnact_font_scale',e.target.value);

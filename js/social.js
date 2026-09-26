@@ -48,6 +48,7 @@ export function initSocialFeatures({ getCurrentUser }) {
   let storyNotificationInitialized = false;
   let knownStoryIds = new Set();
   let traceMode = "text";
+  let traceAudienceDefault = "public";
   let traceBackgroundIndex = 0;
   let myTraceCache = [];
   const traceBackgrounds = [
@@ -76,7 +77,7 @@ export function initSocialFeatures({ getCurrentUser }) {
   function resetTraceComposer(){
     ["storyTextInput","storyStickerInput","storyLinkInput","storyPollQuestion","storyPollOptions"].forEach(id=>{const el=$(id);if(el)el.value="";});
     if($("storyMediaInput"))$("storyMediaInput").value="";
-    if($("storyPrivacy"))$("storyPrivacy").value="public";
+    if($("storyPrivacy"))$("storyPrivacy").value=traceAudienceDefault;
     if($("traceMediaPreview")){ $("traceMediaPreview").hidden=true; $("traceMediaPreview").innerHTML=""; }
     if($("traceToolsPanel"))$("traceToolsPanel").hidden=true;
     if($("traceEmojiPanel"))$("traceEmojiPanel").hidden=true;
@@ -85,7 +86,7 @@ export function initSocialFeatures({ getCurrentUser }) {
   }
   function openTraceComposer(mode="text") {
     const modal=$("storyComposerModal"); if(!modal)return;
-    resetTraceComposer(); traceMode=mode; modal.hidden=false; modal.setAttribute("aria-hidden","false"); document.body.classList.add("modal-open","trace-compose-open"); syncTraceComposer();
+    resetTraceComposer(); traceMode=mode; modal.hidden=false; renderStoryAudiencePicker(); modal.setAttribute("aria-hidden","false"); document.body.classList.add("modal-open","trace-compose-open"); syncTraceComposer();
     if(mode==="media"){ setTimeout(()=>$("storyMediaInput")?.click(),90); } else { setTimeout(()=>$("storyTextInput")?.focus(),90); }
   }
   function syncTraceMediaPreview(){
@@ -532,6 +533,16 @@ ${rulesText}`:"";}const jr=$("communityJoinRequestsBtn");if(jr)jr.hidden=!((acti
     document.querySelectorAll(".social-tab").forEach(b=>b.addEventListener("click",()=>openSocialTab(b.dataset.socialTab)));
     document.querySelectorAll("[data-social-open]").forEach(b=>b.addEventListener("click",()=>openSocialHub(b.dataset.socialOpen)));
   }
+  const loadTraceAudienceDefault = async () => {
+    const u=user();
+    if(!u)return;
+    try{
+      const snap=await getDoc(doc(db,"userSettings",u.uid));
+      const value=snap.exists()?snap.data()?.traceAudienceDefault:"public";
+      if(["public","closeFriends","custom"].includes(value))traceAudienceDefault=value;
+    }catch(e){console.warn("Could not load trace privacy default",e);}
+  };
   bind();
+  loadTraceAudienceDefault().catch(()=>{});
   return { refresh:()=>{fetchStories().then(renderStoryList);fetchCommunities();fetchChannels();}, openStatusPage, closeStatusPage, openChannelsPage, closeChannelsPage, openCommunity, openChannel, openChannelManage, destroy:()=>{storyUnsub?.();communityUnsub?.();channelUnsub?.();} };
 }
