@@ -714,7 +714,7 @@ function bindStaticControls() {
   // The reference uses a dedicated in-sidebar New chat screen rather than a modal.
   // Keep the existing dropdown DOM only as a legacy fallback, but don't open it.
   $id("newChatBtn")?.addEventListener("click", newChat);
-  $id("mobileTraceQuickBtn")?.addEventListener("click", () => { playClick(); socialFeatures?.openMyTraceOrCompose?.(); });
+  $id("mobileTraceQuickBtn")?.addEventListener("click", () => { playClick(); openSettingsPanel(); });
   $id("newChatMenuMessage")?.addEventListener("click", () => { newChat(); });
   $id("newChatMenuGroup")?.addEventListener("click", () => { playClick(); openNewGroupModal(); });
   $id("navNewChatBtn")?.addEventListener("click", () => { closeOwnProfileView(); newChat(); });
