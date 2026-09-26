@@ -11,31 +11,121 @@
 </head>
 <body class="game-body">
 <div class="game-app">
-<header class="game-topbar">
-  <a href="index.html" class="game-back" style="margin:0;min-width:34px;" aria-label="Back to CUNNACT"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></a>
-  <div class="game-topbar-brand"><img src="assets/brand/cunnact-mark.svg" alt="CUNNACT"><div><strong>CUNNACT Gaming Zone</strong><span>Play inside CUNNACT</span></div></div>
-  <div class="game-top-actions"><button class="game-icon-btn" id="gameThemeBtn" aria-label="Toggle theme" title="Toggle theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 14.6A8.7 8.7 0 0 1 9.4 3 8.7 8.7 0 1 0 21 14.6Z"/></svg></button></div>
-</header>
-<main class="game-layout">
-  <a href="index.html" class="game-back">Back to CUNNACT</a>
-  <section class="game-hero"><div><h1>Gaming Zone</h1><p>Pick a game and play without leaving CUNNACT. Competitive games support friend-on-the-same-device or computer modes; Snake is a solo game.</p></div></section>
-  <div class="game-grid">
-    <article class="game-card" data-game="chess" data-title="Chess" data-subtitle="Strategy board game"><div class="game-card-top"><span class="game-icon">♟️</span><span class="game-badge">Classic</span></div><h3>Chess</h3><p>Play a complete chess board with a simple computer opponent.</p><button class="game-btn primary game-play-btn">Play</button></article>
-    <article class="game-card" data-game="ludo" data-title="Ludo" data-subtitle="Race to the finish"><div class="game-card-top"><span class="game-icon">🎲</span><span class="game-badge">2 players</span></div><h3>Ludo</h3><p>Race your tokens to 57 with dice and local friend/computer mode.</p><button class="game-btn primary game-play-btn">Play</button></article>
-    <article class="game-card" data-game="ttt" data-title="Tic Tac Toe" data-subtitle="Fast 3×3 match"><div class="game-card-top"><span class="game-icon">❌⭕</span><span class="game-badge">Quick</span></div><h3>Tic Tac Toe</h3><p>Three in a row. Challenge a friend or a minimax computer.</p><button class="game-btn primary game-play-btn">Play</button></article>
-    <article class="game-card" data-game="c4" data-title="Connect 4" data-subtitle="Drop four in a row"><div class="game-card-top"><span class="game-icon">🔴</span><span class="game-badge">Quick</span></div><h3>Connect 4</h3><p>Drop discs and connect four before your opponent does.</p><button class="game-btn primary game-play-btn">Play</button></article>
-    <article class="game-card" data-game="pong" data-title="Pong" data-subtitle="Arcade match"><div class="game-card-top"><span class="game-icon">🏓</span><span class="game-badge">Arcade</span></div><h3>Pong</h3><p>Fast arcade rallies with a computer paddle or local friend.</p><button class="game-btn primary game-play-btn">Play</button></article>
-    <article class="game-card" data-game="checkers" data-title="Checkers" data-subtitle="Capture and king"><div class="game-card-top"><span class="game-icon">⚫🔴</span><span class="game-badge">Classic</span></div><h3>Checkers</h3><p>Capture pieces, promote kings and play locally.</p><button class="game-btn primary game-play-btn">Play</button></article>
-    <article class="game-card" data-game="uno" data-title="UNO-style Cards" data-subtitle="Match color or number"><div class="game-card-top"><span class="game-icon">🃏</span><span class="game-badge">Cards</span></div><h3>UNO-style Cards</h3><p>Match colors and numbers in a lightweight CUNNACT card game.</p><button class="game-btn primary game-play-btn">Play</button></article>
-    <article class="game-card" data-game="snake" data-title="Snake" data-subtitle="Solo high score"><div class="game-card-top"><span class="game-icon">🐍</span><span class="game-badge">Solo</span></div><h3>Snake</h3><p>Grow your snake, avoid walls and chase a high score.</p><button class="game-btn primary game-play-btn">Play</button></article>
-  </div>
-</main>
-<div class="game-overlay" id="gameOverlay" role="dialog" aria-modal="true" aria-labelledby="gameTitle">
+  <header class="game-topbar">
+    <a href="index.html" class="game-back" aria-label="Back to CUNNACT" title="Back to CUNNACT">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+    </a>
+    <div class="game-topbar-brand">
+      <img src="assets/brand/cunnact-mark.svg" alt="CUNNACT">
+      <div><strong>CUNNACT Gaming Zone</strong><span>Play with friends or computer</span></div>
+    </div>
+    <div class="game-top-actions">
+      <button class="game-icon-btn" id="gameThemeBtn" aria-label="Toggle theme" title="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 14.6A8.7 8.7 0 0 1 9.4 3 8.7 8.7 0 1 0 21 14.6Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="game-layout">
+    <a href="index.html" class="game-back game-back-link">Back to CUNNACT</a>
+    <section class="game-hero">
+      <div>
+        <div class="game-eyebrow">🎮 CUNNACT PLAY</div>
+        <h1>Gaming Zone</h1>
+        <p>Start a solo game, challenge the computer, or invite a CUNNACT friend to play from another device.</p>
+      </div>
+      <div class="game-hero-actions">
+        <button class="game-btn" id="joinRoomBtn">Join with room code</button>
+      </div>
+    </section>
+
+    <section id="incomingGameInvites" class="game-invites" hidden aria-live="polite"></section>
+
+    <section class="game-section">
+      <div class="game-section-head"><div><h2>Multiplayer</h2><p>Online friend rooms work across different homes and devices.</p></div><span class="game-section-note">Online</span></div>
+      <div class="game-grid">
+        <article class="game-card" data-game="chess" data-title="Chess" data-subtitle="Strategy board game">
+          <div class="game-card-top"><span class="game-icon">♟️</span><span class="game-badge online">Online</span></div>
+          <h3>Chess</h3><p>Play white vs black with a friend online or challenge the computer.</p>
+          <div class="game-card-actions"><button class="game-btn primary game-play-btn">Play</button><button class="game-btn game-invite-btn">Invite friend</button></div>
+        </article>
+        <article class="game-card" data-game="ludo" data-title="Ludo" data-subtitle="Race to the finish">
+          <div class="game-card-top"><span class="game-icon">🎲</span><span class="game-badge online">Online</span></div>
+          <h3>Ludo</h3><p>Two-player online Ludo with dice, tokens and turn sync.</p>
+          <div class="game-card-actions"><button class="game-btn primary game-play-btn">Play</button><button class="game-btn game-invite-btn">Invite friend</button></div>
+        </article>
+        <article class="game-card" data-game="ttt" data-title="Tic Tac Toe" data-subtitle="Fast 3×3 match">
+          <div class="game-card-top"><span class="game-icon">❌⭕</span><span class="game-badge online">Online</span></div>
+          <h3>Tic Tac Toe</h3><p>Instant 1v1 matches with live board updates across devices.</p>
+          <div class="game-card-actions"><button class="game-btn primary game-play-btn">Play</button><button class="game-btn game-invite-btn">Invite friend</button></div>
+        </article>
+        <article class="game-card" data-game="c4" data-title="Connect 4" data-subtitle="Drop four in a row">
+          <div class="game-card-top"><span class="game-icon">🔴</span><span class="game-badge online">Online</span></div>
+          <h3>Connect 4</h3><p>Drop discs and race your friend to four in a row.</p>
+          <div class="game-card-actions"><button class="game-btn primary game-play-btn">Play</button><button class="game-btn game-invite-btn">Invite friend</button></div>
+        </article>
+        <article class="game-card" data-game="checkers" data-title="Checkers" data-subtitle="Capture and king">
+          <div class="game-card-top"><span class="game-icon">⚫🔴</span><span class="game-badge online">Online</span></div>
+          <h3>Checkers</h3><p>Move, capture and crown your pieces in a live online match.</p>
+          <div class="game-card-actions"><button class="game-btn primary game-play-btn">Play</button><button class="game-btn game-invite-btn">Invite friend</button></div>
+        </article>
+        <article class="game-card" data-game="uno" data-title="UNO-style Cards" data-subtitle="Match color or number">
+          <div class="game-card-top"><span class="game-icon">🃏</span><span class="game-badge online">Online</span></div>
+          <h3>UNO-style Cards</h3><p>Match color or number and keep your turn synced with a friend.</p>
+          <div class="game-card-actions"><button class="game-btn primary game-play-btn">Play</button><button class="game-btn game-invite-btn">Invite friend</button></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="game-section">
+      <div class="game-section-head"><div><h2>Arcade & solo</h2><p>Quick games when you just want to play.</p></div><span class="game-section-note">Solo / local</span></div>
+      <div class="game-grid game-grid-2">
+        <article class="game-card" data-game="pong" data-title="Pong" data-subtitle="Arcade match">
+          <div class="game-card-top"><span class="game-icon">🏓</span><span class="game-badge">Arcade</span></div>
+          <h3>Pong</h3><p>Play against the computer or a friend on the same device.</p>
+          <div class="game-card-actions"><button class="game-btn primary game-play-btn">Play</button></div>
+        </article>
+        <article class="game-card" data-game="candy" data-title="Candy Crush" data-subtitle="Match-3 puzzle">
+          <div class="game-card-top"><span class="game-icon">🍬</span><span class="game-badge">Solo</span></div>
+          <h3>Candy Crush</h3><p>A CUNNACT match-3 puzzle: swap candies, clear matches and chase your high score.</p>
+          <div class="game-card-actions"><button class="game-btn primary game-play-btn">Play</button></div>
+        </article>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Game modal -->
+<div class="game-overlay" id="gameOverlay" role="dialog" aria-modal="true" aria-labelledby="gameTitle" hidden>
   <div class="game-modal">
-    <header class="game-modal-head"><div class="title-wrap"><h2 id="gameTitle">Game</h2><p id="gameSubtitle"></p></div><button id="gameClose" class="game-close" aria-label="Close">×</button></header>
+    <header class="game-modal-head">
+      <div class="title-wrap"><h2 id="gameTitle">Game</h2><p id="gameSubtitle"></p></div>
+      <button id="gameClose" class="game-close" aria-label="Close">×</button>
+    </header>
     <div id="gameBody" class="game-modal-body"></div>
   </div>
 </div>
-<script src="js/gaming.js"></script>
+
+<!-- Invite / room modal -->
+<div class="game-overlay" id="inviteOverlay" role="dialog" aria-modal="true" aria-labelledby="inviteTitle" hidden>
+  <div class="game-modal small-modal">
+    <header class="game-modal-head"><div class="title-wrap"><h2 id="inviteTitle">Invite a friend</h2><p id="inviteSubtitle">Create an online game room.</p></div><button id="inviteClose" class="game-close" aria-label="Close">×</button></header>
+    <div id="inviteBody" class="game-modal-body"></div>
+  </div>
+</div>
+
+<!-- Join room modal -->
+<div class="game-overlay" id="joinOverlay" role="dialog" aria-modal="true" aria-labelledby="joinTitle" hidden>
+  <div class="game-modal small-modal">
+    <header class="game-modal-head"><div class="title-wrap"><h2 id="joinTitle">Join a game</h2><p>Paste a CUNNACT room code or invite link.</p></div><button id="joinClose" class="game-close" aria-label="Close">×</button></header>
+    <div class="game-modal-body">
+      <label class="game-field"><span>Room code</span><input id="joinRoomCode" type="text" inputmode="text" autocomplete="off" placeholder="Paste room ID or full gaming link"></label>
+      <div class="game-toolbar"><button class="game-btn primary" id="joinRoomConfirm">Join game</button></div>
+      <p class="game-help">A friend can send you a room link. Both players need to be signed in to CUNNACT.</p>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/gaming.js"></script>
 </body>
 </html>

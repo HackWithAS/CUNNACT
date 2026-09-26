@@ -102,6 +102,73 @@ service cloud.firestore {
         && resource.data.status == "pending";
     }
 
+    // Online CUNNACT game rooms. The client may only update a live room while it is
+    // the authenticated player's turn; the room owner creates the room and the
+    // invited/linked second player can claim the empty guest slot once.
+    match /gameRooms/{roomId} {
+      allow create: if signedIn()
+        && request.resource.data.hostId == request.auth.uid
+        && request.resource.data.guestId == ""
+        && request.resource.data.game in ["chess","ludo","ttt","c4","checkers","uno"]
+        && request.resource.data.status == "waiting"
+        && request.resource.data.turnUid == request.auth.uid
+        && request.resource.data.state is map;
+      allow read: if signedIn()
+        && (request.auth.uid == resource.data.hostId || request.auth.uid == resource.data.guestId
+          || (resource.data.guestId == "" && resource.data.status == "waiting"));
+      allow update: if signedIn() && (
+        (
+          resource.data.guestId == ""
+          && request.resource.data.hostId == resource.data.hostId
+          && request.resource.data.guestId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["guestId","guestName","status","turnUid","updatedAt"])
+          && request.resource.data.status == "playing"
+          && request.resource.data.turnUid == resource.data.hostId
+        )
+        ||
+        (
+          (request.auth.uid == resource.data.hostId || request.auth.uid == resource.data.guestId)
+          && resource.data.status == "playing"
+          && resource.data.turnUid == request.auth.uid
+          && request.resource.data.hostId == resource.data.hostId
+          && request.resource.data.guestId == resource.data.guestId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["state","turnUid","status","winnerUid","draw","updatedAt"])
+          && request.resource.data.turnUid in [resource.data.hostId, resource.data.guestId]
+          && request.resource.data.status in ["playing","finished"]
+          && request.resource.data.state is map
+        )
+      );
+      allow delete: if signedIn() && resource.data.hostId == request.auth.uid;
+    }
+
+    // Game invites are created by the sender and visible only to sender/recipient.
+    // Recipients can accept or decline a pending invite; senders can cancel one.
+    match /gameInvites/{inviteId} {
+      allow create: if signedIn()
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.receiverId is string
+        && request.resource.data.receiverId != request.auth.uid
+        && canContact(request.resource.data.receiverId)
+        && request.resource.data.game in ["chess","ludo","ttt","c4","checkers","uno"]
+        && request.resource.data.roomId is string
+        && request.resource.data.status == "pending"
+        && exists(/databases/$(database)/documents/gameRooms/$(request.resource.data.roomId));
+      allow read: if signedIn()
+        && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      allow update: if signedIn() && (
+        (request.auth.uid == resource.data.receiverId
+          && resource.data.status == "pending"
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status","updatedAt"])
+          && request.resource.data.status in ["accepted","declined"])
+        ||
+        (request.auth.uid == resource.data.senderId
+          && resource.data.status == "pending"
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status","updatedAt"])
+          && request.resource.data.status == "declined")
+      );
+      allow delete: if signedIn() && request.auth.uid == resource.data.senderId && resource.data.status == "pending";
+    }
+
     // 24-hour stories. Discovery is query-compatible by privacy/audience.
     match /stories/{storyId} {
       allow create: if signedIn()
